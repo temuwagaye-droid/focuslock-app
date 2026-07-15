@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ReadLock</string>
+    <string name="accessibility_service_description">ReadLock Focus Service detects when you open blocked distracting apps during an active focus session, redirecting you back to your reading material.</string>
+</resources>
