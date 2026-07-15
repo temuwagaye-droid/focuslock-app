@@ -32,7 +32,10 @@ class ReadLockAccessibilityService : AccessibilityService() {
         "com.android.contacts",
         "android",
         "com.google.android.packageinstaller",
-        "com.android.packageinstaller"
+        "com.android.packageinstaller",
+        "com.google.android.inputmethod.latin",
+        "com.sec.android.inputmethod",
+        "com.swiftkey.swiftkeykeyboard"
     )
 
     override fun onCreate() {
@@ -71,12 +74,16 @@ class ReadLockAccessibilityService : AccessibilityService() {
         val sessionActive = FocusSessionManager.isSessionActive.value
 
         if (sessionActive) {
-            val shouldBlock = if (isWhitelistMode) {
+            val isWhitelist = FocusSessionManager.isWhitelistMode
+            val readingApp = FocusSessionManager.designatedReadingApp
+            val blockedPkgs = FocusSessionManager.blockedPackages
+
+            val shouldBlock = if (isWhitelist) {
                 // In Whitelist Mode, block everything EXCEPT ReadLock and the designated reading app
-                foregroundPackage != designatedReadingApp
+                foregroundPackage != readingApp
             } else {
                 // In Blacklist Mode, block apps in the blocked list
-                blockedPkgsList.contains(foregroundPackage)
+                blockedPkgs.contains(foregroundPackage)
             }
 
             if (shouldBlock) {
@@ -96,7 +103,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
             }
         } else {
             // Auto-start session if user opens their designated reading app
-            val readingAppPkg = designatedReadingApp
+            val readingAppPkg = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
             if (readingAppPkg != null && foregroundPackage == readingAppPkg) {
                 // Auto-start for 25 minutes as a default Pomodoro style
                 FocusSessionManager.startSession(
@@ -114,8 +121,13 @@ class ReadLockAccessibilityService : AccessibilityService() {
         val intent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
         }
-        val resolveInfo = packageManager.resolveActivity(intent, 0)
-        return resolveInfo?.activityInfo?.packageName == pkg
+        val resolveInfos = packageManager.queryIntentActivities(intent, 0)
+        for (info in resolveInfos) {
+            if (info.activityInfo?.packageName == pkg) {
+                return true
+            }
+        }
+        return false
     }
 
     override fun onInterrupt() {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -156,22 +157,6 @@ fun BlockScreenContent(
         }
     }
 
-    var showOverrideInput by remember { mutableStateOf(false) }
-    var typedPhrase by remember { mutableStateOf("") }
-    val requiredPhrase = "I am giving up on my reading"
-
-    // Hold down gesture state
-    var holdProgress by remember { mutableFloatStateOf(0f) }
-    var isHolding by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    var holdJob by remember { mutableStateOf<Job?>(null) }
-
-    val progressAnimated by animateFloatAsState(
-        targetValue = holdProgress,
-        animationSpec = tween(durationMillis = 100),
-        label = "hold_progress"
-    )
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -294,188 +279,51 @@ fun BlockScreenContent(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Break Glass trigger button
-            if (!showOverrideInput) {
-                Button(
-                    onClick = { showOverrideInput = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent
-                    ),
-                    modifier = Modifier.testTag("break_glass_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-                    Text(
-                        text = "Exit Session (Emergency Override)",
-                        color = MaterialTheme.colorScheme.tertiary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            // Expanded Emergency Override form
-            AnimatedVisibility(visible = showOverrideInput) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFDAD6)
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFFB4AB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            // Strict Lock Information Card
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Lock Icon",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
                         Text(
-                            text = "EMERGENCY OVERRIDE",
-                            color = Color(0xFF410002),
+                            text = "STRICT LOCK ENGAGED",
+                            color = MaterialTheme.colorScheme.onBackground,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Black
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "To break the lock, type the phrase exactly as shown below:",
-                            color = Color(0xFF410002),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
+                            text = "No early exit or bypass is allowed. All distractions are locked until the timer expires. Keep focused!",
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodyMedium
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "\"$requiredPhrase\"",
-                            color = Color(0xFF410002),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Serif,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = typedPhrase,
-                            onValueChange = { typedPhrase = it },
-                            placeholder = { Text("Type phrase here to unlock...", color = Color(0xFF410002).copy(alpha = 0.6f)) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color(0xFF410002),
-                                unfocusedTextColor = Color(0xFF410002),
-                                focusedBorderColor = Color(0xFF410002),
-                                unfocusedBorderColor = Color(0xFF410002).copy(alpha = 0.5f)
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("override_text_input")
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Only show Hold Button if phrase matches
-                        AnimatedVisibility(visible = typedPhrase.trim().lowercase() == requiredPhrase.lowercase()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "Now, press and hold the button for 10 seconds:",
-                                    color = Color(0xFF410002),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val holdBtnBg by animateColorAsState(
-                                    targetValue = if (isHolding) Color(0xFFBA1A1A) else Color(0xFF410002),
-                                    label = "hold_btn_color"
-                                )
-
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(56.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(holdBtnBg)
-                                        .border(2.dp, Color(0xFF410002), RoundedCornerShape(50))
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    isHolding = true
-                                                    holdProgress = 0f
-                                                    holdJob = scope.launch {
-                                                        for (i in 1..100) {
-                                                            delay(100)
-                                                            holdProgress = i / 100f
-                                                        }
-                                                        onEmergencyExit()
-                                                    }
-                                                    try {
-                                                        awaitRelease()
-                                                    } finally {
-                                                        isHolding = false
-                                                        holdJob?.cancel()
-                                                        holdProgress = 0f
-                                                    }
-                                                }
-                                            )
-                                        }
-                                        .testTag("hold_to_exit_button")
-                                ) {
-                                    // Progress bar inside button
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Brush.horizontalGradient(
-                                                    colors = listOf(
-                                                        Color(0xFFFFB4AB).copy(alpha = 0.5f),
-                                                        Color(0xFFFFB4AB)
-                                                    )
-                                                )
-                                            )
-                                            .fillMaxWidth(progressAnimated)
-                                            .align(Alignment.CenterStart)
-                                    )
-
-                                    Text(
-                                        text = if (isHolding) "HOLDING... (${(progressAnimated * 10).toInt()}s)" else "PRESS & HOLD TO ABORT",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { showOverrideInput = false },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent
-                            )
-                        ) {
-                            Text(
-                                text = "Nevermind, I will keep reading",
-                                color = Color(0xFF410002),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
             }
