@@ -67,6 +67,7 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
 
     // Active session bindings
     val isSessionActive = FocusSessionManager.isSessionActive
+    val isBreakActive = FocusSessionManager.isBreakActive
     val timeLeftSeconds = FocusSessionManager.timeLeftSeconds
     val blockedAttemptsCount = FocusSessionManager.blockedAttemptsCount
 
@@ -140,6 +141,10 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
 
     fun stopFocusSession(context: Context, completed: Boolean) {
         FocusSessionManager.stopSession(context, completed)
+    }
+
+    fun stopBreakSession(context: Context) {
+        FocusSessionManager.stopBreak(context)
     }
 
     // Helper to calculate statistics and streaks

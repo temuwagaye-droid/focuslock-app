@@ -33,6 +33,10 @@ class FocusService : Service() {
                 startForeground(NOTIFICATION_ID, buildNotification("Focus Session Started", "00:00 remaining"))
                 startTimer()
             }
+            ACTION_START_BREAK -> {
+                startForeground(NOTIFICATION_ID, buildNotification("Coffee Break ☕ Enjoy!", "05:00 remaining"))
+                startTimer()
+            }
             ACTION_STOP_SESSION -> {
                 stopTimer()
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -45,10 +49,14 @@ class FocusService : Service() {
     private fun startTimer() {
         timerJob?.cancel()
         timerJob = serviceScope.launch {
-            while (FocusSessionManager.isSessionActive.value) {
+            while (FocusSessionManager.isSessionActive.value || FocusSessionManager.isBreakActive.value) {
                 val remainingSeconds = FocusSessionManager.timeLeftSeconds.value
                 if (remainingSeconds <= 0) {
-                    FocusSessionManager.stopSession(this@FocusService, completed = true)
+                    if (FocusSessionManager.isSessionActive.value) {
+                        FocusSessionManager.stopSession(this@FocusService, completed = true)
+                    } else {
+                        FocusSessionManager.stopBreak(this@FocusService)
+                    }
                     break
                 }
                 updateNotification(remainingSeconds)
@@ -64,11 +72,13 @@ class FocusService : Service() {
     }
 
     private fun updateNotification(seconds: Long) {
+        val isBreak = FocusSessionManager.isBreakActive.value
+        val title = if (isBreak) "Coffee Break ☕ Enjoy!" else "Locked In — Reading Focus"
         val minutesPart = seconds / 60
         val secondsPart = seconds % 60
         val timeString = String.format(Locale.getDefault(), "%02d:%02d remaining", minutesPart, secondsPart)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, buildNotification("Locked In — Reading Focus", timeString))
+        notificationManager.notify(NOTIFICATION_ID, buildNotification(title, timeString))
     }
 
     private fun buildNotification(title: String, contentText: String): Notification {
@@ -120,6 +130,7 @@ class FocusService : Service() {
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START_SESSION = "com.example.service.action.START_SESSION"
+        const val ACTION_START_BREAK = "com.example.service.action.START_BREAK"
         const val ACTION_STOP_SESSION = "com.example.service.action.STOP_SESSION"
 
         const val EXTRA_DURATION_MINUTES = "extra_duration_minutes"

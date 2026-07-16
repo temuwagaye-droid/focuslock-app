@@ -39,6 +39,7 @@ import com.example.data.repository.FocusRepository
 import com.example.ui.FocusViewModel
 import com.example.ui.FocusViewModelFactory
 import com.example.ui.screens.AppSelectionScreen
+import com.example.ui.screens.CoffeeBreakScreen
 import com.example.ui.screens.FocusSessionScreen
 import com.example.ui.screens.HistoryStatsScreen
 import com.example.ui.screens.SettingsScreen
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val isSessionActive by viewModel.isSessionActive.collectAsState()
+                val isBreakActive by viewModel.isBreakActive.collectAsState()
                 var currentTab by remember { mutableStateOf(DashboardTab.TIMER) }
 
                 Scaffold(
@@ -65,8 +67,8 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
                     bottomBar = {
-                        // Hide bottom navigation if session is active to keep focus absolute
-                        if (!isSessionActive) {
+                        // Hide bottom navigation if session or break is active to keep focus absolute
+                        if (!isSessionActive && !isBreakActive) {
                             NavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 modifier = Modifier.testTag("main_navigation_bar")
@@ -142,6 +144,11 @@ class MainActivity : ComponentActivity() {
                             FocusSessionScreen(
                                 viewModel = viewModel,
                                 onStopSession = { viewModel.stopFocusSession(this@MainActivity, completed = false) }
+                            )
+                        } else if (isBreakActive) {
+                            CoffeeBreakScreen(
+                                viewModel = viewModel,
+                                onSkipBreak = { viewModel.stopBreakSession(this@MainActivity) }
                             )
                         } else {
                             when (currentTab) {

@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -929,6 +930,166 @@ fun FocusSessionScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun CoffeeBreakScreen(
+    viewModel: FocusViewModel,
+    onSkipBreak: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val timeLeftSeconds by viewModel.timeLeftSeconds.collectAsState()
+
+    val totalDuration = FocusSessionManager.totalDurationSeconds
+    val progress = if (totalDuration > 0) {
+        timeLeftSeconds.toFloat() / totalDuration
+    } else {
+        1f
+    }
+
+    val formattedTime = remember(timeLeftSeconds) {
+        val mins = timeLeftSeconds / 60
+        val secs = timeLeftSeconds % 60
+        String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        // Top status / spacing
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Center visual + timer
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Warm Coffee Icon Container with soft pulsing brown accent
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFEFEBE9)) // very light brown/warm grey
+                    .border(2.dp, Color(0xFF8D6E63), CircleShape) // warm brown border
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocalCafe,
+                    contentDescription = "Coffee Cup",
+                    tint = Color(0xFF5D4037), // rich espresso brown
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "COFFEE BREAK TIME",
+                color = Color(0xFF5D4037),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Central Countdown Arc (warm brown coffee progress)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(240.dp)
+                    .padding(16.dp)
+            ) {
+                val primaryTrackColor = Color(0xFFF5EBE6)
+                val accentActiveColor = Color(0xFF8D6E63) // warm brown
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        color = primaryTrackColor,
+                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = accentActiveColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress,
+                        useCenter = false,
+                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = formattedTime,
+                        color = Color(0xFF3E2723), // deep chocolate brown
+                        style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black),
+                        modifier = Modifier.testTag("break_timer_text")
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Time to Recharge",
+                        color = Color(0xFF795548),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Friendly Message Card
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFEFEBE9).copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color(0xFFD7CCC8)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Excellent Work! 🎉",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF3E2723),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "You've successfully finished your focus session. Now take a deep breath, stand up, stretch, and rest your eyes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF5D4037),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        // Action Button to Skip or return early
+        Button(
+            onClick = onSkipBreak,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF3E2723), // deep chocolate/espresso high contrast
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .testTag("skip_break_button")
+        ) {
+            Text(
+                text = "SKIP BREAK & START FRESH",
+                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.bodyLarge
+            )
         }
     }
 }

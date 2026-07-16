@@ -16,6 +16,9 @@ object FocusSessionManager {
     private val _isSessionActive = MutableStateFlow(false)
     val isSessionActive: StateFlow<Boolean> = _isSessionActive.asStateFlow()
 
+    private val _isBreakActive = MutableStateFlow(false)
+    val isBreakActive: StateFlow<Boolean> = _isBreakActive.asStateFlow()
+
     private val _timeLeftSeconds = MutableStateFlow(0L)
     val timeLeftSeconds: StateFlow<Long> = _timeLeftSeconds.asStateFlow()
 
@@ -52,6 +55,7 @@ object FocusSessionManager {
         blockedPackages = blockedPkgs
         designatedReadingApp = readingAppPackage
         _isSessionActive.value = true
+        _isBreakActive.value = false
 
         // Start Foreground Service to keep it running
         val intent = Intent(context, FocusService::class.java).apply {
@@ -83,6 +87,40 @@ object FocusSessionManager {
             )
         }
 
+        if (completed) {
+            // Automatically start Coffee Break session
+            startBreak(context, durationMinutes = 5)
+        } else {
+            // Stop foreground service
+            val intent = Intent(context, FocusService::class.java).apply {
+                action = FocusService.ACTION_STOP_SESSION
+            }
+            context.startService(intent)
+        }
+    }
+
+    fun startBreak(context: Context, durationMinutes: Int) {
+        if (_isBreakActive.value) return
+
+        totalDurationSeconds = durationMinutes * 60L
+        _timeLeftSeconds.value = totalDurationSeconds
+        _isBreakActive.value = true
+        _isSessionActive.value = false
+
+        // Start Foreground Service with BREAK action
+        val intent = Intent(context, FocusService::class.java).apply {
+            action = FocusService.ACTION_START_BREAK
+            putExtra(FocusService.EXTRA_DURATION_MINUTES, durationMinutes)
+        }
+        context.startForegroundService(intent)
+    }
+
+    fun stopBreak(context: Context) {
+        if (!_isBreakActive.value) return
+
+        _isBreakActive.value = false
+        _timeLeftSeconds.value = 0L
+
         // Stop foreground service
         val intent = Intent(context, FocusService::class.java).apply {
             action = FocusService.ACTION_STOP_SESSION
@@ -91,7 +129,7 @@ object FocusSessionManager {
     }
 
     fun tick() {
-        if (!_isSessionActive.value) return
+        if (!_isSessionActive.value && !_isBreakActive.value) return
         if (_timeLeftSeconds.value > 0) {
             _timeLeftSeconds.value -= 1
         }
