@@ -2,6 +2,7 @@ package com.example.service
 
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +63,7 @@ object FocusSessionManager {
             action = FocusService.ACTION_START_SESSION
             putExtra(FocusService.EXTRA_DURATION_MINUTES, durationMinutes)
         }
-        context.startForegroundService(intent)
+        ContextCompat.startForegroundService(context, intent)
     }
 
     fun stopSession(context: Context, completed: Boolean) {
@@ -112,7 +113,7 @@ object FocusSessionManager {
             action = FocusService.ACTION_START_BREAK
             putExtra(FocusService.EXTRA_DURATION_MINUTES, durationMinutes)
         }
-        context.startForegroundService(intent)
+        ContextCompat.startForegroundService(context, intent)
     }
 
     fun stopBreak(context: Context) {

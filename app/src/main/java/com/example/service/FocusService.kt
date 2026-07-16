@@ -106,16 +106,18 @@ class FocusService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "ReadLock Focus Session Timer",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Shows progress of active reading focus sessions"
-            setShowBadge(false)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "ReadLock Focus Session Timer",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows progress of active reading focus sessions"
+                setShowBadge(false)
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
         }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager?.createNotificationChannel(channel)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

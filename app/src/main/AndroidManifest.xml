@@ -3,7 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permission to retrieve list of installed launcher apps on Android 11+ -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission 
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    
+    <!-- Permission for sending notifications on Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <!-- Permission to run the persistent timer as a foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

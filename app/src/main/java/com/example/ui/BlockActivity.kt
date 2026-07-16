@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -79,6 +80,9 @@ class BlockActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
+                BackHandler {
+                    // Intercept back button so users cannot bypass the focus session
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
@@ -111,10 +115,6 @@ class BlockActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    override fun onBackPressed() {
-        // Intercept back button so users cannot bypass the focus session
     }
 
     companion object {
