@@ -8,6 +8,16 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -1141,8 +1151,38 @@ fun HistoryStatsScreen(
         sum
     }
 
-    val weeklyGoalMinutes = 150f
+    var weeklyGoalMinutes by remember { mutableFloatStateOf(150f) }
     val goalProgress = (totalWeeklyMinutes / weeklyGoalMinutes).coerceIn(0f, 1f)
+
+    val animatedGoalProgress by animateFloatAsState(
+        targetValue = goalProgress,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "AnimatedGoalProgress"
+    )
+
+    // Streak flame pulsing animation
+    val infiniteTransition = rememberInfiniteTransition(label = "StreakPulse")
+    val flameScale by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.25f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "FlameScale"
+    )
+    val flameAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "FlameAlpha"
+    )
 
     LazyColumn(
         modifier = modifier
@@ -1205,7 +1245,7 @@ fun HistoryStatsScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "Goal: 150m",
+                                text = "Goal: ${weeklyGoalMinutes.toInt()}m",
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Black
@@ -1232,6 +1272,15 @@ fun HistoryStatsScreen(
                             val isToday = index == 6
                             val ratio = (minutes / maxMinutes).coerceIn(0f, 1f)
                             
+                            val animatedRatio by animateFloatAsState(
+                                targetValue = ratio,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                ),
+                                label = "BarRatio_${index}"
+                            )
+
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
@@ -1252,7 +1301,7 @@ fun HistoryStatsScreen(
                                 Box(
                                     modifier = Modifier
                                         .width(16.dp)
-                                        .height(if (minutes > 0) (ratio * 80).dp.coerceAtLeast(12.dp) else 6.dp)
+                                        .height(if (minutes > 0) (animatedRatio * 80).dp.coerceAtLeast(12.dp) else 6.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
                                             if (minutes > 0) {
@@ -1292,7 +1341,7 @@ fun HistoryStatsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${totalWeeklyMinutes.toInt()} / 150 min (${(goalProgress * 100).toInt()}%)",
+                            text = "${totalWeeklyMinutes.toInt()} / ${weeklyGoalMinutes.toInt()} min (${(goalProgress * 100).toInt()}%)",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = if (goalProgress >= 1f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
@@ -1302,13 +1351,47 @@ fun HistoryStatsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     LinearProgressIndicator(
-                        progress = goalProgress,
+                        progress = { animatedGoalProgress },
                         color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Customize Weekly Goal Target",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = "${weeklyGoalMinutes.toInt()} min",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Slider(
+                        value = weeklyGoalMinutes,
+                        onValueChange = { weeklyGoalMinutes = it },
+                        valueRange = 30f..300f,
+                        steps = 8, // 30, 60, 90, 120, 150, 180, 210, 240, 270, 300
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -1342,12 +1425,24 @@ fun HistoryStatsScreen(
                             letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "🔥 ${stats.currentStreak} Days",
-                            color = Color(0xFFD84315),
-                            fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "🔥",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier
+                                    .scale(flameScale)
+                                    .alpha(flameAlpha)
+                            )
+                            Text(
+                                text = "${stats.currentStreak} Days",
+                                color = Color(0xFFD84315),
+                                fontWeight = FontWeight.Black,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
                     }
                 }
 
