@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.example.data.model.BlockedAppEntity
 import com.example.data.model.SessionLogEntity
 import com.example.data.model.SettingEntity
+import com.example.data.model.TodoEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -43,4 +44,14 @@ interface FocusDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSetting(setting: SettingEntity)
+
+    // Todo Queries
+    @Query("SELECT * FROM todo_items ORDER BY timestamp DESC")
+    fun getAllTodoItemsFlow(): Flow<List<TodoEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTodoItem(item: TodoEntity)
+
+    @Query("DELETE FROM todo_items WHERE id = :id")
+    suspend fun deleteTodoItem(id: Long)
 }

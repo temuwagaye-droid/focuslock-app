@@ -4,6 +4,7 @@ import com.example.data.local.FocusDao
 import com.example.data.model.BlockedAppEntity
 import com.example.data.model.SessionLogEntity
 import com.example.data.model.SettingEntity
+import com.example.data.model.TodoEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -11,6 +12,19 @@ class FocusRepository(private val focusDao: FocusDao) {
 
     val allBlockedApps: Flow<List<BlockedAppEntity>> = focusDao.getAllBlockedAppsFlow()
     val allSessionLogs: Flow<List<SessionLogEntity>> = focusDao.getAllSessionLogsFlow()
+    val allTodoItems: Flow<List<TodoEntity>> = focusDao.getAllTodoItemsFlow()
+
+    suspend fun insertTodoItem(title: String, isCompleted: Boolean = false) {
+        focusDao.insertTodoItem(TodoEntity(title = title, isCompleted = isCompleted))
+    }
+
+    suspend fun updateTodoItem(item: TodoEntity) {
+        focusDao.insertTodoItem(item)
+    }
+
+    suspend fun deleteTodoItem(id: Long) {
+        focusDao.deleteTodoItem(id)
+    }
 
     suspend fun getBlockedAppsSync(): List<BlockedAppEntity> {
         return focusDao.getAllBlockedApps()

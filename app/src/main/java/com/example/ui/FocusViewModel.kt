@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.BlockedAppEntity
 import com.example.data.model.SessionLogEntity
+import com.example.data.model.TodoEntity
 import com.example.data.repository.FocusRepository
 import com.example.service.FocusSessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -232,6 +233,27 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
             }
         }
         return streak
+    }
+
+    val todoItems: StateFlow<List<TodoEntity>> = repository.allTodoItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addTodoItem(title: String) {
+        viewModelScope.launch {
+            repository.insertTodoItem(title)
+        }
+    }
+
+    fun toggleTodoItem(item: TodoEntity) {
+        viewModelScope.launch {
+            repository.updateTodoItem(item.copy(isCompleted = !item.isCompleted))
+        }
+    }
+
+    fun deleteTodoItem(id: Long) {
+        viewModelScope.launch {
+            repository.deleteTodoItem(id)
+        }
     }
 }
 

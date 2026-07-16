@@ -70,6 +70,10 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.text.style.TextDecoration
+import com.example.data.model.TodoEntity
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -1117,6 +1121,108 @@ fun CoffeeBreakScreen(
     }
 }
 
+data class Achievement(
+    val title: String,
+    val description: String,
+    val icon: String,
+    val isUnlocked: Boolean,
+    val progressText: String
+)
+
+@Composable
+fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (achievement.isUnlocked) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            }
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (achievement.isUnlocked) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+            }
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .testTag("achievement_card_${achievement.title.lowercase().replace(" ", "_").replace("-", "_")}")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (achievement.isUnlocked) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
+                        }
+                    )
+            ) {
+                Text(
+                    text = achievement.icon,
+                    fontSize = 22.sp,
+                    modifier = Modifier.alpha(if (achievement.isUnlocked) 1f else 0.4f)
+                )
+                if (!achievement.isUnlocked) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .align(Alignment.BottomEnd),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = achievement.title,
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = achievement.description,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = achievement.progressText,
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun HistoryStatsScreen(
     viewModel: FocusViewModel,
@@ -1125,8 +1231,56 @@ fun HistoryStatsScreen(
     val context = LocalContext.current
     val stats by viewModel.statsSummary.collectAsState()
     val sessionLogs by viewModel.sessionLogs.collectAsState()
+    val todoItems by viewModel.todoItems.collectAsState()
 
     val dateHelper = remember { SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()) }
+
+    val achievements = remember(stats, sessionLogs) {
+        listOf(
+            Achievement(
+                title = "Kickstarter",
+                description = "Complete at least 1 focus session.",
+                icon = "🎯",
+                isUnlocked = stats.completedSessionsCount >= 1,
+                progressText = "${stats.completedSessionsCount.coerceAtMost(1)}/1 Session"
+            ),
+            Achievement(
+                title = "3-Day Streak",
+                description = "Build a consistent habit of 3 days.",
+                icon = "⚡",
+                isUnlocked = stats.currentStreak >= 3,
+                progressText = "${stats.currentStreak.coerceAtMost(3)}/3 Days"
+            ),
+            Achievement(
+                title = "5-Day Streak",
+                description = "Unstoppable! Maintain a 5-day streak.",
+                icon = "🔥",
+                isUnlocked = stats.currentStreak >= 5,
+                progressText = "${stats.currentStreak.coerceAtMost(5)}/5 Days"
+            ),
+            Achievement(
+                title = "Focused Mind",
+                description = "Focus for a total of 100 minutes.",
+                icon = "🧠",
+                isUnlocked = stats.totalFocusMinutes >= 100,
+                progressText = "${stats.totalFocusMinutes.coerceAtMost(100)}/100 Min"
+            ),
+            Achievement(
+                title = "Deep Focus Master",
+                description = "Focus for a total of 1000 minutes.",
+                icon = "👑",
+                isUnlocked = stats.totalFocusMinutes >= 1000,
+                progressText = "${stats.totalFocusMinutes.coerceAtMost(1000)}/1000 Min"
+            ),
+            Achievement(
+                title = "Laser Precision",
+                description = "Complete a session with 0 block attempts.",
+                icon = "🛡️",
+                isUnlocked = stats.completedSessionsCount > 0 && sessionLogs.any { it.isCompleted && it.blockedAttempts == 0 },
+                progressText = if (stats.completedSessionsCount > 0 && sessionLogs.any { it.isCompleted && it.blockedAttempts == 0 }) "1/1 Done" else "0/1 Session"
+            )
+        )
+    }
 
     // Calculate weekly stats (past 7 days chronologically)
     val localTimeZone = remember { TimeZone.getDefault() }
@@ -1683,9 +1837,295 @@ fun HistoryStatsScreen(
             }
         }
 
-        // 5. Section Header for Logs
+        // --- 4.1. ACHIEVEMENTS SECTION ---
         item {
             Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🏆 Focus Badges & Milestones",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                val unlockedCount = achievements.count { it.isUnlocked }
+                Text(
+                    text = "$unlockedCount / ${achievements.size} Unlocked",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Track your focus progress and unlock special achievement badges.",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        // We can render achievements in chunks of 2 to display them in rows (2-column layout)
+        val chunkedAchievements = achievements.chunked(2)
+        items(chunkedAchievements) { rowAchievements ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowAchievements.forEach { achievement ->
+                    AchievementCard(
+                        achievement = achievement,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                // If there's only 1 item in the row, add an empty spacer weight to align perfectly
+                if (rowAchievements.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        // --- 4.2. TO-DO LIST (READING QUEUE) SECTION ---
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "📝 Reading Queue & Tasks",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Manage books, chapters, or articles you want to complete next.",
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.testTag("todo_subtitle_text"),
+                fontSize = 12.sp
+            )
+        }
+
+        // Input Row for To-Do List
+        item {
+            var newTodoText by remember { mutableStateOf("") }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = newTodoText,
+                    onValueChange = { newTodoText = it },
+                    placeholder = { Text("E.g., Read Chapter 3 of Clean Code", fontSize = 14.sp) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("todo_input_field"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Button(
+                    onClick = {
+                        if (newTodoText.isNotBlank()) {
+                            viewModel.addTodoItem(newTodoText.trim())
+                            newTodoText = ""
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    modifier = Modifier
+                        .height(52.dp)
+                        .testTag("todo_add_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Task",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("ADD", fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                }
+            }
+        }
+
+        // Progress bar for To-Do List
+        if (todoItems.isNotEmpty()) {
+            item {
+                val totalTodoCount = todoItems.size
+                val completedTodoCount = todoItems.count { it.isCompleted }
+                val todoProgress = if (totalTodoCount > 0) completedTodoCount.toFloat() / totalTodoCount else 0f
+                val animatedTodoProgress by animateFloatAsState(
+                    targetValue = todoProgress,
+                    animationSpec = spring(stiffness = Spring.StiffnessLow),
+                    label = "TodoProgress"
+                )
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Queue Completion Progress",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "$completedTodoCount / $totalTodoCount tasks (${(todoProgress * 100).toInt()}%)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { animatedTodoProgress },
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                        )
+                    }
+                }
+            }
+        }
+
+        // To-Do items listing or empty state
+        if (todoItems.isEmpty()) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .testTag("todo_empty_card")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("📚", fontSize = 24.sp)
+                        Column {
+                            Text(
+                                text = "Your reading queue is empty!",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Add some tasks above to plan your next deep focus sessions.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            items(todoItems) { todo ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (todo.isCompleted) {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (todo.isCompleted) {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.05f)
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .testTag("todo_item_${todo.id}")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Checkbox(
+                                checked = todo.isCompleted,
+                                onCheckedChange = { viewModel.toggleTodoItem(todo) },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary,
+                                    uncheckedColor = MaterialTheme.colorScheme.outline
+                                ),
+                                modifier = Modifier.testTag("todo_checkbox_${todo.id}")
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = todo.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (todo.isCompleted) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else null,
+                                modifier = Modifier.testTag("todo_title_${todo.id}")
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.deleteTodoItem(todo.id) },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("todo_delete_button_${todo.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Task",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Section Header for Logs
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Session Log History",
                 color = MaterialTheme.colorScheme.onBackground,
