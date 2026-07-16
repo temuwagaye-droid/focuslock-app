@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.graphics.pdf.PdfDocument
+import android.graphics.Paint
+import android.graphics.Color as AndroidColor
+import java.io.File
+import java.io.FileOutputStream
+import androidx.core.content.FileProvider
+import com.example.ui.FocusStatsSummary
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -1637,6 +1644,41 @@ fun HistoryStatsScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            exportStatsToPdf(context, stats, sessionLogs, dateHelper)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.onTertiary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("export_pdf_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Book,
+                                contentDescription = "Export to PDF",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "EXPORT TO PDF REPORT",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1746,6 +1788,151 @@ fun HistoryStatsScreen(
         item {
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+fun exportStatsToPdf(
+    context: Context,
+    stats: FocusStatsSummary,
+    sessionLogs: List<SessionLogEntity>,
+    dateHelper: SimpleDateFormat
+) {
+    try {
+        val pdfDocument = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+        val page = pdfDocument.startPage(pageInfo)
+        val canvas = page.canvas
+        val paint = Paint()
+
+        // Background color
+        paint.color = AndroidColor.WHITE
+        canvas.drawRect(0f, 0f, 595f, 842f, paint)
+
+        // Header banner (dark premium background)
+        paint.color = AndroidColor.parseColor("#1E1B4B") // Midnight dark indigo
+        canvas.drawRect(0f, 0f, 595f, 130f, paint)
+
+        // Header text
+        paint.color = AndroidColor.WHITE
+        paint.textSize = 24f
+        paint.isFakeBoldText = true
+        canvas.drawText("FOCUSLOCK PROGRESS REPORT", 40f, 65f, paint)
+
+        paint.textSize = 12f
+        paint.isFakeBoldText = false
+        paint.color = AndroidColor.parseColor("#99F6E4") // Soft teal accent
+        val currentDate = SimpleDateFormat("MMMM d, yyyy - h:mm a", Locale.getDefault()).format(Date())
+        canvas.drawText("Generated on: $currentDate", 40f, 95f, paint)
+
+        // Focus statistics title
+        paint.color = AndroidColor.parseColor("#4F46E5") // Indigo blue accent line
+        canvas.drawRect(40f, 160f, 555f, 164f, paint)
+
+        paint.color = AndroidColor.BLACK
+        paint.textSize = 18f
+        paint.isFakeBoldText = true
+        canvas.drawText("Overall Focus Metrics", 40f, 195f, paint)
+
+        paint.textSize = 14f
+        paint.isFakeBoldText = false
+        paint.color = AndroidColor.parseColor("#1F2937") // Dark gray body text
+
+        var yPos = 225f
+        canvas.drawText("• Current Focus Level: Level ${(stats.focusScore / 200) + 1}", 55f, yPos, paint); yPos += 24f
+        canvas.drawText("• Focus Score Points: ${stats.focusScore} pts", 55f, yPos, paint); yPos += 24f
+        canvas.drawText("• Active Focus Streak: ${stats.currentStreak} Days", 55f, yPos, paint); yPos += 24f
+        canvas.drawText("• Total Focus Duration: ${stats.totalFocusMinutes} Minutes", 55f, yPos, paint); yPos += 24f
+        canvas.drawText("• Completed Focus Sessions: ${stats.completedSessionsCount} Sessions", 55f, yPos, paint); yPos += 24f
+
+        // Session history section
+        yPos += 20f
+        paint.color = AndroidColor.parseColor("#0D9488") // Teal accent line
+        canvas.drawRect(40f, yPos, 555f, yPos + 4f, paint)
+        yPos += 35f
+
+        paint.color = AndroidColor.BLACK
+        paint.textSize = 18f
+        paint.isFakeBoldText = true
+        canvas.drawText("Recent Reading Session Logs", 40f, yPos, paint)
+        yPos += 30f
+
+        paint.textSize = 12f
+        paint.isFakeBoldText = false
+        paint.color = AndroidColor.parseColor("#1F2937")
+
+        if (sessionLogs.isEmpty()) {
+            canvas.drawText("No completed reading sessions recorded yet.", 55f, yPos, paint)
+        } else {
+            // Table Header
+            paint.isFakeBoldText = true
+            paint.color = AndroidColor.parseColor("#312E81") // Indigo table header
+            canvas.drawText("Date & Time", 55f, yPos, paint)
+            canvas.drawText("Duration", 260f, yPos, paint)
+            canvas.drawText("Blocked Apps", 380f, yPos, paint)
+            canvas.drawText("Status", 480f, yPos, paint)
+            yPos += 20f
+
+            // Table Border
+            paint.strokeWidth = 1f
+            paint.color = AndroidColor.parseColor("#E5E7EB")
+            canvas.drawLine(40f, yPos, 555f, yPos, paint)
+            yPos += 15f
+
+            paint.isFakeBoldText = false
+            paint.color = AndroidColor.parseColor("#374151")
+
+            // Take up to 18 recent logs to fit neatly on standard A4 page
+            val recentLogs = sessionLogs.take(18)
+            for (log in recentLogs) {
+                if (yPos > 790f) {
+                    break
+                }
+                val formattedDate = dateHelper.format(Date(log.timestamp))
+                val durationText = "${log.durationSeconds / 60}m ${log.durationSeconds % 60}s"
+                val statusText = if (log.isCompleted) "Completed" else "Interrupted"
+
+                canvas.drawText(formattedDate, 55f, yPos, paint)
+                canvas.drawText(durationText, 260f, yPos, paint)
+                canvas.drawText(log.blockedAttempts.toString(), 380f, yPos, paint)
+                canvas.drawText(statusText, 480f, yPos, paint)
+
+                yPos += 22f
+            }
+        }
+
+        // Footer message
+        paint.textSize = 10f
+        paint.color = AndroidColor.parseColor("#9CA3AF")
+        paint.isFakeBoldText = false
+        canvas.drawText("FocusLock - Deep Reading & Distraction Blocking Assistant", 40f, 815f, paint)
+
+        pdfDocument.finishPage(page)
+
+        // Save PDF to cache dir
+        val file = File(context.cacheDir, "FocusLock_Progress_Report.pdf")
+        val outputStream = FileOutputStream(file)
+        pdfDocument.writeTo(outputStream)
+        outputStream.close()
+        pdfDocument.close()
+
+        // Share/View via FileProvider
+        val authority = "${context.packageName}.fileprovider"
+        val uri = FileProvider.getUriForFile(context, authority, file)
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "FocusLock Reading Progress Report")
+            putExtra(Intent.EXTRA_TEXT, "Check out my FocusLock reading stats & focus streak progress report!")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val chooserIntent = Intent.createChooser(intent, "Export / Share Progress PDF")
+        context.startActivity(chooserIntent)
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(context, "Failed to export PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
     }
 }
 
