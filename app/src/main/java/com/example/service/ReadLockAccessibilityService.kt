@@ -22,6 +22,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
     private var isWhitelistMode = false
     private var blockedPkgsList = emptyList<String>()
     private var designatedReadingApp: String? = null
+    private var lastForegroundPackage: String? = null
 
     // System/Emergency packages that are ALWAYS allowed
     private val standardAllowedPackages = setOf(
@@ -72,6 +73,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
         }
 
         val sessionActive = FocusSessionManager.isSessionActive.value
+        val breakActive = FocusSessionManager.isBreakActive.value
 
         if (sessionActive) {
             val isWhitelist = FocusSessionManager.isWhitelistMode
@@ -101,20 +103,25 @@ class ReadLockAccessibilityService : AccessibilityService() {
                 }
                 startActivity(intent)
             }
-        } else {
+        } else if (!breakActive) {
             // Auto-start session if user opens their designated reading app
             val readingAppPkg = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
             if (readingAppPkg != null && foregroundPackage == readingAppPkg) {
-                // Auto-start for 25 minutes as a default Pomodoro style
-                FocusSessionManager.startSession(
-                    context = applicationContext,
-                    durationMinutes = 25,
-                    readingAppPackage = readingAppPkg,
-                    isWhitelist = isWhitelistMode,
-                    blockedPkgs = blockedPkgsList
-                )
+                // Only auto-start if the reading app is newly opened (preventing aggressive auto-restart on session complete)
+                if (lastForegroundPackage != foregroundPackage) {
+                    // Auto-start for 25 minutes as a default Pomodoro style
+                    FocusSessionManager.startSession(
+                        context = applicationContext,
+                        durationMinutes = 25,
+                        readingAppPackage = readingAppPkg,
+                        isWhitelist = isWhitelistMode,
+                        blockedPkgs = blockedPkgsList
+                    )
+                }
             }
         }
+
+        lastForegroundPackage = foregroundPackage
     }
 
     private fun isLauncherPackage(pkg: String): Boolean {
