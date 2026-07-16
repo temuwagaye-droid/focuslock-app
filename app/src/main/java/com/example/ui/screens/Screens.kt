@@ -990,21 +990,11 @@ fun CoffeeBreakScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "COFFEE BREAK TIME",
-                color = Color(0xFF5D4037),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // Central Countdown Arc (warm brown coffee progress)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(240.dp)
+                    .size(280.dp)
                     .padding(16.dp)
             ) {
                 val primaryTrackColor = Color(0xFFF5EBE6)
@@ -1013,18 +1003,26 @@ fun CoffeeBreakScreen(
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
                         color = primaryTrackColor,
-                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
                     )
                     drawArc(
                         color = accentActiveColor,
                         startAngle = -90f,
                         sweepAngle = 360f * progress,
                         useCenter = false,
-                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "COFFEE BREAK",
+                        color = Color(0xFF8D6E63),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formattedTime,
                         color = Color(0xFF3E2723), // deep chocolate brown
