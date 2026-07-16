@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -73,19 +75,25 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
 
     fun loadInstalledLauncherApps(context: Context) {
         viewModelScope.launch {
-            val pm = context.packageManager
-            val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
+            // If apps are already loaded, don't query again to keep UI loading instant
+            if (_installedApps.value.isNotEmpty()) return@launch
+
+            val appList = withContext(Dispatchers.IO) {
+                val pm = context.packageManager
+                val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                val resolveInfos = pm.queryIntentActivities(intent, 0)
+                val list = mutableListOf<AppInfoModel>()
+                for (info in resolveInfos) {
+                    val packageName = info.activityInfo.packageName
+                    if (packageName == context.packageName) continue // Hide self
+                    val label = info.loadLabel(pm).toString()
+                    list.add(AppInfoModel(packageName, label))
+                }
+                list.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
             }
-            val resolveInfos = pm.queryIntentActivities(intent, 0)
-            val appList = mutableListOf<AppInfoModel>()
-            for (info in resolveInfos) {
-                val packageName = info.activityInfo.packageName
-                if (packageName == context.packageName) continue // Hide self
-                val label = info.loadLabel(pm).toString()
-                appList.add(AppInfoModel(packageName, label))
-            }
-            _installedApps.value = appList.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
+            _installedApps.value = appList
         }
     }
 
