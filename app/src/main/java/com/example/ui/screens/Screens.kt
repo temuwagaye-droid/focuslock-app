@@ -427,6 +427,22 @@ fun TimerSetupScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
+                IconButton(
+                    onClick = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                        .testTag("quick_theme_toggle")
+                ) {
+                    Text(
+                        text = if (isDarkModeEnabled) "🌙" else "☀️",
+                        fontSize = 20.sp
+                    )
+                }
             }
 
             Text(
@@ -2411,6 +2427,70 @@ fun SettingsScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Global Theme Toggle for Dark Mode Card with outline
+        val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        ) {
+                            Text(
+                                text = if (isDarkModeEnabled) "🌙" else "☀️",
+                                fontSize = 18.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "NIGHT-TIME DARK MODE",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Comfortable dark palette for late night reading.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isDarkModeEnabled,
+                        onCheckedChange = { viewModel.toggleDarkMode(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("dark_mode_switch")
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Accessibility Service configuration Card with outline
         Card(

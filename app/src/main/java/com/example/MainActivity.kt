@@ -57,7 +57,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MyApplicationTheme {
+            val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
+            MyApplicationTheme(darkTheme = isDarkModeEnabled) {
                 val isSessionActive by viewModel.isSessionActive.collectAsState()
                 val isBreakActive by viewModel.isBreakActive.collectAsState()
                 var currentTab by remember { mutableStateOf(DashboardTab.TIMER) }

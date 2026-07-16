@@ -101,11 +101,20 @@ class FocusRepository(private val focusDao: FocusDao) {
         focusDao.insertSetting(SettingEntity(KEY_SCHEDULE_END, hour.toString()))
     }
 
+    fun isDarkModeEnabled(): Flow<Boolean> {
+        return focusDao.getSettingFlow(KEY_DARK_MODE).map { it?.value == "true" }
+    }
+
+    suspend fun setDarkModeEnabled(enabled: Boolean) {
+        focusDao.insertSetting(SettingEntity(KEY_DARK_MODE, enabled.toString()))
+    }
+
     companion object {
         const val KEY_WHITELIST_MODE = "whitelist_mode"
         const val KEY_READING_APP_PKG = "reading_app_package"
         const val KEY_SCHEDULE_ENABLED = "schedule_enabled"
         const val KEY_SCHEDULE_START = "schedule_start"
         const val KEY_SCHEDULE_END = "schedule_end"
+        const val KEY_DARK_MODE = "dark_mode"
     }
 }

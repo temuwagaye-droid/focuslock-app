@@ -238,6 +238,15 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
     val todoItems: StateFlow<List<TodoEntity>> = repository.allTodoItems
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val isDarkModeEnabled: StateFlow<Boolean> = repository.isDarkModeEnabled()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleDarkMode(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setDarkModeEnabled(enabled)
+        }
+    }
+
     fun addTodoItem(title: String) {
         viewModelScope.launch {
             repository.insertTodoItem(title)
