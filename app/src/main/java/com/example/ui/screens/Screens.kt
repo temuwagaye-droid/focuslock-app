@@ -2,7 +2,10 @@ package com.example.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
@@ -59,6 +62,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -1538,51 +1542,99 @@ fun HistoryStatsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(
-                        onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "I am locking in on my focus with FocusLock! 📚🔒 My current stats:\n" +
-                                    "🏆 Level: ${(stats.focusScore / 200) + 1}\n" +
-                                    "🔥 Focus Score: ${stats.focusScore} Points\n" +
-                                    "⚡ Active Streak: ${stats.currentStreak} Days\n" +
-                                    "⏱️ Total Focus: ${stats.totalFocusMinutes} Minutes\n" +
-                                    "🎯 Sessions Completed: ${stats.completedSessionsCount}\n\n" +
-                                    "Join me in building deep reading and focus habits!"
-                                )
-                                type = "text/plain"
-                            }
-                            val shareIntent = Intent.createChooser(sendIntent, "Share focus stats via")
-                            context.startActivity(shareIntent)
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("share_stats_button")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                        Button(
+                            onClick = {
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "I am locking in on my focus with FocusLock! 📚🔒 My current stats:\n" +
+                                        "🏆 Level: ${(stats.focusScore / 200) + 1}\n" +
+                                        "🔥 Focus Score: ${stats.focusScore} Points\n" +
+                                        "⚡ Active Streak: ${stats.currentStreak} Days\n" +
+                                        "⏱️ Total Focus: ${stats.totalFocusMinutes} Minutes\n" +
+                                        "🎯 Sessions Completed: ${stats.completedSessionsCount}\n\n" +
+                                        "Join me in building deep reading and focus habits!"
+                                    )
+                                    type = "text/plain"
+                                }
+                                val shareIntent = Intent.createChooser(sendIntent, "Share focus stats via")
+                                context.startActivity(shareIntent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("share_stats_button")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share Progress",
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "SHARE PROGRESS STATUS",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share Progress",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "SHARE",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val statsText = "I am locking in on my focus with FocusLock! 📚🔒 My current stats:\n" +
+                                        "🏆 Level: ${(stats.focusScore / 200) + 1}\n" +
+                                        "🔥 Focus Score: ${stats.focusScore} Points\n" +
+                                        "⚡ Active Streak: ${stats.currentStreak} Days\n" +
+                                        "⏱️ Total Focus: ${stats.totalFocusMinutes} Minutes\n" +
+                                        "🎯 Sessions Completed: ${stats.completedSessionsCount}\n\n" +
+                                        "Join me in building deep reading and focus habits!"
+                                val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("FocusLock Stats", statsText)
+                                clipboardManager.setPrimaryClip(clip)
+                                Toast.makeText(context, "Stats copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("copy_stats_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy to Clipboard",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "COPY STATS",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
                         }
                     }
                 }
