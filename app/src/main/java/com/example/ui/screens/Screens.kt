@@ -58,6 +58,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -93,8 +94,10 @@ import com.example.service.FocusSessionManager
 import com.example.service.ReadLockAccessibilityService
 import com.example.ui.FocusViewModel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 // Utility to check accessibility permission
 fun isAccessibilityServiceEnabled(context: Context): Boolean {
@@ -1104,261 +1107,497 @@ fun HistoryStatsScreen(
 
     val dateHelper = remember { SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()) }
 
-    Column(
+    // Calculate weekly stats (past 7 days chronologically)
+    val localTimeZone = remember { TimeZone.getDefault() }
+    val dayLabelsAndMinutes = remember(sessionLogs) {
+        val past7Days = (0..6).map { daysAgo ->
+            val cal = Calendar.getInstance(localTimeZone)
+            cal.add(Calendar.DAY_OF_YEAR, -daysAgo)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal
+        }.reversed()
+
+        val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
+        past7Days.map { cal ->
+            val startOfDay = cal.timeInMillis
+            val endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1
+            val dayLogs = sessionLogs.filter { log ->
+                log.timestamp in startOfDay..endOfDay && log.isCompleted
+            }
+            val totalSeconds = dayLogs.fold(0L) { acc, log -> acc + log.durationSeconds }
+            val totalMinutes = totalSeconds / 60f
+            Pair(dayFormat.format(cal.time), totalMinutes)
+        }
+    }
+
+    val totalWeeklyMinutes = remember(dayLabelsAndMinutes) {
+        var sum = 0f
+        for (pair in dayLabelsAndMinutes) {
+            sum += pair.second
+        }
+        sum
+    }
+
+    val weeklyGoalMinutes = 150f
+    val goalProgress = (totalWeeklyMinutes / weeklyGoalMinutes).coerceIn(0f, 1f)
+
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Your Progress",
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleLarge
-        )
-        Text(
-            text = "Historic metrics, streak logs, and achievements.",
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        // 1. Header
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Your Progress",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                text = "Weekly reading insights, streak counters, and achievements.",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Large high-contrast gamified stat card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "FOCUS METRIC SCORE",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.labelMedium
-                    )
+        // 2. Weekly Reading Progress Dashboard Card (Custom 7-day bar chart)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("weekly_progress_dashboard_card")
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFE8DEF8))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "LEVEL ${(stats.focusScore / 200) + 1}",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "${stats.focusScore} Points",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.testTag("gamified_focus_score_text")
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                HorizontalDivider(color = Color(0xFFE6E0E9))
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Stats grid
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Active Streak", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
-                        Text("${stats.currentStreak} Days", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Total Focus", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
-                        Text("${stats.totalFocusMinutes} Mins", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Completed", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
-                        Text("${stats.completedSessionsCount} Sessions", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                HorizontalDivider(color = Color(0xFFE6E0E9))
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(
-                                Intent.EXTRA_TEXT,
-                                "I am locking in on my focus with FocusLock! 📚🔒 My current stats:\n" +
-                                "🏆 Level: ${(stats.focusScore / 200) + 1}\n" +
-                                "🔥 Focus Score: ${stats.focusScore} Points\n" +
-                                "⚡ Active Streak: ${stats.currentStreak} Days\n" +
-                                "⏱️ Total Focus: ${stats.totalFocusMinutes} Minutes\n" +
-                                "🎯 Sessions Completed: ${stats.completedSessionsCount}\n\n" +
-                                "Join me in building deep reading and focus habits!"
+                        Column {
+                            Text(
+                                text = "WEEKLY READING PROGRESS",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
                             )
-                            type = "text/plain"
+                            Text(
+                                text = "Last 7 Days Activity",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        val shareIntent = Intent.createChooser(sendIntent, "Share focus stats via")
-                        context.startActivity(shareIntent)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("share_stats_button")
-                ) {
+                        
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "Goal: 150m",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    val maxMinutes = remember(dayLabelsAndMinutes) {
+                        dayLabelsAndMinutes.maxOf { it.second }.coerceAtLeast(30f)
+                    }
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Progress",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        dayLabelsAndMinutes.forEachIndexed { index, pair ->
+                            val (day, minutes) = pair
+                            val isToday = index == 6
+                            val ratio = (minutes / maxMinutes).coerceIn(0f, 1f)
+                            
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (minutes > 0f) {
+                                    Text(
+                                        text = "${minutes.toInt()}m",
+                                        color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(if (minutes > 0) (ratio * 80).dp.coerceAtLeast(12.dp) else 6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (minutes > 0) {
+                                                if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                                            }
+                                        )
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = day,
+                                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isToday) FontWeight.Black else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "SHARE PROGRESS STATUS",
+                            text = "Weekly Focus Goal Progress",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${totalWeeklyMinutes.toInt()} / 150 min (${(goalProgress * 100).toInt()}%)",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
+                            color = if (goalProgress >= 1f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = goalProgress,
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                }
+            }
+        }
+
+        // 3. Side-by-side Quick metrics
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                    border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(96.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "STREAK",
+                            color = Color(0xFFE65100),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
                             letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "🔥 ${stats.currentStreak} Days",
+                            color = Color(0xFFD84315),
+                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
+                    border = BorderStroke(1.dp, Color(0xFF4DB6AC).copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(96.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "TOTAL MINUTES",
+                            color = Color(0xFF004D40),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "⏱️ ${stats.totalFocusMinutes} Min",
+                            color = Color(0xFF00695C),
+                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Session Log History",
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Black
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (sessionLogs.isEmpty()) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(24.dp))
-                    .padding(24.dp)
+        // 4. Large high-contrast gamified score level card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.History,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No focus logs found yet",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Your completed reading sessions will show up here.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                items(sessionLogs) { log ->
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "FOCUS METRIC SCORE",
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFE8DEF8))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "LEVEL ${(stats.focusScore / 200) + 1}",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "${stats.focusScore} Points",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.testTag("gamified_focus_score_text")
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    HorizontalDivider(color = Color(0xFFE6E0E9))
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "I am locking in on my focus with FocusLock! 📚🔒 My current stats:\n" +
+                                    "🏆 Level: ${(stats.focusScore / 200) + 1}\n" +
+                                    "🔥 Focus Score: ${stats.focusScore} Points\n" +
+                                    "⚡ Active Streak: ${stats.currentStreak} Days\n" +
+                                    "⏱️ Total Focus: ${stats.totalFocusMinutes} Minutes\n" +
+                                    "🎯 Sessions Completed: ${stats.completedSessionsCount}\n\n" +
+                                    "Join me in building deep reading and focus habits!"
+                                )
+                                type = "text/plain"
+                            }
+                            val shareIntent = Intent.createChooser(sendIntent, "Share focus stats via")
+                            context.startActivity(shareIntent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(16.dp))
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .height(48.dp)
+                            .testTag("share_stats_button")
                     ) {
-                        Column {
-                            val formattedDate = remember(log.timestamp) { dateHelper.format(Date(log.timestamp)) }
-                            Text(
-                                text = formattedDate,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Progress",
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "${log.durationSeconds / 60}m ${log.durationSeconds % 60}s Focus",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "•",
-                                    color = Color(0xFFE6E0E9),
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Blocks: ${log.blockedAttempts}",
-                                    color = if (log.blockedAttempts > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "SHARE PROGRESS STATUS",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                         }
+                    }
+                }
+            }
+        }
 
-                        val statusIcon = if (log.isCompleted) Icons.Default.CheckCircle else Icons.Default.Error
-                        val statusColor = if (log.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+        // 5. Section Header for Logs
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Session Log History",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black
+            )
+        }
+
+        // 6. Logs list or Empty card
+        if (sessionLogs.isEmpty()) {
+            item {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(24.dp))
+                        .padding(32.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector = statusIcon,
+                            imageVector = Icons.Default.History,
                             contentDescription = null,
-                            tint = statusColor,
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No focus logs found yet",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Your completed reading sessions will show up here.",
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             }
+        } else {
+            items(sessionLogs) { log ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        val formattedDate = remember(log.timestamp) { dateHelper.format(Date(log.timestamp)) }
+                        Text(
+                            text = formattedDate,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "${log.durationSeconds / 60}m ${log.durationSeconds % 60}s Focus",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "•",
+                                color = Color(0xFFE6E0E9),
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Blocks: ${log.blockedAttempts}",
+                                color = if (log.blockedAttempts > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    val statusIcon = if (log.isCompleted) Icons.Default.CheckCircle else Icons.Default.Error
+                    val statusColor = if (log.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+                    Icon(
+                        imageVector = statusIcon,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
