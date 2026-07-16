@@ -14,6 +14,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.example.R
@@ -368,7 +370,11 @@ fun TimerSetupScreen(
             })
         }
 
-        Column {
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -602,6 +608,8 @@ fun TimerSetupScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Action Start Button (Solid black high impact layout)
         Button(
