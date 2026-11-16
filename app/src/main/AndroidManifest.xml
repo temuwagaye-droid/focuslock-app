@@ -41,18 +41,18 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.MyApplication">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="" />
-        </activity>
+            android:theme="@style/Theme.MyApplication" />
 
         <!-- Foreground Focus Timer Service -->
         <service
             android:name=".service.FocusService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Focus session timer and lock monitoring" />
+        </service>
 
         <!-- App Blocking Accessibility Service -->
         <service

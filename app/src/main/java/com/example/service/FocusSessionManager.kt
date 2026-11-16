@@ -48,6 +48,7 @@ object FocusSessionManager {
         blockedPkgs: List<String>
     ) {
         if (_isSessionActive.value) return
+        if (readingAppPackage.isNullOrBlank()) return
 
         totalDurationSeconds = durationMinutes * 60L
         _timeLeftSeconds.value = totalDurationSeconds

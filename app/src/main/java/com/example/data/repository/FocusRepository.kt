@@ -66,11 +66,11 @@ class FocusRepository(private val focusDao: FocusDao) {
     }
 
     fun getReadingAppPackage(): Flow<String?> {
-        return focusDao.getSettingFlow(KEY_READING_APP_PKG).map { it?.value }
+        return focusDao.getSettingFlow(KEY_READING_APP_PKG).map { it?.value?.takeIf { pkg -> pkg.isNotBlank() } }
     }
 
     suspend fun getReadingAppPackageSync(): String? {
-        return focusDao.getSetting(KEY_READING_APP_PKG)?.value
+        return focusDao.getSetting(KEY_READING_APP_PKG)?.value?.takeIf { it.isNotBlank() }
     }
 
     suspend fun setReadingAppPackage(packageName: String?) {

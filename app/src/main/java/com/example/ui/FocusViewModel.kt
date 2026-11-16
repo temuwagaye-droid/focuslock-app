@@ -135,8 +135,10 @@ class FocusViewModel(private val repository: FocusRepository) : ViewModel() {
 
     fun startFocusSession(context: Context, durationMinutes: Int) {
         viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
             val isWhitelist = isWhitelistMode.value
-            val readingApp = designatedReadingApp.value
             val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
             FocusSessionManager.startSession(
                 context = context,

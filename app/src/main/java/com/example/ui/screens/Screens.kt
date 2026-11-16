@@ -72,8 +72,13 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.text.style.TextDecoration
 import com.example.data.model.TodoEntity
+import com.example.ui.components.AccessibilityRequiredDialog
+import com.example.ui.components.HowToUseOnboardingDialog
+import com.example.ui.components.HowToUseBannerCard
+import com.example.ui.components.ReadingAppRequiredDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -124,26 +129,30 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// Utility to check accessibility permission
+// Utility to check accessibility permission safely
 fun isAccessibilityServiceEnabled(context: Context): Boolean {
-    val serviceClass = ReadLockAccessibilityService::class.java
-    val expectedComponentName = android.content.ComponentName(context, serviceClass)
-    val enabledServicesSetting = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
+    return try {
+        val serviceClass = ReadLockAccessibilityService::class.java
+        val expectedComponentName = android.content.ComponentName(context, serviceClass)
+        val enabledServicesSetting = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
 
-    val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
-    colonSplitter.setString(enabledServicesSetting)
+        val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServicesSetting)
 
-    while (colonSplitter.hasNext()) {
-        val componentNameString = colonSplitter.next()
-        val enabledService = android.content.ComponentName.unflattenFromString(componentNameString)
-        if (enabledService != null && enabledService == expectedComponentName) {
-            return true
+        while (colonSplitter.hasNext()) {
+            val componentNameString = colonSplitter.next()
+            val enabledService = android.content.ComponentName.unflattenFromString(componentNameString)
+            if (enabledService != null && enabledService == expectedComponentName) {
+                return true
+            }
         }
+        false
+    } catch (_: Exception) {
+        false
     }
-    return false
 }
 
 @Composable
@@ -370,15 +379,29 @@ fun TimerSetupScreen(
     val installedApps by viewModel.installedApps.collectAsState()
     val designatedReadingApp by viewModel.designatedReadingApp.collectAsState()
 
-    var sessionMinutes by remember { mutableIntStateOf(25) }
+    // Store custom session minutes and onboarding status in SharedPreferences (defaults to 15m or last chosen, never forces 25m)
+    val prefs = remember { context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE) }
+    var sessionMinutes by remember {
+        mutableIntStateOf(prefs.getInt("saved_session_minutes", 15))
+    }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showAccessibilityRequiredDialog by remember { mutableStateOf(false) }
+    var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
+    var showHowToUseDialog by remember {
+        mutableStateOf(!prefs.getBoolean("has_completed_onboarding", false))
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
     }
 
+    val hasReadingApp = !designatedReadingApp.isNullOrBlank()
     val selectedReadingAppLabel = remember(designatedReadingApp, installedApps) {
-        installedApps.find { it.packageName == designatedReadingApp }?.label ?: "None Selected"
+        if (designatedReadingApp.isNullOrBlank()) {
+            "None Selected"
+        } else {
+            installedApps.find { it.packageName == designatedReadingApp }?.label ?: designatedReadingApp!!
+        }
     }
 
     Column(
@@ -409,7 +432,7 @@ fun TimerSetupScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 20.dp)
+                    .padding(bottom = 16.dp)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_app_icon),
@@ -428,6 +451,27 @@ fun TimerSetupScreen(
                     fontWeight = FontWeight.Black
                 )
                 Spacer(modifier = Modifier.weight(1f))
+
+                // How to Use Guide button in top bar
+                IconButton(
+                    onClick = { showHowToUseDialog = true },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                        .testTag("how_to_use_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "How to use guide",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
                 IconButton(
                     onClick = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
@@ -444,6 +488,12 @@ fun TimerSetupScreen(
                     )
                 }
             }
+
+            // Quick How To Use Guide Banner Card
+            HowToUseBannerCard(
+                onOpenGuide = { showHowToUseDialog = true },
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
             Text(
                 text = "Set Reading Goal",
@@ -545,7 +595,11 @@ fun TimerSetupScreen(
 
                     Slider(
                         value = sessionMinutes.toFloat(),
-                        onValueChange = { sessionMinutes = it.toInt() },
+                        onValueChange = {
+                            val mins = it.toInt()
+                            sessionMinutes = mins
+                            prefs.edit().putInt("saved_session_minutes", mins).apply()
+                        },
                         valueRange = 5f..120f,
                         steps = 23,
                         colors = SliderDefaults.colors(
@@ -573,7 +627,10 @@ fun TimerSetupScreen(
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF3EDF7))
                                     .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else Color(0xFFE6E0E9), RoundedCornerShape(50))
-                                    .clickable { sessionMinutes = mins }
+                                    .clickable {
+                                        sessionMinutes = mins
+                                        prefs.edit().putInt("saved_session_minutes", mins).apply()
+                                    }
                                     .padding(vertical = 10.dp)
                                     .testTag("preset_${mins}_btn")
                             ) {
@@ -591,35 +648,63 @@ fun TimerSetupScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Reading App Trigger Selector
+            // Reading App Trigger Selector (Required before starting focus session)
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, Color(0xFFE6E0E9)),
+                border = BorderStroke(
+                    width = if (hasReadingApp) 1.dp else 1.5.dp,
+                    color = if (hasReadingApp) Color(0xFFE6E0E9) else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Book,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "DESIGNATED READING APP",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.labelMedium
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Book,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "DESIGNATED READING APP",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                        if (!hasReadingApp) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "REQUIRED",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Launches your focus timer automatically upon opening the designated reading app.",
-                        color = MaterialTheme.colorScheme.secondary,
+                        text = if (hasReadingApp) {
+                            "Required for focus sessions. Keeps you locked into your reading app."
+                        } else {
+                            "Select a reading app first — focus sessions cannot start without one."
+                        },
+                        color = if (hasReadingApp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -644,7 +729,7 @@ fun TimerSetupScreen(
                             modifier = Modifier.testTag("selected_reading_app_label")
                         )
                         Text(
-                            text = "CHANGE",
+                            text = if (hasReadingApp) "CHANGE" else "SELECT",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
@@ -660,8 +745,14 @@ fun TimerSetupScreen(
         // Action Start Button (Solid black high impact layout)
         Button(
             onClick = {
-                viewModel.startFocusSession(context, sessionMinutes)
-                onStartSession()
+                if (!hasReadingApp) {
+                    showReadingAppRequiredDialog = true
+                } else if (!isAccessibilityServiceEnabled(context)) {
+                    showAccessibilityRequiredDialog = true
+                } else {
+                    viewModel.startFocusSession(context, sessionMinutes)
+                    onStartSession()
+                }
             },
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.outline
@@ -719,7 +810,7 @@ fun TimerSetupScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (designatedReadingApp == null) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF3EDF7))
+                                    .background(if (!hasReadingApp) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF3EDF7))
                                     .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(12.dp))
                                     .clickable {
                                         viewModel.selectReadingApp(null)
@@ -728,7 +819,10 @@ fun TimerSetupScreen(
                                     .padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("No auto-trigger app", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                Column {
+                                    Text("None (Clear selection)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                    Text("A reading app must be selected to start a session", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
+                                }
                             }
                         }
 
@@ -776,6 +870,31 @@ fun TimerSetupScreen(
                 }
             }
         }
+    }
+
+    if (showReadingAppRequiredDialog) {
+        ReadingAppRequiredDialog(
+            onSelectReadingApp = {
+                showReadingAppRequiredDialog = false
+                showAppPicker = true
+            },
+            onDismiss = { showReadingAppRequiredDialog = false }
+        )
+    }
+
+    if (showAccessibilityRequiredDialog) {
+        AccessibilityRequiredDialog(
+            onDismiss = { showAccessibilityRequiredDialog = false }
+        )
+    }
+
+    if (showHowToUseDialog) {
+        HowToUseOnboardingDialog(
+            onDismiss = {
+                prefs.edit().putBoolean("has_completed_onboarding", true).apply()
+                showHowToUseDialog = false
+            }
+        )
     }
 }
 
@@ -2403,6 +2522,7 @@ fun SettingsScreen(
     val endHour by viewModel.scheduleEndHour.collectAsState()
 
     var accessibilityEnabled by remember { mutableStateOf(false) }
+    var showSettingsHowToUse by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         accessibilityEnabled = isAccessibilityServiceEnabled(context)
@@ -2427,6 +2547,12 @@ fun SettingsScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Quick Onboarding / How to Use Guide card
+        HowToUseBannerCard(
+            onOpenGuide = { showSettingsHowToUse = true },
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
         // Global Theme Toggle for Dark Mode Card with outline
         val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
@@ -2781,6 +2907,12 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showSettingsHowToUse) {
+        HowToUseOnboardingDialog(
+            onDismiss = { showSettingsHowToUse = false }
+        )
     }
 }
 

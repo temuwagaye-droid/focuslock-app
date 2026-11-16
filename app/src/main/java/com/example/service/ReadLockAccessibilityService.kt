@@ -103,22 +103,6 @@ class ReadLockAccessibilityService : AccessibilityService() {
                 }
                 startActivity(intent)
             }
-        } else if (!breakActive) {
-            // Auto-start session if user opens their designated reading app
-            val readingAppPkg = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
-            if (readingAppPkg != null && foregroundPackage == readingAppPkg) {
-                // Only auto-start if the reading app is newly opened (preventing aggressive auto-restart on session complete)
-                if (lastForegroundPackage != foregroundPackage) {
-                    // Auto-start for 25 minutes as a default Pomodoro style
-                    FocusSessionManager.startSession(
-                        context = applicationContext,
-                        durationMinutes = 25,
-                        readingAppPackage = readingAppPkg,
-                        isWhitelist = isWhitelistMode,
-                        blockedPkgs = blockedPkgsList
-                    )
-                }
-            }
         }
 
         lastForegroundPackage = foregroundPackage

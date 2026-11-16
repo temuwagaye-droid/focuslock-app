@@ -13,18 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +28,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.ui.FocusViewModel
 import com.example.ui.FocusViewModelFactory
+import com.example.ui.components.ConcaveNotchBottomNavigationBar
 import com.example.ui.screens.AppSelectionScreen
 import com.example.ui.screens.CoffeeBreakScreen
 import com.example.ui.screens.FocusSessionScreen
@@ -70,67 +61,10 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         // Hide bottom navigation if session or break is active to keep focus absolute
                         if (!isSessionActive && !isBreakActive) {
-                            NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier.testTag("main_navigation_bar")
-                            ) {
-                                NavigationBarItem(
-                                    selected = currentTab == DashboardTab.TIMER,
-                                    onClick = { currentTab = DashboardTab.TIMER },
-                                    icon = { Icon(Icons.Default.Timer, contentDescription = "Timer") },
-                                    label = { Text("Timer") },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.secondary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedTextColor = MaterialTheme.colorScheme.secondary,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_tab_timer")
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == DashboardTab.BLOCKLIST,
-                                    onClick = { currentTab = DashboardTab.BLOCKLIST },
-                                    icon = { Icon(Icons.Default.Block, contentDescription = "Blocklist") },
-                                    label = { Text("Blocklist") },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.secondary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedTextColor = MaterialTheme.colorScheme.secondary,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_tab_blocklist")
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == DashboardTab.STATS,
-                                    onClick = { currentTab = DashboardTab.STATS },
-                                    icon = { Icon(Icons.Default.History, contentDescription = "Stats") },
-                                    label = { Text("Stats") },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.secondary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedTextColor = MaterialTheme.colorScheme.secondary,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_tab_stats")
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == DashboardTab.SETTINGS,
-                                    onClick = { currentTab = DashboardTab.SETTINGS },
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                                    label = { Text("Settings") },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.secondary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedTextColor = MaterialTheme.colorScheme.secondary,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_tab_settings")
-                                )
-                            }
+                            ConcaveNotchBottomNavigationBar(
+                                currentTab = currentTab,
+                                onTabSelected = { currentTab = it }
+                            )
                         }
                     },
                     contentWindowInsets = WindowInsets.systemBars
