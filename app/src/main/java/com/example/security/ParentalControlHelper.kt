@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.ui.components.CircularIconBadge
 import java.security.MessageDigest
 
 object ParentalControlHelper {
@@ -83,11 +84,12 @@ fun ParentalPinDialog(
                 modifier = Modifier.padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.Lock,
                     contentDescription = "Parental Lock",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
+                    containerSize = 60.dp,
+                    iconSize = 30.dp,
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(

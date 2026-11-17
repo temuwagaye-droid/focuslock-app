@@ -225,11 +225,11 @@ fun PremiumUpgradeDialog(
 @Composable
 private fun ProFeatureRow(label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
+        CircularIconBadge(
             imageVector = Icons.Default.Check,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
+            containerSize = 22.dp,
+            iconSize = 13.dp
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -261,11 +261,14 @@ fun AccountabilityQuitDialog(
                 modifier = Modifier.padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.NotificationsActive,
                     contentDescription = "Accountability Alert",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(40.dp)
+                    containerSize = 64.dp,
+                    iconSize = 34.dp,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    iconTint = MaterialTheme.colorScheme.error,
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.error)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -356,10 +359,11 @@ fun DiagnosticsAndPrivacyDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.BugReport,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            containerSize = 34.dp,
+                            iconSize = 18.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -376,8 +380,15 @@ fun DiagnosticsAndPrivacyDialog(
                         },
                         shape = RoundedCornerShape(50)
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear logs", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Clear logs",
+                            containerSize = 22.dp,
+                            iconSize = 13.dp,
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                            iconTint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text("CLEAR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }

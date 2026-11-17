@@ -197,11 +197,13 @@ fun AccessibilityRequiredDialog(
                         .height(52.dp)
                         .testTag("enable_accessibility_from_dialog_btn")
                 ) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Security,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onError,
-                        modifier = Modifier.size(20.dp)
+                        containerSize = 26.dp,
+                        iconSize = 15.dp,
+                        containerColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.18f),
+                        iconTint = MaterialTheme.colorScheme.onError
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -323,11 +325,13 @@ fun ReadingAppRequiredDialog(
                         .height(52.dp)
                         .testTag("select_reading_app_from_dialog_btn")
                 ) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Book,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp)
+                        containerSize = 26.dp,
+                        iconSize = 15.dp,
+                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                        iconTint = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -449,11 +453,13 @@ fun BlockedAppsRequiredDialog(
                         .height(52.dp)
                         .testTag("select_blocked_apps_from_dialog_btn")
                 ) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Block,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onError,
-                        modifier = Modifier.size(20.dp)
+                        containerSize = 26.dp,
+                        iconSize = 15.dp,
+                        containerColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.18f),
+                        iconTint = MaterialTheme.colorScheme.onError
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -629,11 +635,13 @@ private fun AnimatedReaderIllustration(modifier: Modifier = Modifier) {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (isSelected) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp)
+                                containerSize = 16.dp,
+                                iconSize = 10.dp,
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                iconTint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }
@@ -1083,11 +1091,13 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = Color(0xFFFFA000),
-                    modifier = Modifier.size(14.dp)
+                    containerSize = 20.dp,
+                    iconSize = 12.dp,
+                    containerColor = Color(0xFFFFB300).copy(alpha = 0.22f),
+                    iconTint = Color(0xFFFFA000)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1219,13 +1229,15 @@ fun HowToUseOnboardingDialog(
                                     .testTag("guide_auto_toggle_btn")
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
+                                    CircularIconBadge(
                                         imageVector = if (isAutoPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                         contentDescription = if (isAutoPlaying) "Pause auto advance" else "Resume auto advance",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(11.dp)
+                                        containerSize = 16.dp,
+                                        iconSize = 10.dp,
+                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                        iconTint = MaterialTheme.colorScheme.primary
                                     )
-                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = if (isAutoPlaying) "AUTO 2S" else "PAUSED",
                                         fontSize = 9.sp,
@@ -1414,11 +1426,13 @@ fun HowToUseOnboardingDialog(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
+                                            CircularIconBadge(
                                                 imageVector = if (isAccessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Security,
                                                 contentDescription = null,
-                                                tint = statusTextTint,
-                                                modifier = Modifier.size(20.dp)
+                                                containerSize = 30.dp,
+                                                iconSize = 17.dp,
+                                                containerColor = statusTextTint.copy(alpha = 0.14f),
+                                                iconTint = statusTextTint
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
@@ -1466,11 +1480,11 @@ fun HowToUseOnboardingDialog(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.Top
                             ) {
-                                Icon(
+                                CircularIconBadge(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    containerSize = 26.dp,
+                                    iconSize = 15.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
@@ -1508,12 +1522,13 @@ fun HowToUseOnboardingDialog(
                                 .height(46.dp)
                                 .testTag("guide_prev_step_btn")
                         ) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Previous Step",
-                                modifier = Modifier.size(16.dp)
+                                containerSize = 22.dp,
+                                iconSize = 13.dp
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "BACK",
                                 fontSize = 12.sp,
@@ -1542,12 +1557,14 @@ fun HowToUseOnboardingDialog(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
+                            Spacer(modifier = Modifier.width(6.dp))
+                            CircularIconBadge(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = "Next Step",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(16.dp)
+                                containerSize = 22.dp,
+                                iconSize = 13.dp,
+                                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                iconTint = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     } else {
@@ -1559,11 +1576,13 @@ fun HowToUseOnboardingDialog(
                                 .height(46.dp)
                                 .testTag("guide_finish_btn")
                         ) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(16.dp)
+                                containerSize = 22.dp,
+                                iconSize = 13.dp,
+                                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                iconTint = MaterialTheme.colorScheme.onPrimary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -1679,13 +1698,15 @@ fun HowToUseBannerCard(
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(12.dp)
+                        containerSize = 18.dp,
+                        iconSize = 11.dp,
+                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                        iconTint = MaterialTheme.colorScheme.onPrimary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "PLAY",
                         color = MaterialTheme.colorScheme.onPrimary,

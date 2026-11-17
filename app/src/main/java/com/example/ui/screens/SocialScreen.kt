@@ -65,6 +65,7 @@ import com.example.data.remote.CloudUserProfile
 import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.RoomParticipantDto
 import com.example.ui.FocusViewModel
+import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.treeStageTitle
 import com.google.firebase.auth.FirebaseUser
 
@@ -274,11 +275,13 @@ private fun SignedInSocialContent(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            containerSize = 24.dp,
+                            iconSize = 14.dp,
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
+                            iconTint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -368,7 +371,14 @@ private fun SignedInSocialContent(
                                         .height(48.dp)
                                         .testTag("open_create_room_btn")
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    CircularIconBadge(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        containerSize = 24.dp,
+                                        iconSize = 15.dp,
+                                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                        iconTint = MaterialTheme.colorScheme.onPrimary
+                                    )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("CREATE GROUP FOCUS ROOM", fontWeight = FontWeight.Black, fontSize = 12.sp)
                                 }
@@ -516,8 +526,13 @@ private fun ActiveRoomView(
                             )
                         }
                         OutlinedButton(onClick = onShareCode, shape = RoundedCornerShape(50)) {
-                            Icon(Icons.Default.Share, contentDescription = "Share Code", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
+                            CircularIconBadge(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Code",
+                                containerSize = 22.dp,
+                                iconSize = 13.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text("INVITE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -536,8 +551,15 @@ private fun ActiveRoomView(
                                 .weight(1f)
                                 .height(48.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
+                            CircularIconBadge(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                containerSize = 24.dp,
+                                iconSize = 15.dp,
+                                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                iconTint = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (room.hostId == currentUid) "START GROUP FOCUS" else "JOIN FOCUS TIMER",
                                 color = MaterialTheme.colorScheme.onPrimary,
@@ -550,7 +572,14 @@ private fun ActiveRoomView(
                             shape = RoundedCornerShape(50),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Leave Room", modifier = Modifier.size(16.dp))
+                            CircularIconBadge(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Leave Room",
+                                containerSize = 26.dp,
+                                iconSize = 15.dp,
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                iconTint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }

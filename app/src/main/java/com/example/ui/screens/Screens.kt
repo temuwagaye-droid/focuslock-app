@@ -77,7 +77,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.text.style.TextDecoration
 import com.example.audio.AmbientSoundPlayer
 import com.example.audio.AmbientSoundType
@@ -85,6 +85,7 @@ import com.example.data.model.TodoEntity
 import com.example.security.ParentalPinDialog
 import com.example.ui.components.AccessibilityRequiredDialog
 import com.example.ui.components.BlockedAppsRequiredDialog
+import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.FocusForestRewardCard
 import com.example.ui.components.HowToUseOnboardingDialog
 import com.example.ui.components.HowToUseBannerCard
@@ -273,13 +274,13 @@ fun AppSelectionScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Block,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 28.dp,
+                            iconSize = 16.dp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "WHITELIST MODE",
                             color = MaterialTheme.colorScheme.onBackground,
@@ -317,10 +318,13 @@ fun AppSelectionScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 leadingIcon = {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary
+                        containerSize = 32.dp,
+                        iconSize = 18.dp,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        iconTint = MaterialTheme.colorScheme.secondary
                     )
                 },
                 placeholder = { Text("Search apps...", color = MaterialTheme.colorScheme.secondary) },
@@ -405,11 +409,12 @@ fun AppSelectionScreen(
                     .padding(24.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp)
+                        containerSize = 84.dp,
+                        iconSize = 44.dp,
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
@@ -560,8 +565,8 @@ fun TimerSetupScreen(
                     contentDescription = "FocusLock Logo",
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
+                        .clip(CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
                     contentScale = ContentScale.Crop
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -669,11 +674,14 @@ fun TimerSetupScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Error,
                                 contentDescription = "Warning",
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(24.dp)
+                                containerSize = 36.dp,
+                                iconSize = 20.dp,
+                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+                                iconTint = MaterialTheme.colorScheme.onErrorContainer,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
@@ -812,13 +820,13 @@ fun TimerSetupScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Book,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                containerSize = 30.dp,
+                                iconSize = 16.dp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "DESIGNATED READING APP",
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -913,13 +921,15 @@ fun TimerSetupScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Block,
                                 contentDescription = null,
-                                tint = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
+                                containerSize = 30.dp,
+                                iconSize = 16.dp,
+                                containerColor = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                                iconTint = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "DISTRACTION BLOCKING",
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -1004,13 +1014,13 @@ fun TimerSetupScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.MusicNote,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 30.dp,
+                            iconSize = 16.dp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "AMBIENT & WHITE NOISE SOUND",
                             color = MaterialTheme.colorScheme.onBackground,
@@ -1070,10 +1080,13 @@ fun TimerSetupScreen(
                 .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
                 .testTag("start_session_button")
         ) {
-            Icon(
+            CircularIconBadge(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.background
+                containerSize = 28.dp,
+                iconSize = 17.dp,
+                containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.18f),
+                iconTint = MaterialTheme.colorScheme.background
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -1169,10 +1182,13 @@ fun TimerSetupScreen(
                                     )
                                 }
                                 if (isSelected) {
-                                    Icon(
+                                    CircularIconBadge(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
+                                        containerSize = 30.dp,
+                                        iconSize = 18.dp,
+                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        iconTint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -1350,13 +1366,15 @@ fun FocusSessionScreen(
                     .border(1.dp, streakBorder, RoundedCornerShape(50))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = streakText,
-                    modifier = Modifier.size(16.dp)
+                    containerSize = 22.dp,
+                    iconSize = 13.dp,
+                    containerColor = streakText.copy(alpha = 0.14f),
+                    iconTint = streakText
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "${stats.currentStreak} DAY STREAK 🔥",
                     color = streakText,
@@ -1375,13 +1393,15 @@ fun FocusSessionScreen(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .testTag("live_blocked_attempts_badge")
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.Block,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.size(16.dp)
+                    containerSize = 22.dp,
+                    iconSize = 13.dp,
+                    containerColor = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.14f),
+                    iconTint = MaterialTheme.colorScheme.onErrorContainer
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "ATTEMPTS BLOCKED: $blockedAttempts",
                     color = MaterialTheme.colorScheme.onErrorContainer,
@@ -1399,11 +1419,13 @@ fun FocusSessionScreen(
                     .background(MaterialTheme.colorScheme.primaryContainer)
                     .padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.DoNotDisturbOn,
                     contentDescription = "DND Active",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
+                    containerSize = 22.dp,
+                    iconSize = 13.dp,
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    iconTint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1483,13 +1505,13 @@ fun FocusSessionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.VolumeUp,
+                        CircularIconBadge(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Ambient Sound",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 30.dp,
+                            iconSize = 16.dp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isAudioPlaying) "SOUND: ${AmbientSoundType.fromId(selectedSoundId).displayName}" else "AMBIENT SOUND: OFF",
                             style = MaterialTheme.typography.labelMedium,
@@ -1615,7 +1637,14 @@ fun FocusSessionScreen(
                 .height(48.dp)
                 .testTag("end_session_early_button")
         ) {
-            Icon(Icons.Default.Stop, contentDescription = "End Session Early", modifier = Modifier.size(18.dp))
+            CircularIconBadge(
+                imageVector = Icons.Default.Stop,
+                contentDescription = "End Session Early",
+                containerSize = 26.dp,
+                iconSize = 15.dp,
+                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
+                iconTint = MaterialTheme.colorScheme.error
+            )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = if (isParentalLockEnabled) "END EARLY (PIN REQUIRED)" else "END SESSION EARLY",
@@ -2415,13 +2444,15 @@ fun HistoryStatsScreen(
                                 .background(MaterialTheme.colorScheme.primaryContainer)
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(14.dp)
+                                containerSize = 20.dp,
+                                iconSize = 12.dp,
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "LEVEL ${(stats.focusScore / 200) + 1}",
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -2484,10 +2515,13 @@ fun HistoryStatsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                Icon(
+                                CircularIconBadge(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = "Share Progress",
-                                    modifier = Modifier.size(18.dp)
+                                    containerSize = 26.dp,
+                                    iconSize = 14.dp,
+                                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                                    iconTint = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -2527,10 +2561,13 @@ fun HistoryStatsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                Icon(
+                                CircularIconBadge(
                                     imageVector = Icons.Default.ContentCopy,
                                     contentDescription = "Copy to Clipboard",
-                                    modifier = Modifier.size(18.dp)
+                                    containerSize = 26.dp,
+                                    iconSize = 14.dp,
+                                    containerColor = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.18f),
+                                    iconTint = MaterialTheme.colorScheme.onSecondary
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -2563,10 +2600,13 @@ fun HistoryStatsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Book,
                                 contentDescription = "Export to PDF",
-                                modifier = Modifier.size(18.dp)
+                                containerSize = 26.dp,
+                                iconSize = 14.dp,
+                                containerColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.18f),
+                                iconTint = MaterialTheme.colorScheme.onTertiary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -2690,12 +2730,15 @@ fun HistoryStatsScreen(
                         .height(52.dp)
                         .testTag("todo_add_button")
                 ) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Add Task",
-                        modifier = Modifier.size(20.dp)
+                        containerSize = 26.dp,
+                        iconSize = 16.dp,
+                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                        iconTint = MaterialTheme.colorScheme.onPrimary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("ADD", fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
             }
@@ -2855,11 +2898,13 @@ fun HistoryStatsScreen(
                                 .size(48.dp)
                                 .testTag("todo_delete_button_${todo.id}")
                         ) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete Task",
-                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                modifier = Modifier.size(20.dp)
+                                containerSize = 32.dp,
+                                iconSize = 17.dp,
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                iconTint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -2891,11 +2936,14 @@ fun HistoryStatsScreen(
                         .padding(32.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.History,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(48.dp)
+                            containerSize = 72.dp,
+                            iconSize = 36.dp,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -2959,11 +3007,14 @@ fun HistoryStatsScreen(
 
                     val statusIcon = if (log.isCompleted) Icons.Default.CheckCircle else Icons.Default.Error
                     val statusColor = if (log.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
-                    Icon(
+                    CircularIconBadge(
                         imageVector = statusIcon,
                         contentDescription = null,
-                        tint = statusColor,
-                        modifier = Modifier.size(24.dp)
+                        containerSize = 36.dp,
+                        iconSize = 20.dp,
+                        containerColor = statusColor.copy(alpha = 0.14f),
+                        iconTint = statusColor,
+                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.35f))
                     )
                 }
             }
@@ -3350,13 +3401,13 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Timer,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                containerSize = 30.dp,
+                                iconSize = 16.dp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "DAILY FOCUS WINDOW",
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -3451,13 +3502,16 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.Default.Settings,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(16.dp)
+                        containerSize = 30.dp,
+                        iconSize = 16.dp,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Play Store Policy Compliance",
                         color = MaterialTheme.colorScheme.onBackground,

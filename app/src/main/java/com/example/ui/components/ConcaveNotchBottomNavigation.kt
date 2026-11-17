@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -88,11 +89,10 @@ fun ConcaveNotchBottomNavigationBar(
 
     val isDark = LocalDarkTheme.current
     val barSurfaceColor = if (isDark) MaterialTheme.colorScheme.surface else BoldSurfaceWhite
-    val cradleAccentColor = if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
-    val hairlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    val hairlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
     val inactiveIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f)
     val activeCircleBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
-    val activeIconTint = if (isDark) MaterialTheme.colorScheme.primary else BoldTextPrimary
+    val activeIconTint = if (isDark) MaterialTheme.colorScheme.onSurface else BoldTextPrimary
 
     var circleBounced by remember { mutableStateOf(false) }
     LaunchedEffect(currentTab) {
@@ -163,24 +163,6 @@ fun ConcaveNotchBottomNavigationBar(
                     val x = animatedCenterX
                     val y0 = barTopYPx
 
-                    val cradlePath = Path().apply {
-                        moveTo(x - w, 0f)
-                        lineTo(x - w, y0)
-                        cubicTo(
-                            x1 = x - w * 0.52f, y1 = y0,
-                            x2 = x - w * 0.44f, y2 = y0 + d,
-                            x3 = x, y3 = y0 + d
-                        )
-                        cubicTo(
-                            x1 = x + w * 0.44f, y1 = y0 + d,
-                            x2 = x + w * 0.52f, y2 = y0,
-                            x3 = x + w, y3 = y0
-                        )
-                        lineTo(x + w, 0f)
-                        close()
-                    }
-                    drawPath(path = cradlePath, color = cradleAccentColor)
-
                     val barPath = Path().apply {
                         moveTo(0f, y0)
                         lineTo(x - w, y0)
@@ -201,22 +183,26 @@ fun ConcaveNotchBottomNavigationBar(
                     }
                     drawPath(path = barPath, color = barSurfaceColor)
 
-                    if (x - w > 0f) {
-                        drawLine(
-                            color = hairlineColor,
-                            start = Offset(0f, y0),
-                            end = Offset(x - w, y0),
-                            strokeWidth = 1f
+                    val topEdgePath = Path().apply {
+                        moveTo(0f, y0)
+                        lineTo(x - w, y0)
+                        cubicTo(
+                            x1 = x - w * 0.52f, y1 = y0,
+                            x2 = x - w * 0.44f, y2 = y0 + d,
+                            x3 = x, y3 = y0 + d
                         )
-                    }
-                    if (x + w < size.width) {
-                        drawLine(
-                            color = hairlineColor,
-                            start = Offset(x + w, y0),
-                            end = Offset(size.width, y0),
-                            strokeWidth = 1f
+                        cubicTo(
+                            x1 = x + w * 0.44f, y1 = y0 + d,
+                            x2 = x + w * 0.52f, y2 = y0,
+                            x3 = x + w, y3 = y0
                         )
+                        lineTo(size.width, y0)
                     }
+                    drawPath(
+                        path = topEdgePath,
+                        color = hairlineColor,
+                        style = Stroke(width = 1.dp.toPx())
+                    )
                 }
 
                 Row(

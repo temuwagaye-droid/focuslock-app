@@ -66,6 +66,7 @@ import androidx.core.content.ContextCompat
 import com.example.notifications.NotificationHelper
 import com.example.security.ParentalPinDialog
 import com.example.ui.FocusViewModel
+import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.widget.ShortcutHelper
@@ -139,7 +140,12 @@ fun SettingsAdvancedSections(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    CircularIconBadge(
+                        imageVector = Icons.Default.WorkspacePremium,
+                        contentDescription = null,
+                        containerSize = 36.dp,
+                        iconSize = 20.dp
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
@@ -176,7 +182,12 @@ fun SettingsAdvancedSections(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CloudSync, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                CircularIconBadge(
+                    imageVector = Icons.Default.CloudSync,
+                    contentDescription = null,
+                    containerSize = 32.dp,
+                    iconSize = 18.dp
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "PROFILE & CLOUD SYNC",
@@ -261,7 +272,12 @@ fun SettingsAdvancedSections(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.DoNotDisturbOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    CircularIconBadge(
+                        imageVector = Icons.Default.DoNotDisturbOn,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
@@ -321,7 +337,12 @@ fun SettingsAdvancedSections(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    CircularIconBadge(
+                        imageVector = Icons.Default.PersonAdd,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
@@ -406,7 +427,12 @@ fun SettingsAdvancedSections(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
@@ -463,7 +489,12 @@ fun SettingsAdvancedSections(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
@@ -521,7 +552,12 @@ fun SettingsAdvancedSections(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Widgets, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                CircularIconBadge(
+                    imageVector = Icons.Default.Widgets,
+                    contentDescription = null,
+                    containerSize = 32.dp,
+                    iconSize = 18.dp
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "WIDGETS & QUICK SHORTCUTS",
@@ -564,7 +600,12 @@ fun SettingsAdvancedSections(
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PrivacyTip, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                CircularIconBadge(
+                    imageVector = Icons.Default.PrivacyTip,
+                    contentDescription = null,
+                    containerSize = 32.dp,
+                    iconSize = 18.dp
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "PRIVACY, ANALYTICS & CRASHES",

@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.service.FocusSessionManager
+import com.example.ui.components.CircularIconBadge
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.Job
@@ -288,13 +289,15 @@ fun BlockScreenContent(
                     .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
                     .testTag("return_to_reading_button")
             ) {
-                Icon(
+                CircularIconBadge(
                     imageVector = Icons.Default.Book,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.size(20.dp)
+                    containerSize = 28.dp,
+                    iconSize = 16.dp,
+                    containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.18f),
+                    iconTint = MaterialTheme.colorScheme.background
                 )
-                Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "BACK TO READING APP",
                     color = MaterialTheme.colorScheme.background,
