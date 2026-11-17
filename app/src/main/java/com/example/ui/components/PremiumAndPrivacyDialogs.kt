@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -365,10 +366,13 @@ fun DiagnosticsAndPrivacyDialog(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         CircularIconBadge(
                             imageVector = Icons.Default.BugReport,
                             contentDescription = null,
@@ -380,7 +384,8 @@ fun DiagnosticsAndPrivacyDialog(
                             text = "Analytics & Crash Logs",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2
                         )
                     }
                     Button(
@@ -390,7 +395,11 @@ fun DiagnosticsAndPrivacyDialog(
                         },
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
-                        shape = RoundedCornerShape(50)
+                        shape = RoundedCornerShape(50),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .heightIn(min = 40.dp)
+                            .testTag("clear_diagnostics_logs_button")
                     ) {
                         CircularIconBadge(
                             imageVector = Icons.Default.Delete,
@@ -402,7 +411,14 @@ fun DiagnosticsAndPrivacyDialog(
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("CLEAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "CLEAR",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
 

@@ -10,10 +10,18 @@ import com.example.ui.BlockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class ReadLockAccessibilityService : AccessibilityService() {
+
+    companion object {
+        private val _isServiceConnected = MutableStateFlow(false)
+        val isServiceConnected: StateFlow<Boolean> = _isServiceConnected.asStateFlow()
+    }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private lateinit var repository: FocusRepository
@@ -121,11 +129,22 @@ class ReadLockAccessibilityService : AccessibilityService() {
         return false
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        _isServiceConnected.value = true
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        _isServiceConnected.value = false
+        return super.onUnbind(intent)
+    }
+
     override fun onInterrupt() {
         // Required method implementation
     }
 
     override fun onDestroy() {
+        _isServiceConnected.value = false
         serviceScope.cancel()
         super.onDestroy()
     }

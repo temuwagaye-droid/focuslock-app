@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.content.ClipData
@@ -12,7 +13,10 @@ import java.io.FileOutputStream
 import androidx.core.content.FileProvider
 import com.example.ui.FocusStatsSummary
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -31,8 +35,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -48,6 +54,7 @@ import com.example.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -60,10 +67,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckCircle
@@ -73,6 +82,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -90,12 +100,18 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.audio.AmbientSoundPlayer
 import com.example.audio.AmbientSoundType
 import com.example.data.model.TodoEntity
 import com.example.security.ParentalPinDialog
 import com.example.ui.components.AccessibilityRequiredDialog
+import com.example.ui.components.AppLauncherIcon
 import com.example.ui.components.BlockedAppsRequiredDialog
+import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.FocusForestRewardCard
 import com.example.ui.components.PremiumUpgradeDialog
@@ -156,9 +172,40 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// Utility to check accessibility permission safely
+private const val KEY_ACCESSIBILITY_ENABLED_ONCE = "accessibility_enabled_once"
+
+fun hasAccessibilityBeenEnabledOnce(context: Context): Boolean {
+    return context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE)
+        .getBoolean(KEY_ACCESSIBILITY_ENABLED_ONCE, false)
+}
+
+fun markAccessibilityEnabledOnce(context: Context) {
+    context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_ACCESSIBILITY_ENABLED_ONCE, true)
+        .apply()
+}
+
+// Utility to check accessibility permission reliably (live binder, AccessibilityManager, and Settings.Secure)
 fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    if (ReadLockAccessibilityService.isServiceConnected.value) {
+        markAccessibilityEnabledOnce(context)
+        return true
+    }
     return try {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+        val activeViaManager = am?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            ?.any { info ->
+                val serviceInfo = info.resolveInfo?.serviceInfo
+                (serviceInfo?.packageName == context.packageName &&
+                    serviceInfo.name == ReadLockAccessibilityService::class.java.name) ||
+                    info.id.orEmpty().contains("ReadLockAccessibilityService")
+            } == true
+        if (activeViaManager) {
+            markAccessibilityEnabledOnce(context)
+            return true
+        }
+
         val serviceClass = ReadLockAccessibilityService::class.java
         val expectedComponentName = android.content.ComponentName(context, serviceClass)
         val enabledServicesSetting = Settings.Secure.getString(
@@ -172,7 +219,10 @@ fun isAccessibilityServiceEnabled(context: Context): Boolean {
         while (colonSplitter.hasNext()) {
             val componentNameString = colonSplitter.next()
             val enabledService = android.content.ComponentName.unflattenFromString(componentNameString)
-            if (enabledService != null && enabledService == expectedComponentName) {
+            if ((enabledService != null && enabledService == expectedComponentName) ||
+                componentNameString.contains("ReadLockAccessibilityService")
+            ) {
+                markAccessibilityEnabledOnce(context)
                 return true
             }
         }
@@ -185,6 +235,7 @@ fun isAccessibilityServiceEnabled(context: Context): Boolean {
 @Composable
 fun AppSelectionScreen(
     viewModel: FocusViewModel,
+    onNavigateToTimer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -220,7 +271,10 @@ fun AppSelectionScreen(
         if (searchQuery.isBlank()) {
             installedApps
         } else {
-            installedApps.filter { it.label.contains(searchQuery, ignoreCase = true) }
+            installedApps.filter {
+                it.label.contains(searchQuery, ignoreCase = true) ||
+                    it.packageName.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -266,142 +320,182 @@ fun AppSelectionScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Whitelist Toggle Card (Chunky high-contrast outline)
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        // Whitelist Toggle Card (Gated behind Pro tier)
+        CinematicCardEntrance(index = 0) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Block,
-                            contentDescription = null,
-                            containerSize = 28.dp,
-                            iconSize = 16.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = null,
+                                containerSize = 28.dp,
+                                iconSize = 16.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "WHITELIST MODE",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            if (!isProTier) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.Black)
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "PRO",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "WHITELIST MODE",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.labelMedium
+                            text = if (isProTier) {
+                                "Blocks all applications except your designated reading app during focus."
+                            } else {
+                                "Pro Feature: Auto-blocks every app except your designated reading app."
+                            },
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Blocks all applications except your designated reading app during focus.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodyMedium
+                    Switch(
+                        checked = isProTier && isWhitelistMode,
+                        onCheckedChange = { enabled ->
+                            if (!isProTier) {
+                                // Free tier cannot enable Whitelist Mode; open Pro upgrade prompt
+                                viewModel.toggleWhitelistMode(true)
+                            } else {
+                                runWithParentalCheck { viewModel.toggleWhitelistMode(enabled) }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("whitelist_mode_switch")
                     )
                 }
-                Switch(
-                    checked = isWhitelistMode,
-                    onCheckedChange = { enabled ->
-                        runWithParentalCheck { viewModel.toggleWhitelistMode(enabled) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier.testTag("whitelist_mode_switch")
-                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (!isWhitelistMode) {
-            // High contrast Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                leadingIcon = {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                },
-                placeholder = { Text("Search apps...", color = MaterialTheme.colorScheme.secondary) },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.outline,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("app_search_input")
-            )
+        if (!(isProTier && isWhitelistMode)) {
+            CinematicCardEntrance(index = 1) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    leadingIcon = {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
+                        )
+                    },
+                    placeholder = { Text("Search apps...", color = MaterialTheme.colorScheme.secondary) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("app_search_input")
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Apps list styled in clean items with thin borders
+            // Apps list styled with Launcher Icon + App Label
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(filteredApps, key = { it.packageName }) { app ->
+                itemsIndexed(filteredApps, key = { _, app -> app.packageName }) { index, app ->
                     val isChecked = blockedPackagesSet.contains(app.packageName)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                            .clickable {
-                                runWithParentalCheck {
-                                    viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
+                    CinematicCardEntrance(index = index.coerceAtMost(5)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                                .clickable {
+                                    runWithParentalCheck {
+                                        viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
+                                    }
                                 }
-                            }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = app.label,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            AppLauncherIcon(
+                                packageName = app.packageName,
+                                contentDescription = "${app.label} launcher icon",
+                                size = 40.dp
                             )
-                            Text(
-                                text = app.packageName,
-                                color = MaterialTheme.colorScheme.secondary,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = app.label,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = app.packageName,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { want ->
+                                    runWithParentalCheck {
+                                        viewModel.toggleAppBlock(app.packageName, app.label, want)
+                                    }
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary,
+                                    checkmarkColor = MaterialTheme.colorScheme.background
+                                ),
+                                modifier = Modifier.testTag("app_checkbox_${app.packageName}")
                             )
                         }
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { want ->
-                                runWithParentalCheck {
-                                    viewModel.toggleAppBlock(app.packageName, app.label, want)
-                                }
-                            },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary,
-                                checkmarkColor = MaterialTheme.colorScheme.background
-                            ),
-                            modifier = Modifier.testTag("app_checkbox_${app.packageName}")
-                        )
                     }
                 }
             }
@@ -442,6 +536,37 @@ fun AppSelectionScreen(
                 }
             }
         }
+
+        if (onNavigateToTimer != null && (blockedPackagesSet.isNotEmpty() || (isProTier && isWhitelistMode))) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onNavigateToTimer,
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("apps_go_to_timer_button")
+            ) {
+                CircularIconBadge(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    containerSize = 24.dp,
+                    iconSize = 14.dp,
+                    containerColor = Color.Black,
+                    iconTint = Color.White,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "READY? GO TO FOCUS TIMER",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp
+                )
+            }
+        }
     }
 
     pendingParentalAction?.let { action ->
@@ -473,11 +598,15 @@ fun TimerSetupScreen(
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
     onNavigateToBlocklist: () -> Unit = {},
+    onNavigateToReadingAppPicker: (() -> Unit)? = null,
+    onNavigateToStats: () -> Unit = {},
+    onNavigateToRooms: () -> Unit = {},
     autoStartFromShortcut: Boolean = false,
     onAutoStartConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val installedApps by viewModel.installedApps.collectAsState()
     val designatedReadingApp by viewModel.designatedReadingApp.collectAsState()
     val blockedAppsList by viewModel.blockedAppsList.collectAsState()
@@ -489,8 +618,8 @@ fun TimerSetupScreen(
     val showProLimitPrompt by viewModel.showProLimitPrompt.collectAsState()
     val isParentalLockEnabled by viewModel.isParentalLockEnabled.collectAsState()
     val parentalPinHash by viewModel.parentalPinHash.collectAsState()
+    val serviceConnected by ReadLockAccessibilityService.isServiceConnected.collectAsState()
 
-    // Store custom session minutes and onboarding status in SharedPreferences (defaults to 15m or last chosen, never forces 25m)
     val prefs = remember { context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE) }
     var sessionMinutes by remember {
         mutableIntStateOf(prefs.getInt("saved_session_minutes", 15))
@@ -501,13 +630,42 @@ fun TimerSetupScreen(
     var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
     var showParentalPinForReader by remember { mutableStateOf(false) }
 
+    var accessibilityReady by remember {
+        mutableStateOf(isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context))
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
+        if (isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)) {
+            accessibilityReady = true
+        }
+    }
+
+    LaunchedEffect(serviceConnected) {
+        if (serviceConnected) {
+            markAccessibilityEnabledOnce(context)
+            accessibilityReady = true
+            showAccessibilityRequiredDialog = false
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val enabledNow = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+                accessibilityReady = enabledNow
+                if (enabledNow) {
+                    showAccessibilityRequiredDialog = false
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val hasReadingApp = !designatedReadingApp.isNullOrBlank()
     val blockedAppsCount = remember(blockedAppsList) { blockedAppsList.count { it.isBlocked } }
-    val hasBlockedAppsConfig = isWhitelistMode || blockedAppsCount > 0
+    val hasBlockedAppsConfig = (isProTier && isWhitelistMode) || blockedAppsCount > 0
     val selectedReadingAppLabel = remember(designatedReadingApp, installedApps) {
         if (designatedReadingApp.isNullOrBlank()) {
             "None Selected"
@@ -516,12 +674,29 @@ fun TimerSetupScreen(
         }
     }
 
+    fun updateSessionMinutes(newMins: Int) {
+        val clamped = newMins.coerceIn(5, 120)
+        sessionMinutes = clamped
+        prefs.edit().putInt("saved_session_minutes", clamped).apply()
+    }
+
+    fun openReadingAppChooser() {
+        if (onNavigateToReadingAppPicker != null) {
+            onNavigateToReadingAppPicker()
+        } else {
+            showAppPicker = true
+        }
+    }
+
     fun tryStartFocusSession() {
+        val canProceedAccessibility = isAccessibilityServiceEnabled(context) ||
+            hasAccessibilityBeenEnabledOnce(context) ||
+            accessibilityReady
         if (!hasReadingApp) {
             showReadingAppRequiredDialog = true
         } else if (!hasBlockedAppsConfig) {
             showBlockedAppsRequiredDialog = true
-        } else if (!isAccessibilityServiceEnabled(context)) {
+        } else if (!canProceedAccessibility) {
             showAccessibilityRequiredDialog = true
         } else {
             viewModel.startFocusSession(context, sessionMinutes)
@@ -540,7 +715,7 @@ fun TimerSetupScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
@@ -548,76 +723,36 @@ fun TimerSetupScreen(
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_app_icon),
-                    contentDescription = "FocusLock Logo",
+            // Quick Summary Strip: Focus Minutes, Distractions Blocked, Virtual Tree Stage (taps open Stats)
+            val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
+            CinematicCardEntrance(index = 0) {
+                Row(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = "FocusLock",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(modifier = Modifier.weight(1f))
-
-                val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
-                IconButton(
-                    onClick = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black)
-                        .border(
-                            1.dp,
-                            if (isDarkModeEnabled) Color.White.copy(alpha = 0.24f) else MaterialTheme.colorScheme.outlineVariant,
-                            CircleShape
-                        )
-                        .testTag("quick_theme_toggle")
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                        contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                    TimerQuickStatPill(
+                        label = "FOCUS",
+                        value = "${stats.totalFocusMinutes}m",
+                        onClick = onNavigateToStats,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TimerQuickStatPill(
+                        label = "BLOCKED",
+                        value = "🛡️ ${stats.totalBlockedAttempts}",
+                        onClick = onNavigateToStats,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("timer_blocked_attempts_pill")
+                    )
+                    TimerQuickStatPill(
+                        label = "TREE",
+                        value = "🌳 Stg $treeStage",
+                        onClick = onNavigateToStats,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-            }
-
-            // Quick Summary Strip: Focus Minutes, Distractions Blocked, Virtual Tree Stage
-            val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TimerQuickStatPill(
-                    label = "FOCUS",
-                    value = "${stats.totalFocusMinutes}m",
-                    modifier = Modifier.weight(1f)
-                )
-                TimerQuickStatPill(
-                    label = "BLOCKED",
-                    value = "🛡️ ${stats.totalBlockedAttempts}",
-                    modifier = Modifier.weight(1f).testTag("timer_blocked_attempts_pill")
-                )
-                TimerQuickStatPill(
-                    label = "TREE",
-                    value = "🌳 Stg $treeStage",
-                    modifier = Modifier.weight(1f)
-                )
             }
 
             Text(
@@ -632,281 +767,374 @@ fun TimerSetupScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Duration Slider Card with High Contrast Outline
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "SESSION DURATION",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "$sessionMinutes Minutes",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Slider(
-                        value = sessionMinutes.toFloat(),
-                        onValueChange = {
-                            val mins = it.toInt()
-                            sessionMinutes = mins
-                            prefs.edit().putInt("saved_session_minutes", mins).apply()
-                        },
-                        valueRange = 5f..120f,
-                        steps = 23,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        modifier = Modifier.testTag("duration_slider")
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Preset pill rows
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        listOf(15, 25, 45, 60).forEach { mins ->
-                            val isSelected = sessionMinutes == mins
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 4.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                                    .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
-                                    .clickable {
-                                        sessionMinutes = mins
-                                        prefs.edit().putInt("saved_session_minutes", mins).apply()
-                                    }
-                                    .padding(vertical = 10.dp)
-                                    .testTag("preset_${mins}_btn")
-                            ) {
-                                Text(
-                                    text = "${mins}m",
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Reading App Trigger Selector (Required before starting focus session)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(
-                    width = if (hasReadingApp) 1.dp else 1.5.dp,
-                    color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularIconBadge(
-                                imageVector = Icons.Default.Book,
-                                contentDescription = null,
-                                containerSize = 30.dp,
-                                iconSize = 16.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+            // Stepper Slider Duration Card with High Contrast Outline
+            CinematicCardEntrance(index = 1) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "DESIGNATED READING APP",
-                                color = MaterialTheme.colorScheme.onBackground,
+                                text = "SESSION DURATION",
+                                color = MaterialTheme.colorScheme.secondary,
                                 style = MaterialTheme.typography.labelMedium
                             )
+                            Text(
+                                text = "±5m STEP",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black
+                            )
                         }
-                        if (!hasReadingApp) {
-                            Box(
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Stepper row with Minus (-) and Plus (+) increment buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val canDecrement = sessionMinutes > 5
+                            IconButton(
+                                onClick = { updateSessionMinutes(sessionMinutes - 5) },
+                                enabled = canDecrement,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(if (canDecrement) Color.Black else Color.Black.copy(alpha = 0.35f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    .testTag("duration_decrement_btn")
                             ) {
-                                Text(
-                                    text = "REQUIRED",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black
+                                Icon(
+                                    imageVector = Icons.Default.Remove,
+                                    contentDescription = "Decrease session duration by 5 minutes",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            AnimatedContent(
+                                targetState = sessionMinutes,
+                                transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
+                                label = "stepper_minutes_anim",
+                                modifier = Modifier.weight(1f)
+                            ) { mins ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "$mins",
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        style = MaterialTheme.typography.displayMedium,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.testTag("session_minutes_display")
+                                    )
+                                    Text(
+                                        text = "Minutes",
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            val canIncrement = sessionMinutes < 120
+                            IconButton(
+                                onClick = { updateSessionMinutes(sessionMinutes + 5) },
+                                enabled = canIncrement,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(if (canIncrement) Color.Black else Color.Black.copy(alpha = 0.35f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    .testTag("duration_increment_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Increase session duration by 5 minutes",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    Text(
-                        text = if (hasReadingApp) {
-                            "Required for focus sessions. Keeps you locked into your reading app."
-                        } else {
-                            "Select a reading app first — focus sessions cannot start without one."
-                        },
-                        color = if (hasReadingApp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                        Slider(
+                            value = sessionMinutes.toFloat(),
+                            onValueChange = { updateSessionMinutes(it.toInt()) },
+                            valueRange = 5f..120f,
+                            steps = 22,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier.testTag("duration_slider")
+                        )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
-                            .clickable {
-                                if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
-                                    showParentalPinForReader = true
-                                } else {
-                                    showAppPicker = true
+                        // Preset pill rows
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            listOf(15, 25, 45, 60).forEach { mins ->
+                                val isSelected = sessionMinutes == mins
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 4.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                                        .clickable { updateSessionMinutes(mins) }
+                                        .padding(vertical = 10.dp)
+                                        .testTag("preset_${mins}_btn")
+                                ) {
+                                    Text(
+                                        text = "${mins}m",
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp
+                                    )
                                 }
                             }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = selectedReadingAppLabel.uppercase(Locale.getDefault()),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            modifier = Modifier.testTag("selected_reading_app_label")
-                        )
-                        Text(
-                            text = if (hasReadingApp) "CHANGE" else "SELECT",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Blocked Apps Status Card (Required unless Whitelist Mode is enabled)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(
-                    width = if (hasBlockedAppsConfig) 1.dp else 1.5.dp,
-                    color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("blocked_apps_status_card")
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularIconBadge(
-                                imageVector = Icons.Default.Block,
-                                contentDescription = null,
-                                containerSize = 30.dp,
-                                iconSize = 16.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "DISTRACTION BLOCKING",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                        if (!hasBlockedAppsConfig) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
+            // Reading App Trigger Selector (navigates to dedicated ReadingAppSelectionScreen)
+            CinematicCardEntrance(index = 2) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(
+                        width = if (hasReadingApp) 1.dp else 1.5.dp,
+                        color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularIconBadge(
+                                    imageVector = Icons.Default.Book,
+                                    contentDescription = null,
+                                    containerSize = 30.dp,
+                                    iconSize = 16.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "REQUIRED",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black
+                                    text = "DESIGNATED READING APP",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.labelMedium
                                 )
                             }
+                            if (!hasReadingApp) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = "REQUIRED",
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (hasReadingApp) {
+                                "Required for focus sessions. Keeps you locked into your reading app."
+                            } else {
+                                "Select a reading app first — focus sessions cannot start without one."
+                            },
+                            color = if (hasReadingApp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                                .clickable {
+                                    if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                                        showParentalPinForReader = true
+                                    } else {
+                                        openReadingAppChooser()
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .testTag("open_reading_app_picker_row"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                val pkg = designatedReadingApp
+                                if (!pkg.isNullOrBlank()) {
+                                    AppLauncherIcon(
+                                        packageName = pkg,
+                                        contentDescription = selectedReadingAppLabel,
+                                        size = 30.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                }
+                                Text(
+                                    text = selectedReadingAppLabel.uppercase(Locale.getDefault()),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("selected_reading_app_label")
+                                )
+                            }
+                            Text(
+                                text = if (hasReadingApp) "CHANGE" else "SELECT",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
                         }
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = when {
-                            isWhitelistMode -> "Whitelist Mode enabled — all distracting apps will be locked automatically."
-                            blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) selected to block during your session."
-                            else -> "Select at least one app to block (or enable Whitelist Mode) before starting."
-                        },
-                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+            // Blocked Apps Status Card (connects cleanly to Apps screen)
+            CinematicCardEntrance(index = 3) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(
+                        width = if (hasBlockedAppsConfig) 1.dp else 1.5.dp,
+                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("blocked_apps_status_card")
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularIconBadge(
+                                    imageVector = Icons.Default.Block,
+                                    contentDescription = null,
+                                    containerSize = 30.dp,
+                                    iconSize = 16.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "DISTRACTION BLOCKING",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                            if (!hasBlockedAppsConfig) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = "REQUIRED",
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
-                            .clickable { onNavigateToBlocklist() }
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
-                            .testTag("configure_blocked_apps_row"),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
                         Text(
                             text = when {
-                                isWhitelistMode -> "WHITELIST MODE ACTIVE"
-                                blockedAppsCount > 0 -> "$blockedAppsCount APPS BLOCKED"
-                                else -> "NONE SELECTED"
+                                isProTier && isWhitelistMode -> "Whitelist Mode enabled — all distracting apps will be locked automatically."
+                                blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) selected to block during your session."
+                                else -> "Select at least one app to block before starting."
                             },
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp
+                            color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
                         )
-                        Text(
-                            text = if (hasBlockedAppsConfig) "EDIT" else "SELECT",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                                .clickable { onNavigateToBlocklist() }
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                .testTag("configure_blocked_apps_row"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = when {
+                                    isProTier && isWhitelistMode -> "WHITELIST MODE ACTIVE"
+                                    blockedAppsCount > 0 -> "$blockedAppsCount APPS BLOCKED"
+                                    else -> "NONE SELECTED"
+                                },
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = if (hasBlockedAppsConfig) "EDIT" else "SELECT",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
                 }
             }
@@ -914,69 +1142,107 @@ fun TimerSetupScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Ambient & White Noise Soundscape Picker Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("ambient_sound_picker_card")
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            containerSize = 30.dp,
-                            iconSize = 16.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "AMBIENT & WHITE NOISE SOUND",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AmbientSoundType.entries.forEach { sound ->
-                            val isSelected = selectedSoundId == sound.id
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                        RoundedCornerShape(50)
-                                    )
-                                    .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = false) }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                                    .testTag("ambient_chip_${sound.id}")
-                            ) {
-                                Text(
-                                    text = buildString {
-                                        append("${sound.emoji} ${sound.displayName}")
-                                        if (sound.isProOnly && !isProTier) append(" ★PRO")
-                                    },
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            CinematicCardEntrance(index = 4) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("ambient_sound_picker_card")
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularIconBadge(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    containerSize = 30.dp,
+                                    iconSize = 16.dp
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "AMBIENT & WHITE NOISE SOUND",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AmbientSoundType.entries.forEach { sound ->
+                                val isSelected = selectedSoundId == sound.id
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                            RoundedCornerShape(50)
+                                        )
+                                        .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = false) }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .testTag("ambient_chip_${sound.id}")
+                                ) {
+                                    Text(
+                                        text = buildString {
+                                            append("${sound.emoji} ${sound.displayName}")
+                                            if (sound.isProOnly && !isProTier) append(" ★PRO")
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Cross-screen link to Group Rooms
+            CinematicCardEntrance(index = 5) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
+                        .clickable { onNavigateToRooms() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .testTag("timer_to_rooms_link"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Prefer studying with friends?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "STUDY ROOMS →",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Action Start Button (Solid black button with white font)
         Button(
@@ -1008,7 +1274,7 @@ fun TimerSetupScreen(
         }
     }
 
-    // Modal Reading App Picker dialog
+    // Modal fallback Reading App Picker dialog (if screen navigation callback isn't supplied)
     if (showAppPicker) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showAppPicker = false }
@@ -1075,28 +1341,37 @@ fun TimerSetupScreen(
                                         viewModel.selectReadingApp(app.packageName)
                                         showAppPicker = false
                                     }
-                                    .padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                    .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                AppLauncherIcon(
+                                    packageName = app.packageName,
+                                    contentDescription = "${app.label} icon",
+                                    size = 38.dp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = app.label,
                                         color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = app.packageName,
                                         color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.secondary,
-                                        fontSize = 11.sp
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 if (isSelected) {
                                     CircularIconBadge(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        containerSize = 30.dp,
-                                        iconSize = 18.dp
+                                        containerSize = 28.dp,
+                                        iconSize = 16.dp
                                     )
                                 }
                             }
@@ -1127,7 +1402,7 @@ fun TimerSetupScreen(
         ReadingAppRequiredDialog(
             onSelectReadingApp = {
                 showReadingAppRequiredDialog = false
-                showAppPicker = true
+                openReadingAppChooser()
             },
             onDismiss = { showReadingAppRequiredDialog = false }
         )
@@ -1156,7 +1431,7 @@ fun TimerSetupScreen(
             storedPinHash = parentalPinHash,
             onPinConfirmed = {
                 showParentalPinForReader = false
-                showAppPicker = true
+                openReadingAppChooser()
             },
             onDismiss = { showParentalPinForReader = false }
         )
@@ -1173,10 +1448,234 @@ fun TimerSetupScreen(
     }
 }
 
+/**
+ * Dedicated child destination for picking the Designated Reading App with Launcher Icon + App Label.
+ */
+@Composable
+fun ReadingAppSelectionScreen(
+    viewModel: FocusViewModel,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+
+    val context = LocalContext.current
+    val installedApps by viewModel.installedApps.collectAsState()
+    val designatedReadingApp by viewModel.designatedReadingApp.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadInstalledLauncherApps(context)
+    }
+
+    val filteredApps = remember(installedApps, searchQuery) {
+        if (searchQuery.isBlank()) installedApps
+        else installedApps.filter {
+            it.label.contains(searchQuery, ignoreCase = true) ||
+                it.packageName.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
+    ) {
+        CinematicCardEntrance(index = 0) {
+            Column {
+                Text(
+                    text = "Designated Reading App",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = "Pick the reading or study app that remains open and allowed during your focus session.",
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        CinematicCardEntrance(index = 1) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                leadingIcon = {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
+                },
+                placeholder = { Text("Search reading apps...", color = MaterialTheme.colorScheme.secondary) },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("reading_app_search_input")
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            item {
+                val noneSelected = designatedReadingApp.isNullOrBlank()
+                CinematicCardEntrance(index = 2) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (noneSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                            .clickable {
+                                viewModel.selectReadingApp(null)
+                                onBack()
+                            }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.Book,
+                                contentDescription = null,
+                                containerSize = 40.dp,
+                                iconSize = 20.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "None (Clear selection)",
+                                    color = if (noneSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Choose an app below to start focus sessions",
+                                    color = if (noneSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.secondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        if (noneSelected) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Selected",
+                                containerSize = 28.dp,
+                                iconSize = 16.dp
+                            )
+                        }
+                    }
+                }
+            }
+
+            itemsIndexed(filteredApps, key = { _, app -> app.packageName }) { index, app ->
+                val isSelected = designatedReadingApp == app.packageName
+                CinematicCardEntrance(index = (index + 3).coerceAtMost(6)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable {
+                                viewModel.selectReadingApp(app.packageName)
+                                onBack()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                            .testTag("reading_app_option_${app.packageName}"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        AppLauncherIcon(
+                            packageName = app.packageName,
+                            contentDescription = "${app.label} launcher icon",
+                            size = 42.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = app.label,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = app.packageName,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.secondary,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (isSelected) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Selected reading app",
+                                containerSize = 30.dp,
+                                iconSize = 18.dp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = onBack,
+            colors = appBlackButtonColors(),
+            border = appBlackButtonBorder(),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .testTag("reading_app_picker_back_btn")
+        ) {
+            CircularIconBadge(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                containerSize = 24.dp,
+                iconSize = 14.dp,
+                containerColor = Color.Black,
+                iconTint = Color.White,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("BACK TO TIMER", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+        }
+    }
+}
+
 @Composable
 private fun TimerQuickStatPill(
     label: String,
     value: String,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1184,6 +1683,8 @@ private fun TimerQuickStatPill(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -1203,7 +1704,9 @@ private fun TimerQuickStatPill(
                 text = value,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
@@ -1842,6 +2345,7 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
 @Composable
 fun HistoryStatsScreen(
     viewModel: FocusViewModel,
+    onNavigateToTimer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1933,8 +2437,8 @@ fun HistoryStatsScreen(
     }
 
     var weeklyGoalMinutes by remember { mutableFloatStateOf(150f) }
-    var isWeeklyProgressExpanded by remember { mutableStateOf(true) }
-    var isFocusMetricExpanded by remember { mutableStateOf(true) }
+    var isWeeklyProgressExpanded by remember { mutableStateOf(false) }
+    var isFocusMetricExpanded by remember { mutableStateOf(false) }
     val goalProgress = (totalWeeklyMinutes / weeklyGoalMinutes).coerceIn(0f, 1f)
 
     val animatedGoalProgress by animateFloatAsState(
@@ -1992,20 +2496,23 @@ fun HistoryStatsScreen(
 
         // 1.5 Virtual Focus Tree Reward Card
         item {
-            FocusForestRewardCard(stats = stats)
+            CinematicCardEntrance(index = 0) {
+                FocusForestRewardCard(stats = stats)
+            }
         }
 
         // 2. Weekly Reading Progress Dashboard Card (Custom 7-day bar chart)
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                    .testTag("weekly_progress_dashboard_card")
-            ) {
+            CinematicCardEntrance(index = 1) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                        .testTag("weekly_progress_dashboard_card")
+                ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier
@@ -2219,6 +2726,7 @@ fun HistoryStatsScreen(
                     }
                 }
             }
+            }
         }
 
         // 3. Side-by-side Quick metrics
@@ -2234,81 +2742,90 @@ fun HistoryStatsScreen(
             val minutesLabelColor = if (isDark) Color(0xFF80CBC4) else Color(0xFF004D40)
             val minutesValueColor = if (isDark) Color(0xFFB2DFDB) else Color(0xFF00695C)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = streakCardBg),
-                    border = BorderStroke(1.dp, streakCardBorder),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(96.dp)
+            CinematicCardEntrance(index = 2) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = streakCardBg),
+                        border = BorderStroke(1.dp, streakCardBorder),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 100.dp)
                     ) {
-                        Text(
-                            text = "STREAK",
-                            color = streakLabelColor,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "🔥",
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier
-                                    .scale(flameScale)
-                                    .alpha(flameAlpha)
+                                text = "STREAK",
+                                color = streakLabelColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelSmall,
+                                letterSpacing = 1.sp
                             )
-                            Text(
-                                text = "${stats.currentStreak} Days",
-                                color = streakValueColor,
-                                fontWeight = FontWeight.Black,
-                                style = MaterialTheme.typography.titleLarge
-                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "🔥",
+                                    fontSize = 18.sp,
+                                    modifier = Modifier
+                                        .scale(flameScale)
+                                        .alpha(flameAlpha)
+                                )
+                                Text(
+                                    text = "${stats.currentStreak} Days",
+                                    color = streakValueColor,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 18.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("stats_streak_days_text")
+                                )
+                            }
                         }
                     }
-                }
 
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = minutesCardBg),
-                    border = BorderStroke(1.dp, minutesCardBorder),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(96.dp)
-                ) {
-                    Column(
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = minutesCardBg),
+                        border = BorderStroke(1.dp, minutesCardBorder),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 100.dp)
                     ) {
-                        Text(
-                            text = "TOTAL MINUTES",
-                            color = minutesLabelColor,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "⏱️ ${stats.totalFocusMinutes} Min",
-                            color = minutesValueColor,
-                            fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "TOTAL MINUTES",
+                                color = minutesLabelColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelSmall,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "⏱️ ${stats.totalFocusMinutes} Min",
+                                color = minutesValueColor,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -2316,58 +2833,61 @@ fun HistoryStatsScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Distraction Attempts Counter Metric Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("stats_distraction_attempts_card")
-            ) {
-                Row(
+            CinematicCardEntrance(index = 3) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .testTag("stats_distraction_attempts_card")
                 ) {
-                    Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "DISTRACTION ATTEMPTS BLOCKED",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelSmall,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Times FocusLock intercepted blocked apps across your sessions.",
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                         Text(
-                            text = "DISTRACTION ATTEMPTS BLOCKED",
+                            text = "🛡️ ${stats.totalBlockedAttempts}",
                             color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Times FocusLock intercepted blocked apps across your sessions.",
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodySmall
+                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.headlineSmall
                         )
                     }
-                    Text(
-                        text = "🛡️ ${stats.totalBlockedAttempts}",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.headlineSmall
-                    )
                 }
             }
         }
 
         // 4. Large high-contrast gamified score level card
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                    .testTag("focus_metric_score_card")
-            ) {
+            CinematicCardEntrance(index = 4) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                        .testTag("focus_metric_score_card")
+                ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier
@@ -2603,6 +3123,7 @@ fun HistoryStatsScreen(
                     }
                         }
                     }
+                }
                 }
             }
         }
@@ -2946,6 +3467,18 @@ fun HistoryStatsScreen(
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center
                         )
+                        if (onNavigateToTimer != null) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = onNavigateToTimer,
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.testTag("stats_start_first_session_btn")
+                            ) {
+                                Text("START A FOCUS SESSION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
                     }
                 }
             }
@@ -3162,14 +3695,35 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isScheduleEnabled by viewModel.isScheduleEnabled.collectAsState()
     val startHour by viewModel.scheduleStartHour.collectAsState()
     val endHour by viewModel.scheduleEndHour.collectAsState()
+    val serviceConnected by ReadLockAccessibilityService.isServiceConnected.collectAsState()
 
-    var accessibilityEnabled by remember { mutableStateOf(false) }
+    var accessibilityEnabled by remember {
+        mutableStateOf(isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context))
+    }
 
     LaunchedEffect(Unit) {
-        accessibilityEnabled = isAccessibilityServiceEnabled(context)
+        accessibilityEnabled = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+    }
+
+    LaunchedEffect(serviceConnected) {
+        if (serviceConnected) {
+            markAccessibilityEnabledOnce(context)
+            accessibilityEnabled = true
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                accessibilityEnabled = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(
@@ -3194,200 +3748,214 @@ fun SettingsScreen(
 
         // Global Theme Toggle for Dark Mode Card with outline
         val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+        CinematicCardEntrance(index = 0) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        CircularIconBadge(
-                            imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                            contentDescription = null,
-                            containerSize = 36.dp,
-                            iconSize = 18.dp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "NIGHT-TIME DARK MODE",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            CircularIconBadge(
+                                imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = null,
+                                containerSize = 36.dp,
+                                iconSize = 18.dp
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Comfortable dark palette for late night reading.",
-                                color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "NIGHT-TIME DARK MODE",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Comfortable dark palette for late night reading.",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
+                        Switch(
+                            checked = isDarkModeEnabled,
+                            onCheckedChange = { viewModel.toggleDarkMode(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                            ),
+                            modifier = Modifier.testTag("dark_mode_switch")
+                        )
                     }
-                    Switch(
-                        checked = isDarkModeEnabled,
-                        onCheckedChange = { viewModel.toggleDarkMode(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                        ),
-                        modifier = Modifier.testTag("dark_mode_switch")
-                    )
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Accessibility Service configuration Card with outline
-        var isAccessibilityExpanded by remember { mutableStateOf(true) }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                .testTag("accessibility_service_card")
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable(
-                            role = Role.Button,
-                            onClick = { isAccessibilityExpanded = !isAccessibilityExpanded }
-                        )
-                        .padding(vertical = 2.dp)
-                        .testTag("accessibility_service_toggle"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "ACCESSIBILITY SERVICE",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Enables real-time app redirection & overlay blocker protection.",
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    val isDarkSettings = LocalDarkTheme.current
-                    val badgeBg = if (accessibilityEnabled) {
-                        if (isDarkSettings) Color(0xFF4A2532) else Color(0xFFFFD8E4)
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer
-                    }
-                    val badgeBorder = if (accessibilityEnabled) {
-                        if (isDarkSettings) Color(0xFFFFB1C8) else Color(0xFFD78391)
-                    } else {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                    }
-                    val badgeText = if (accessibilityEnabled) "ACTIVE" else "DISABLED"
-                    val badgeTextColor = if (accessibilityEnabled) {
-                        if (isDarkSettings) Color(0xFFFFD8E4) else Color(0xFF31111D)
-                    } else {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    }
-
+        // Accessibility Service configuration Card (defaults collapsed with chevron-down; remembers enabled once)
+        var isAccessibilityExpanded by remember { mutableStateOf(false) }
+        CinematicCardEntrance(index = 1) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                    .testTag("accessibility_service_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                role = Role.Button,
+                                onClick = { isAccessibilityExpanded = !isAccessibilityExpanded }
+                            )
+                            .padding(vertical = 2.dp)
+                            .testTag("accessibility_service_toggle"),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(badgeBg)
-                                .border(1.dp, badgeBorder, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = badgeText,
-                                color = badgeTextColor,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 10.sp
+                                text = "ACCESSIBILITY SERVICE",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (accessibilityEnabled) {
+                                    "Enabled by default for real-time app redirection & blocker protection."
+                                } else {
+                                    "Enables real-time app redirection & overlay blocker protection."
+                                },
+                                color = MaterialTheme.colorScheme.secondary,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
 
-                        Crossfade(
-                            targetState = isAccessibilityExpanded,
-                            animationSpec = tween(durationMillis = 200),
-                            label = "accessibility_chevron"
-                        ) { expanded ->
-                            CircularIconBadge(
-                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = if (expanded) "Collapse accessibility service" else "Expand accessibility service",
-                                containerSize = 32.dp,
-                                iconSize = 20.dp
-                            )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        val isDarkSettings = LocalDarkTheme.current
+                        val badgeBg = if (accessibilityEnabled) {
+                            if (isDarkSettings) Color(0xFF4A2532) else Color(0xFFFFD8E4)
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        }
+                        val badgeBorder = if (accessibilityEnabled) {
+                            if (isDarkSettings) Color(0xFFFFB1C8) else Color(0xFFD78391)
+                        } else {
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                        }
+                        val badgeText = if (accessibilityEnabled) "ACTIVE" else "DISABLED"
+                        val badgeTextColor = if (accessibilityEnabled) {
+                            if (isDarkSettings) Color(0xFFFFD8E4) else Color(0xFF31111D)
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(badgeBg)
+                                    .border(1.dp, badgeBorder, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    color = badgeTextColor,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp
+                                )
+                            }
+
+                            Crossfade(
+                                targetState = isAccessibilityExpanded,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "accessibility_chevron"
+                            ) { expanded ->
+                                CircularIconBadge(
+                                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (expanded) "Collapse accessibility service" else "Expand accessibility service",
+                                    containerSize = 32.dp,
+                                    iconSize = 20.dp
+                                )
+                            }
                         }
                     }
-                }
 
-                AnimatedVisibility(
-                    visible = isAccessibilityExpanded,
-                    enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
-                    exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(12.dp))
+                    AnimatedVisibility(
+                        visible = isAccessibilityExpanded,
+                        enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+                        exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = "How to enable: Tap below to open Settings, search for/select 'ReadLock Focus Service' under downloaded apps, and toggle it ON.",
-                            color = MaterialTheme.colorScheme.secondary,
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
-                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
-                            },
-                            colors = appBlackButtonColors(),
-                            border = appBlackButtonBorder(),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .testTag("enable_accessibility_button")
-                        ) {
                             Text(
-                                text = if (accessibilityEnabled) "OPEN ACCESSIBILITY SETTINGS" else "ENABLE PROTECTION",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black
+                                text = if (accessibilityEnabled) {
+                                    "Accessibility protection has been enabled and is set as active by default."
+                                } else {
+                                    "How to enable: Tap below to open Settings, select 'ReadLock Focus Service' under downloaded apps, and toggle it ON once."
+                                },
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
                             )
+
+                            if (!accessibilityEnabled) {
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Button(
+                                    onClick = {
+                                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(intent)
+                                    },
+                                    colors = appBlackButtonColors(),
+                                    border = appBlackButtonBorder(),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .testTag("enable_accessibility_button")
+                                ) {
+                                    Text(
+                                        text = "ENABLE PROTECTION",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -3397,13 +3965,14 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Scheduled Focus Hours Card with outline
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        CinematicCardEntrance(index = 2) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -3496,6 +4065,7 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
         }
 
         // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
@@ -3504,94 +4074,98 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Policy Considerations Card with light outline
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        containerSize = 30.dp,
-                        iconSize = 16.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+        CinematicCardEntrance(index = 5) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            containerSize = 30.dp,
+                            iconSize = 16.dp,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Play Store Policy Compliance",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Play Store Policy Compliance",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        text = "ReadLock is designed for safe local use. In strict compliance with Android policy guidelines, all tracking is processed 100% offline, keeping your private app usage completely private.",
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "ReadLock is designed for safe local use. In strict compliance with Android policy guidelines, all tracking is processed 100% offline, keeping your private app usage completely private.",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp
-                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Developer Profile Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("developer_profile_card")
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+        CinematicCardEntrance(index = 6) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("developer_profile_card")
             ) {
-                // Circular Avatar with Developer's Initials (TB)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "TB",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                    // Circular Avatar with Developer's Initials (TB)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(
+                            text = "TB",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
-                Column {
-                    Text(
-                        text = "DEVELOPER PROFILE",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Temeselew Buta (Temu)",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Creator of FocusLock. Dedicated to crafting highly modern and helpful digital tools.",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Column {
+                        Text(
+                            text = "DEVELOPER PROFILE",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Temeselew Buta (Temu)",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Creator of FocusLock. Dedicated to crafting highly modern and helpful digital tools.",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }

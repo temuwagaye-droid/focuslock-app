@@ -313,7 +313,13 @@ class FocusViewModel(
     }
 
     fun toggleWhitelistMode(enabled: Boolean) {
-        viewModelScope.launch { repository.setWhitelistModeEnabled(enabled) }
+        viewModelScope.launch {
+            if (enabled && !isProTier.value) {
+                _showProLimitPrompt.value = true
+                return@launch
+            }
+            repository.setWhitelistModeEnabled(enabled)
+        }
     }
 
     fun selectReadingApp(packageName: String?) {
@@ -397,6 +403,7 @@ class FocusViewModel(
         viewModelScope.launch {
             repository.setProTier(enabled)
             if (!enabled) {
+                repository.setWhitelistModeEnabled(false)
                 val theme = AppAccentTheme.fromId(accentThemeId.value)
                 if (theme.isProOnly) {
                     prefs?.edit()?.putString("cached_accent_theme", AppAccentTheme.VIOLET.id)?.apply()

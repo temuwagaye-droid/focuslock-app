@@ -110,7 +110,7 @@ object SupabaseAuthService {
         val config = resolveSupabaseConfig()
             ?: return Result.failure(
                 IllegalStateException(
-                    "Supabase is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY in the Secrets panel."
+                    "Supabase key is not configured yet. Add SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in the AI Studio Secrets panel."
                 )
             )
         val (supabaseUrl, anonKey) = config
@@ -391,10 +391,18 @@ object SupabaseAuthService {
     }
 
     private fun resolveSupabaseConfig(): Pair<String, String>? {
-        val url = BuildConfig.SUPABASE_URL.trim().trimEnd('/')
-        val key = BuildConfig.SUPABASE_ANON_KEY.trim()
-        if (url.isBlank() || url.contains("your-project.supabase.co", ignoreCase = true)) return null
-        if (key.isBlank() || key == "YOUR_SUPABASE_ANON_KEY") return null
+        val url = listOf(BuildConfig.SUPABASE_URL, BuildConfig.NEXT_PUBLIC_SUPABASE_URL)
+            .map { it.trim().trimEnd('/') }
+            .firstOrNull { it.isNotBlank() && !it.contains("your-project.supabase.co", ignoreCase = true) }
+            ?: return null
+        val key = listOf(BuildConfig.SUPABASE_ANON_KEY, BuildConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+            .map { it.trim() }
+            .firstOrNull {
+                it.isNotBlank() &&
+                    it != "YOUR_SUPABASE_ANON_KEY" &&
+                    it != "YOUR_SUPABASE_PUBLISHABLE_KEY"
+            }
+            ?: return null
         return url to key
     }
 

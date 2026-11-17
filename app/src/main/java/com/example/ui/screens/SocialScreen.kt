@@ -69,6 +69,7 @@ import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.RoomParticipantDto
 import com.example.data.remote.SupabaseUser
 import com.example.ui.FocusViewModel
+import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.treeStageTitle
@@ -79,6 +80,8 @@ import com.example.ui.theme.appBlackButtonColors
 fun SocialScreen(
     viewModel: FocusViewModel,
     onStartGroupSession: (Int) -> Unit,
+    onNavigateToStats: (() -> Unit)? = null,
+    onNavigateToTimer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -141,16 +144,36 @@ fun SocialScreen(
 
         val user = currentUser
         if (user == null) {
-            GoogleSignInGateCard(
-                isBusy = isAuthBusy,
-                onSignInClick = { viewModel.signInWithGoogle(context) }
-            )
+            CinematicCardEntrance(index = 0) {
+                GoogleSignInGateCard(
+                    isBusy = isAuthBusy,
+                    onSignInClick = { viewModel.signInWithGoogle(context) }
+                )
+            }
+            if (onNavigateToTimer != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                CinematicCardEntrance(index = 1) {
+                    Button(
+                        onClick = onNavigateToTimer,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("rooms_back_to_timer_btn")
+                    ) {
+                        Text("SOLO FOCUS? OPEN TIMER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
         } else {
             key(user.uid) {
                 SignedInSocialContent(
                     viewModel = viewModel,
                     user = user,
-                    onStartGroupSession = onStartGroupSession
+                    onStartGroupSession = onStartGroupSession,
+                    onNavigateToStats = onNavigateToStats
                 )
             }
         }
@@ -225,7 +248,8 @@ private fun GoogleSignInGateCard(
 private fun SignedInSocialContent(
     viewModel: FocusViewModel,
     user: SupabaseUser,
-    onStartGroupSession: (Int) -> Unit
+    onStartGroupSession: (Int) -> Unit,
+    onNavigateToStats: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var selectedSubTab by remember { mutableIntStateOf(0) } // 0 = Group Rooms, 1 = Leaderboard
@@ -315,12 +339,13 @@ private fun SignedInSocialContent(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        CinematicCardEntrance(index = 0) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                shape = RoundedCornerShape(20.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -375,6 +400,7 @@ private fun SignedInSocialContent(
                                     Text("CREATE GROUP FOCUS ROOM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
                                 }
                             }
+                        }
                         }
                     }
 
@@ -456,7 +482,8 @@ private fun SignedInSocialContent(
             LeaderboardView(
                 entries = leaderboard,
                 currentUid = user.uid,
-                onSyncNow = { viewModel.syncCloudNow() }
+                onSyncNow = { viewModel.syncCloudNow() },
+                onNavigateToStats = onNavigateToStats
             )
         }
     }
@@ -649,7 +676,8 @@ private fun ActiveRoomView(
 private fun LeaderboardView(
     entries: List<CloudUserProfile>,
     currentUid: String,
-    onSyncNow: () -> Unit
+    onSyncNow: () -> Unit,
+    onNavigateToStats: (() -> Unit)? = null
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -667,31 +695,45 @@ private fun LeaderboardView(
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.secondary
                 )
-                Button(
-                    onClick = onSyncNow,
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Text("SYNC MY SCORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (onNavigateToStats != null) {
+                        Button(
+                            onClick = onNavigateToStats,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text("MY STATS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Button(
+                        onClick = onSyncNow,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text("SYNC SCORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
 
         if (entries.isEmpty()) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "No leaderboard entries yet. Tap 'Sync My Score' to publish your focus stats!",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(20.dp)
-                    )
+                CinematicCardEntrance(index = 0) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "No leaderboard entries yet. Tap 'Sync Score' to publish your focus stats!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(20.dp)
+                        )
+                    }
                 }
             }
         } else {

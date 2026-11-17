@@ -11,6 +11,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,10 +22,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.DoNotDisturbOff
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -52,6 +59,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,9 +75,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.notifications.NotificationHelper
 import com.example.security.ParentalPinDialog
 import com.example.ui.FocusViewModel
+import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
 import com.example.ui.components.GoogleSignInButton
@@ -131,52 +143,72 @@ fun SettingsAdvancedSections(
     }
 
     val nm = remember { context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
-    val hasDndPolicyAccess = nm.isNotificationPolicyAccessGranted
+    var hasDndPolicyAccess by remember { mutableStateOf(nm.isNotificationPolicyAccessGranted) }
+    var pendingEnableDndOnResume by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = nm.isNotificationPolicyAccessGranted
+                hasDndPolicyAccess = granted
+                if (granted && pendingEnableDndOnResume) {
+                    pendingEnableDndOnResume = false
+                    viewModel.setAutoDndEnabled(true)
+                    Toast.makeText(context, "Do Not Disturb integration enabled!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // 1. FocusLock Pro & Accent Themes Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.WorkspacePremium,
-                        contentDescription = null,
-                        containerSize = 36.dp,
-                        iconSize = 20.dp
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = if (isProTier) "FOCUSLOCK PRO" else "FREE TIER (UPGRADE AVAILABLE)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = if (isProTier) "Unlimited blocklist, Pro themes & Cloud sync active." else "Up to 5 blocked apps. Upgrade for unlimited & themes.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Button(
-                    onClick = { showPremiumDialog = true },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.testTag("open_pro_upgrade_btn")
+    CinematicCardEntrance(index = 0) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(if (isProTier) "THEMES" else "UPGRADE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.WorkspacePremium,
+                            contentDescription = null,
+                            containerSize = 36.dp,
+                            iconSize = 20.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isProTier) "FOCUSLOCK PRO" else "FREE TIER (UPGRADE AVAILABLE)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = if (isProTier) "Unlimited blocklist, Pro themes & Cloud sync active." else "Up to 5 blocked apps. Upgrade for unlimited & themes.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = { showPremiumDialog = true },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.testTag("open_pro_upgrade_btn")
+                    ) {
+                        Text(if (isProTier) "THEMES" else "UPGRADE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
                 }
             }
         }
@@ -184,103 +216,105 @@ fun SettingsAdvancedSections(
 
     // 2. Cloud Backup, Profile & Cross-Device Sync Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularIconBadge(
-                    imageVector = Icons.Default.CloudSync,
-                    contentDescription = null,
-                    containerSize = 32.dp,
-                    iconSize = 18.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "PROFILE & CLOUD SYNC",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            val user = currentUser
-            if (user == null) {
-                Text(
-                    text = "Sign in with Google via Supabase to authenticate your profile, access focus rooms, and sync across devices.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                cloudMessage?.let {
+    CinematicCardEntrance(index = 1) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.CloudSync,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 6.dp)
+                        text = "PROFILE & CLOUD SYNC",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                GoogleSignInButton(
-                    onClick = { viewModel.signInWithGoogle(context) },
-                    isLoading = isAuthBusy,
-                    modifier = Modifier.testTag("settings_google_sign_in_button")
-                )
-            } else {
-                Text(
-                    text = "Supabase Account: ${user.displayName ?: user.email ?: user.uid.take(8)} • $lastSyncText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                user.email?.let { mail ->
+                Spacer(modifier = Modifier.height(6.dp))
+                val user = currentUser
+                if (user == null) {
                     Text(
-                        text = mail,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Sign in with Google via Supabase to authenticate your profile, access focus rooms, and sync across devices.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
-                }
-                cloudMessage?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp)
+                    cloudMessage?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    GoogleSignInButton(
+                        onClick = { viewModel.signInWithGoogle(context) },
+                        isLoading = isAuthBusy,
+                        modifier = Modifier.testTag("settings_google_sign_in_button")
                     )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                } else {
+                    Text(
+                        text = "Supabase Account: ${user.displayName ?: user.email ?: user.uid.take(8)} • $lastSyncText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    user.email?.let { mail ->
+                        Text(
+                            text = mail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    cloudMessage?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { viewModel.syncCloudNow() },
+                            enabled = !isSyncing,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (isSyncing) "SYNCING..." else "BACKUP NOW", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = { viewModel.restoreFromCloud() },
+                            enabled = !isSyncing,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("RESTORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        onClick = { viewModel.syncCloudNow() },
-                        enabled = !isSyncing,
+                        onClick = { viewModel.signOut(context) },
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(if (isSyncing) "SYNCING..." else "BACKUP NOW", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("SIGN OUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(
-                        onClick = { viewModel.restoreFromCloud() },
-                        enabled = !isSyncing,
-                        colors = appBlackButtonColors(),
-                        border = appBlackButtonBorder(),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("RESTORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { viewModel.signOut(context) },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("SIGN OUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -288,188 +322,265 @@ fun SettingsAdvancedSections(
 
     // 3. Do Not Disturb (DND) Integration Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.DoNotDisturbOn,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "DO NOT DISTURB INTEGRATION",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Silence notifications automatically during focus sessions.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-                Switch(
-                    checked = isAutoDndEnabled,
-                    onCheckedChange = { want ->
-                        if (want && !hasDndPolicyAccess) {
-                            Toast.makeText(context, "Grant Do Not Disturb access in Android Settings first.", Toast.LENGTH_LONG).show()
-                        }
-                        viewModel.setAutoDndEnabled(want)
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier.testTag("auto_dnd_switch")
-                )
-            }
-            if (!hasDndPolicyAccess) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        context.startActivity(intent)
-                    },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.fillMaxWidth()
+    CinematicCardEntrance(index = 2) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("GRANT DND POLICY ACCESS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = if (isAutoDndEnabled && hasDndPolicyAccess) Icons.Default.DoNotDisturbOn else Icons.Default.DoNotDisturbOff,
+                            contentDescription = if (isAutoDndEnabled) "DND Integration On" else "DND Integration Off",
+                            containerSize = 32.dp,
+                            iconSize = 18.dp,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable {
+                                    if (!hasDndPolicyAccess) {
+                                        pendingEnableDndOnResume = true
+                                        val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(intent)
+                                    } else {
+                                        val next = !isAutoDndEnabled
+                                        viewModel.setAutoDndEnabled(next)
+                                        Toast.makeText(
+                                            context,
+                                            if (next) "Auto Do Not Disturb turned ON" else "Auto Do Not Disturb turned OFF",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                                .testTag("dnd_status_icon_toggle")
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "DO NOT DISTURB INTEGRATION",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = when {
+                                    !hasDndPolicyAccess -> "Tap switch or button below to grant DND permission."
+                                    isAutoDndEnabled -> "ON: Notifications silence automatically during focus."
+                                    else -> "OFF: Tap switch or icon to enable automatic DND."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isAutoDndEnabled && hasDndPolicyAccess,
+                        onCheckedChange = { want ->
+                            if (want && !hasDndPolicyAccess) {
+                                pendingEnableDndOnResume = true
+                                Toast.makeText(context, "Grant Do Not Disturb access in Android Settings to turn ON.", Toast.LENGTH_LONG).show()
+                                val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } else {
+                                pendingEnableDndOnResume = false
+                                viewModel.setAutoDndEnabled(want)
+                                Toast.makeText(
+                                    context,
+                                    if (want) "Auto Do Not Disturb turned ON" else "Auto Do Not Disturb turned OFF",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("auto_dnd_switch")
+                    )
+                }
+                if (!hasDndPolicyAccess) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            pendingEnableDndOnResume = true
+                            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("GRANT DND POLICY ACCESS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
     }
 
-    // 4. Accountability Partner Card
+    // 4. Accountability Partner Card (Partner Name & Email revealed only on elliptical button click)
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "ACCOUNTABILITY PARTNER",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onBackground
+    var showPartnerFields by remember { mutableStateOf(false) }
+    CinematicCardEntrance(index = 3) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
                         )
-                        Text(
-                            text = "Prepare an alert if you quit a focus session early.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "ACCOUNTABILITY PARTNER",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = if (partnerName.isNotBlank()) "Partner: $partnerName" else "Prepare an alert if you quit a focus session early.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                     }
+                    Switch(
+                        checked = notifyPartnerOnQuit,
+                        onCheckedChange = { viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("accountability_switch")
+                    )
                 }
-                Switch(
-                    checked = notifyPartnerOnQuit,
-                    onCheckedChange = { viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier.testTag("accountability_switch")
-                )
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            OutlinedTextField(
-                value = partnerNameDraft,
-                onValueChange = { partnerNameDraft = it.take(50) },
-                label = { Text("Partner Name") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = partnerEmailDraft,
-                onValueChange = { partnerEmailDraft = it.take(100) },
-                label = { Text("Partner Email") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Button(
-                    onClick = {
-                        viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, notifyPartnerOnQuit)
-                        Toast.makeText(context, "Partner saved!", Toast.LENGTH_SHORT).show()
-                    },
+                    onClick = { showPartnerFields = !showPartnerFields },
                     colors = appBlackButtonColors(),
                     border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
-                    modifier = Modifier.weight(1f)
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 44.dp)
+                        .testTag("accountability_elliptical_button")
                 ) {
-                    Text("SAVE PARTNER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        text = if (showPartnerFields) "HIDE PARTNER DETAILS" else if (partnerName.isNotBlank() || partnerEmail.isNotBlank()) "EDIT PARTNER DETAILS" else "ADD PARTNER DETAILS",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
-                Button(
-                    onClick = {
-                        val intent = NotificationHelper.buildAccountabilityShareIntent(
-                            partnerEmailDraft,
-                            partnerNameDraft,
-                            elapsedMinutes = 0,
-                            blockedAttempts = 0
-                        )
-                        context.startActivity(Intent.createChooser(intent, "Send Test Accountability Message"))
-                    },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.weight(1f)
+
+                AnimatedVisibility(
+                    visible = showPartnerFields,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
                 ) {
-                    Text("TEST ALERT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = partnerNameDraft,
+                            onValueChange = { partnerNameDraft = it.take(50) },
+                            label = { Text("Partner Name") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("partner_name_input")
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = partnerEmailDraft,
+                            onValueChange = { partnerEmailDraft = it.take(100) },
+                            label = { Text("Partner Email") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("partner_email_input")
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = {
+                                    viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, notifyPartnerOnQuit)
+                                    Toast.makeText(context, "Partner saved!", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("SAVE PARTNER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+                            }
+                            Button(
+                                onClick = {
+                                    val intent = NotificationHelper.buildAccountabilityShareIntent(
+                                        partnerEmailDraft,
+                                        partnerNameDraft,
+                                        elapsedMinutes = 0,
+                                        blockedAttempts = 0
+                                    )
+                                    context.startActivity(Intent.createChooser(intent, "Send Test Accountability Message"))
+                                },
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("TEST ALERT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -477,69 +588,71 @@ fun SettingsAdvancedSections(
 
     // 5. Parental Control Mode Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "PARENTAL CONTROL MODE",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Require 4-digit PIN before editing blocklists or quitting sessions early.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-                Switch(
-                    checked = isParentalLockEnabled,
-                    onCheckedChange = { enable ->
-                        if (enable) {
-                            showSetPinDialog = true
-                        } else {
-                            if (parentalPinHash.isNotBlank()) showDisablePinDialog = true
-                            else viewModel.setParentalLock(false)
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier.testTag("parental_control_switch")
-                )
-            }
-            if (isParentalLockEnabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { showSetPinDialog = true },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.fillMaxWidth()
+    CinematicCardEntrance(index = 4) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("CHANGE PARENTAL PIN", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "PARENTAL CONTROL MODE",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Require 4-digit PIN before editing blocklists or quitting sessions early.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isParentalLockEnabled,
+                        onCheckedChange = { enable ->
+                            if (enable) {
+                                showSetPinDialog = true
+                            } else {
+                                if (parentalPinHash.isNotBlank()) showDisablePinDialog = true
+                                else viewModel.setParentalLock(false)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("parental_control_switch")
+                    )
+                }
+                if (isParentalLockEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { showSetPinDialog = true },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("CHANGE PARENTAL PIN", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -547,79 +660,81 @@ fun SettingsAdvancedSections(
 
     // 6. Notifications & Daily Reading Reminders Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "DAILY READING REMINDERS",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onBackground
+    CinematicCardEntrance(index = 5) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "DAILY READING REMINDERS",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Get a daily nudge at ${String.format(Locale.getDefault(), "%02d:%02d", reminderHour, reminderMinute)}.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isReminderEnabled,
+                        onCheckedChange = { enable ->
+                            if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.updateReminderSettings(context, enable, reminderHour, reminderMinute)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.testTag("daily_reminder_switch")
+                    )
+                }
+                AnimatedVisibility(visible = isReminderEnabled) {
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
                         Text(
-                            text = "Get a daily nudge at ${String.format(Locale.getDefault(), "%02d:%02d", reminderHour, reminderMinute)}.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            text = "Reminder Hour: ${reminderHour}:00",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Slider(
+                            value = reminderHour.toFloat(),
+                            onValueChange = { viewModel.updateReminderSettings(context, true, it.toInt(), 0) },
+                            valueRange = 6f..22f,
+                            steps = 15,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                            )
                         )
                     }
-                }
-                Switch(
-                    checked = isReminderEnabled,
-                    onCheckedChange = { enable ->
-                        if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.updateReminderSettings(context, enable, reminderHour, reminderMinute)
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier.testTag("daily_reminder_switch")
-                )
-            }
-            AnimatedVisibility(visible = isReminderEnabled) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
-                    Text(
-                        text = "Reminder Hour: ${reminderHour}:00",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Slider(
-                        value = reminderHour.toFloat(),
-                        onValueChange = { viewModel.updateReminderSettings(context, true, it.toInt(), 0) },
-                        valueRange = 6f..22f,
-                        steps = 15,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    )
                 }
             }
         }
@@ -627,107 +742,111 @@ fun SettingsAdvancedSections(
 
     // 7. Widgets & Lock-Screen Shortcuts Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularIconBadge(
-                    imageVector = Icons.Default.Widgets,
-                    contentDescription = null,
-                    containerSize = 32.dp,
-                    iconSize = 18.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+    CinematicCardEntrance(index = 6) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Widgets,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "WIDGETS & QUICK SHORTCUTS",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "WIDGETS & QUICK SHORTCUTS",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground
+                    text = "Add the FocusLock home/lock widget from Android's widget picker or pin a 1-tap Start Focus shortcut.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
                 )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Add the FocusLock home/lock widget from Android's widget picker or pin a 1-tap Start Focus shortcut.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    val ok = ShortcutHelper.pinFocusShortcut(context)
-                    if (!ok) {
-                        Toast.makeText(context, "Long-press FocusLock app icon or open Android Widgets to add shortcut.", Toast.LENGTH_LONG).show()
-                    }
-                },
-                colors = appBlackButtonColors(),
-                border = appBlackButtonBorder(),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("pin_shortcut_button")
-            ) {
-                Text("PIN HOME / LOCK SHORTCUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        val ok = ShortcutHelper.pinFocusShortcut(context)
+                        if (!ok) {
+                            Toast.makeText(context, "Long-press FocusLock app icon or open Android Widgets to add shortcut.", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("pin_shortcut_button")
+                ) {
+                    Text("PIN HOME / LOCK SHORTCUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                }
             }
         }
     }
 
     // 8. Privacy, Analytics & Crash Reporting Card
     Spacer(modifier = Modifier.height(16.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularIconBadge(
-                    imageVector = Icons.Default.PrivacyTip,
-                    contentDescription = null,
-                    containerSize = 32.dp,
-                    iconSize = 18.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "PRIVACY, ANALYTICS & CRASHES",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-
-            PrivacyToggleRow("Visible on Leaderboard", isLeaderboardVisible) { viewModel.setLeaderboardVisible(it) }
-            PrivacyToggleRow("Auto Cloud Backup Sync", isCloudSyncEnabled) { viewModel.setCloudSyncEnabled(it) }
-            PrivacyToggleRow("Usage Analytics Opt-In", analyticsOptIn) { viewModel.setAnalyticsOptIn(it) }
-            PrivacyToggleRow("Crash Reporting Opt-In", crashOptIn) { viewModel.setCrashReportingOptIn(it) }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { showDiagnosticsDialog = true },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("view_diagnostics_button")
-                ) {
-                    Text("VIEW LOGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    CinematicCardEntrance(index = 7) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.PrivacyTip,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PRIVACY, ANALYTICS & CRASHES",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 }
-                if (currentUser != null) {
+
+                PrivacyToggleRow("Visible on Leaderboard", isLeaderboardVisible) { viewModel.setLeaderboardVisible(it) }
+                PrivacyToggleRow("Auto Cloud Backup Sync", isCloudSyncEnabled) { viewModel.setCloudSyncEnabled(it) }
+                PrivacyToggleRow("Usage Analytics Opt-In", analyticsOptIn) { viewModel.setAnalyticsOptIn(it) }
+                PrivacyToggleRow("Crash Reporting Opt-In", crashOptIn) { viewModel.setCrashReportingOptIn(it) }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { viewModel.deleteCloudData() },
+                        onClick = { showDiagnosticsDialog = true },
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("view_diagnostics_button")
                     ) {
-                        Text("DELETE CLOUD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("VIEW LOGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (currentUser != null) {
+                        Button(
+                            onClick = { viewModel.deleteCloudData() },
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("DELETE CLOUD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
