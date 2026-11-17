@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Non-PII public focus profile and leaderboard stats",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "focusScore": { "type": "integer" },
+        "totalFocusMinutes": { "type": "integer" },
+        "completedSessionsCount": { "type": "integer" },
+        "currentStreak": { "type": "integer" },
+        "totalBlockedAttempts": { "type": "integer" },
+        "treeStage": { "type": "integer" },
+        "isLeaderboardVisible": { "type": "boolean" },
+        "isPro": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "focusScore",
+        "totalFocusMinutes",
+        "completedSessionsCount",
+        "currentStreak",
+        "totalBlockedAttempts",
+        "treeStage",
+        "isLeaderboardVisible",
+        "isPro",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PrivateSettings": {
+      "title": "PrivateSettings",
+      "description": "Owner-only synced app preferences, accountability partner info, and privacy controls",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "isDarkMode": { "type": "boolean" },
+        "accentTheme": { "type": "string" },
+        "isWhitelistMode": { "type": "boolean" },
+        "designatedReadingApp": { "type": "string" },
+        "sessionDurationMinutes": { "type": "integer" },
+        "autoDndEnabled": { "type": "boolean" },
+        "ambientSound": { "type": "string" },
+        "reminderEnabled": { "type": "boolean" },
+        "reminderHour": { "type": "integer" },
+        "reminderMinute": { "type": "integer" },
+        "partnerName": { "type": "string" },
+        "partnerEmail": { "type": "string" },
+        "notifyPartnerOnQuit": { "type": "boolean" },
+        "parentalLockEnabled": { "type": "boolean" },
+        "parentalPinHash": { "type": "string" },
+        "analyticsOptIn": { "type": "boolean" },
+        "crashReportingOptIn": { "type": "boolean" },
+        "cloudSyncEnabled": { "type": "boolean" },
+        "isPro": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "isDarkMode", "cloudSyncEnabled", "updatedAt"]
+    },
+    "SessionBackup": {
+      "title": "SessionBackup",
+      "description": "Cloud backup of a focus reading session log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "timestampMs": { "type": "integer" },
+        "durationSeconds": { "type": "integer" },
+        "blockedAttempts": { "type": "integer" },
+        "isCompleted": { "type": "boolean" },
+        "readingAppPackage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "sessionId", "timestampMs", "durationSeconds", "blockedAttempts", "isCompleted", "createdAt"]
+    },
+    "BlockedAppBackup": {
+      "title": "BlockedAppBackup",
+      "description": "Cloud backup of a blocked distracting app entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "packageName": { "type": "string" },
+        "appName": { "type": "string" },
+        "isBlocked": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "packageName", "appName", "isBlocked", "updatedAt"]
+    },
+    "TodoBackup": {
+      "title": "TodoBackup",
+      "description": "Cloud backup of a reading queue task",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "todoId": { "type": "string" },
+        "title": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "timestampMs": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "todoId", "title", "isCompleted", "timestampMs", "updatedAt"]
+    },
+    "TelemetryRecord": {
+      "title": "TelemetryRecord",
+      "description": "Opt-in analytics event or crash diagnostic report",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "kind": { "type": "string" },
+        "name": { "type": "string" },
+        "detail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "kind", "name", "detail", "createdAt"]
+    },
+    "FocusRoom": {
+      "title": "FocusRoom",
+      "description": "Group focus session room with shared timer and code",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "roomCode": { "type": "string" },
+        "name": { "type": "string" },
+        "hostId": { "type": "string" },
+        "hostName": { "type": "string" },
+        "durationMinutes": { "type": "integer" },
+        "status": { "type": "string" },
+        "participantCount": { "type": "integer" },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "roomId",
+        "roomCode",
+        "name",
+        "hostId",
+        "hostName",
+        "durationMinutes",
+        "status",
+        "participantCount",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomParticipant": {
+      "title": "RoomParticipant",
+      "description": "Participant inside a group focus room",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "status": { "type": "string" },
+        "distractionAttempts": { "type": "integer" },
+        "treeStage": { "type": "integer" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "status", "distractionAttempts", "treeStage", "joinedAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Public leaderboard & profile summary"
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/PrivateSettings" },
+      "description": "Owner-only synced settings & accountability partner info"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/SessionBackup" },
+      "description": "Synced focus session backups"
+    },
+    "/users/{userId}/blockedApps/{appId}": {
+      "schema": { "$ref": "#/entities/BlockedAppBackup" },
+      "description": "Synced blocked apps list"
+    },
+    "/users/{userId}/todos/{todoId}": {
+      "schema": { "$ref": "#/entities/TodoBackup" },
+      "description": "Synced reading queue todos"
+    },
+    "/users/{userId}/analytics/{eventId}": {
+      "schema": { "$ref": "#/entities/TelemetryRecord" },
+      "description": "Opt-in usage analytics events"
+    },
+    "/users/{userId}/crashReports/{reportId}": {
+      "schema": { "$ref": "#/entities/TelemetryRecord" },
+      "description": "Opt-in crash diagnostic reports"
+    },
+    "/focusRooms/{roomId}": {
+      "schema": { "$ref": "#/entities/FocusRoom" },
+      "description": "Multiplayer group focus rooms"
+    },
+    "/focusRooms/{roomId}/participants/{participantId}": {
+      "schema": { "$ref": "#/entities/RoomParticipant" },
+      "description": "Participants in a group focus room"
+    }
+  }
+}

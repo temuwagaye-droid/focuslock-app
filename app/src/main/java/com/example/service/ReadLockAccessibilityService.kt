@@ -94,7 +94,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
                     return
                 }
 
-                FocusSessionManager.incrementBlockedAttempts()
+                FocusSessionManager.incrementBlockedAttempts(applicationContext, foregroundPackage)
 
                 // Boot the user back out and open our Block screen
                 val intent = Intent(this, BlockActivity::class.java).apply {

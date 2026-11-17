@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="start_focus_shortcut"
+        android:shortcutLongLabel="@string/shortcut_start_focus_long"
+        android:shortcutShortLabel="@string/shortcut_start_focus_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.example.MainActivity"
+            android:targetPackage="com.aistudio.readlock.vmozkp">
+            <extra android:name="quick_action" android:value="start_focus" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="open_rooms_shortcut"
+        android:shortcutLongLabel="@string/shortcut_open_rooms_long"
+        android:shortcutShortLabel="@string/shortcut_open_rooms_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.example.MainActivity"
+            android:targetPackage="com.aistudio.readlock.vmozkp">
+            <extra android:name="quick_action" android:value="open_rooms" />
+        </intent>
+    </shortcut>
+</shortcuts>

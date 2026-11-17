@@ -44,12 +44,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
@@ -61,15 +63,19 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.Animatable
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.screens.isAccessibilityServiceEnabled
+import com.example.ui.theme.LocalDarkTheme
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -355,6 +362,132 @@ fun ReadingAppRequiredDialog(
 }
 
 /**
+ * Dialog shown when user attempts to start a focus session without selecting any apps to block (and Whitelist Mode is off).
+ */
+@Composable
+fun BlockedAppsRequiredDialog(
+    onSelectBlockedApps: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "block_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "block_pulse_scale"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag("blocked_apps_required_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .border(2.dp, MaterialTheme.colorScheme.error, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = "Blocked Apps Required",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(38.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Select Apps to Block First",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "You haven't selected any distracting apps to block yet.\n\nSelect at least one app in the Blocklist tab (or turn on Whitelist Mode) before starting a focus session.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onSelectBlockedApps,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("select_blocked_apps_from_dialog_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onError,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SELECT BLOCKED APPS",
+                        color = MaterialTheme.colorScheme.onError,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("dismiss_blocked_apps_dialog_btn")
+                ) {
+                    Text(
+                        text = "CANCEL",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Data class representing one step of the onboarding tutorial
  */
 private data class OnboardingStep(
@@ -580,6 +713,11 @@ private fun AnimatedAccessibilityIllustration(
                 )
             }
 
+            val isDark = LocalDarkTheme.current
+            val activeGreenBg = if (isDark) Color(0xFF1B3B22) else Color(0xFFE8F5E9)
+            val activeGreenBorder = if (isDark) Color(0xFF66BB6A) else Color(0xFF4CAF50)
+            val activeGreenText = if (isDark) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
+
             // Shield Center
             Box(
                 contentAlignment = Alignment.Center,
@@ -587,18 +725,18 @@ private fun AnimatedAccessibilityIllustration(
                     .size(76.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isDemonstrationOn) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primaryContainer
+                        if (isDemonstrationOn) activeGreenBg else MaterialTheme.colorScheme.primaryContainer
                     )
                     .border(
                         2.5.dp,
-                        if (isDemonstrationOn) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
+                        if (isDemonstrationOn) activeGreenBorder else MaterialTheme.colorScheme.primary,
                         CircleShape
                     )
             ) {
                 Icon(
                     imageVector = Icons.Default.Security,
                     contentDescription = "Security Shield",
-                    tint = if (isDemonstrationOn) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                    tint = if (isDemonstrationOn) activeGreenText else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(42.dp)
                 )
             }
@@ -606,15 +744,20 @@ private fun AnimatedAccessibilityIllustration(
 
         Spacer(modifier = Modifier.height(6.dp))
 
+        val isDarkPill = LocalDarkTheme.current
+        val pillActiveBg = if (isDarkPill) Color(0xFF1B3B22) else Color(0xFFE8F5E9)
+        val pillActiveBorder = if (isDarkPill) Color(0xFF66BB6A) else Color(0xFF81C784)
+        val pillActiveText = if (isDarkPill) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
+
         // Interactive demonstration pill
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = if (isDemonstrationOn) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
+                containerColor = if (isDemonstrationOn) pillActiveBg else MaterialTheme.colorScheme.surfaceVariant
             ),
             shape = RoundedCornerShape(50),
             border = BorderStroke(
                 1.5.dp,
-                if (isDemonstrationOn) Color(0xFF81C784) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                if (isDemonstrationOn) pillActiveBorder else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
             ),
             modifier = Modifier
                 .clickable { isDemonstrationOn = !isDemonstrationOn }
@@ -629,7 +772,7 @@ private fun AnimatedAccessibilityIllustration(
                     text = if (isDemonstrationOn) "Focus Redirection: ACTIVE" else "Tap Switch to Test: OFF",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isDemonstrationOn) Color(0xFF1B5E20) else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isDemonstrationOn) pillActiveText else MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -879,6 +1022,7 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
                 }
             }
 
+            val isDarkCoffee = LocalDarkTheme.current
             // Coffee Cup Disc
             Box(
                 contentAlignment = Alignment.Center,
@@ -887,10 +1031,11 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
                     .clip(CircleShape)
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFFFFECB3),
-                                Color(0xFFFFCA28).copy(alpha = 0.4f)
-                            )
+                            colors = if (isDarkCoffee) {
+                                listOf(Color(0xFF3E2D16), Color(0xFF5D4037).copy(alpha = 0.5f))
+                            } else {
+                                listOf(Color(0xFFFFECB3), Color(0xFFFFCA28).copy(alpha = 0.4f))
+                            }
                         )
                     )
                     .border(2.5.dp, Color(0xFFFFA000), CircleShape)
@@ -898,7 +1043,7 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.Default.LocalCafe,
                     contentDescription = "Coffee Break",
-                    tint = Color(0xFF795548),
+                    tint = if (isDarkCoffee) Color(0xFFFFCA28) else Color(0xFF795548),
                     modifier = Modifier.size(42.dp)
                 )
             }
@@ -929,10 +1074,11 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         // Streak reward banner
+        val isDarkBanner = LocalDarkTheme.current
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFFFFF8E1))
+                .background(if (isDarkBanner) Color(0xFF332612) else Color(0xFFFFF8E1))
                 .border(1.5.dp, Color(0xFFFFB300), RoundedCornerShape(50))
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
@@ -948,7 +1094,7 @@ private fun AnimatedCoffeeIllustration(modifier: Modifier = Modifier) {
                     text = "REWARD: +1 READING STREAK POINT",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF6D4C41),
+                    color = if (isDarkBanner) Color(0xFFFFE082) else Color(0xFF6D4C41),
                     letterSpacing = 0.6.sp
                 )
             }
@@ -967,6 +1113,8 @@ fun HowToUseOnboardingDialog(
     val context = LocalContext.current
     var currentStep by remember { mutableIntStateOf(0) }
     var previousStep by remember { mutableIntStateOf(0) }
+    var isAutoPlaying by remember { mutableStateOf(true) }
+    val stepTimerProgress = remember { Animatable(0f) }
 
     val steps = remember {
         listOf(
@@ -1005,6 +1153,23 @@ fun HowToUseOnboardingDialog(
         )
     }
 
+    // Automatically advance every 2 seconds across all 4 steps, then auto-complete after step 4
+    LaunchedEffect(currentStep, isAutoPlaying) {
+        stepTimerProgress.snapTo(0f)
+        if (isAutoPlaying) {
+            stepTimerProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 2000, easing = LinearEasing)
+            )
+            if (currentStep < steps.size - 1) {
+                previousStep = currentStep
+                currentStep += 1
+            } else {
+                onDismiss()
+            }
+        }
+    }
+
     val isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
 
     Dialog(
@@ -1026,13 +1191,13 @@ fun HowToUseOnboardingDialog(
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Top Header Row: Title & Close
+                // Top Header Row: Title, Auto 2s toggle & Close
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "HOW TO USE",
@@ -1044,16 +1209,30 @@ fun HowToUseOnboardingDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (isAutoPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .clickable { isAutoPlaying = !isAutoPlaying }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    .testTag("guide_auto_toggle_btn")
                             ) {
-                                Text(
-                                    text = "ANIMATED",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isAutoPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = if (isAutoPlaying) "Pause auto advance" else "Resume auto advance",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = if (isAutoPlaying) "AUTO 2S" else "PAUSED",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                         Text(
@@ -1081,7 +1260,20 @@ fun HowToUseOnboardingDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Smooth 2-second auto-advance progress bar
+                LinearProgressIndicator(
+                    progress = { stepTimerProgress.value },
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Animated Step Progress Indicator Dots with spring expansion
                 Row(
@@ -1190,15 +1382,27 @@ fun HowToUseOnboardingDialog(
 
                         // Special Action Button for Step 2 (Accessibility)
                         if (stepIdx == 1) {
+                            val isDarkGuide = LocalDarkTheme.current
+                            val cardBg = if (isAccessibilityEnabled) {
+                                if (isDarkGuide) Color(0xFF1B3B22) else Color(0xFFE8F5E9)
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            }
+                            val cardBorder = if (isAccessibilityEnabled) {
+                                if (isDarkGuide) Color(0xFF66BB6A) else Color(0xFF81C784)
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                            val statusTextTint = if (isAccessibilityEnabled) {
+                                if (isDarkGuide) Color(0xFFA5D6A7) else Color(0xFF2E7D32)
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            }
+
                             Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isAccessibilityEnabled) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                                ),
+                                colors = CardDefaults.cardColors(containerColor = cardBg),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isAccessibilityEnabled) Color(0xFF81C784) else Color(0xFFE57373)
-                                ),
+                                border = BorderStroke(1.dp, cardBorder),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
@@ -1213,7 +1417,7 @@ fun HowToUseOnboardingDialog(
                                             Icon(
                                                 imageVector = if (isAccessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Security,
                                                 contentDescription = null,
-                                                tint = if (isAccessibilityEnabled) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                                tint = statusTextTint,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -1221,7 +1425,7 @@ fun HowToUseOnboardingDialog(
                                                 text = if (isAccessibilityEnabled) "Service Active" else "Service Inactive",
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp,
-                                                color = if (isAccessibilityEnabled) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                                color = statusTextTint
                                             )
                                         }
 
@@ -1241,7 +1445,8 @@ fun HowToUseOnboardingDialog(
                                             Text(
                                                 text = if (isAccessibilityEnabled) "Settings" else "Enable Now",
                                                 fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isAccessibilityEnabled) Color.White else MaterialTheme.colorScheme.onError
                                             )
                                         }
                                     }

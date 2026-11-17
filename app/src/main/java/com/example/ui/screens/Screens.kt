@@ -55,17 +55,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Share
@@ -73,12 +77,22 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.ui.text.style.TextDecoration
+import com.example.audio.AmbientSoundPlayer
+import com.example.audio.AmbientSoundType
 import com.example.data.model.TodoEntity
+import com.example.security.ParentalPinDialog
 import com.example.ui.components.AccessibilityRequiredDialog
+import com.example.ui.components.BlockedAppsRequiredDialog
+import com.example.ui.components.FocusForestRewardCard
 import com.example.ui.components.HowToUseOnboardingDialog
 import com.example.ui.components.HowToUseBannerCard
+import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReadingAppRequiredDialog
+import com.example.ui.components.calculateTreeStage
+import com.example.ui.components.treeStageTitle
+import com.example.ui.theme.LocalDarkTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -90,6 +104,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
@@ -164,8 +179,22 @@ fun AppSelectionScreen(
     val installedApps by viewModel.installedApps.collectAsState()
     val blockedApps by viewModel.blockedAppsList.collectAsState()
     val isWhitelistMode by viewModel.isWhitelistMode.collectAsState()
+    val isProTier by viewModel.isProTier.collectAsState()
+    val accentThemeId by viewModel.accentThemeId.collectAsState()
+    val showProLimitPrompt by viewModel.showProLimitPrompt.collectAsState()
+    val isParentalLockEnabled by viewModel.isParentalLockEnabled.collectAsState()
+    val parentalPinHash by viewModel.parentalPinHash.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
+    var pendingParentalAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    fun runWithParentalCheck(action: () -> Unit) {
+        if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+            pendingParentalAction = action
+        } else {
+            action()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
@@ -189,16 +218,39 @@ fun AppSelectionScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        Text(
-            text = "Restrict Distractions",
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleLarge
-        )
-        Text(
-            text = "Select distracting apps to block, or switch to strict whitelisting.",
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Restrict Distractions",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "Select distracting apps to block, or switch to strict whitelisting.",
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (!isProTier) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${blockedPackagesSet.size}/${FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS} FREE",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -243,7 +295,9 @@ fun AppSelectionScreen(
                 }
                 Switch(
                     checked = isWhitelistMode,
-                    onCheckedChange = { viewModel.toggleWhitelistMode(it) },
+                    onCheckedChange = { enabled ->
+                        runWithParentalCheck { viewModel.toggleWhitelistMode(enabled) }
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
@@ -298,8 +352,12 @@ fun AppSelectionScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(16.dp))
-                            .clickable { viewModel.toggleAppBlock(app.packageName, app.label, !isChecked) }
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                            .clickable {
+                                runWithParentalCheck {
+                                    viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
+                                }
+                            }
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -320,7 +378,11 @@ fun AppSelectionScreen(
                         }
                         Checkbox(
                             checked = isChecked,
-                            onCheckedChange = { viewModel.toggleAppBlock(app.packageName, app.label, it) },
+                            onCheckedChange = { want ->
+                                runWithParentalCheck {
+                                    viewModel.toggleAppBlock(app.packageName, app.label, want)
+                                }
+                            },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = MaterialTheme.colorScheme.primary,
                                 checkmarkColor = MaterialTheme.colorScheme.background
@@ -367,17 +429,52 @@ fun AppSelectionScreen(
             }
         }
     }
+
+    pendingParentalAction?.let { action ->
+        ParentalPinDialog(
+            title = "Parental Control Active",
+            subtitle = "Enter your parental PIN to modify app blocking settings.",
+            storedPinHash = parentalPinHash,
+            onPinConfirmed = {
+                pendingParentalAction = null
+                action()
+            },
+            onDismiss = { pendingParentalAction = null }
+        )
+    }
+
+    if (showProLimitPrompt) {
+        PremiumUpgradeDialog(
+            isProActive = isProTier,
+            selectedThemeId = accentThemeId,
+            onTogglePro = { viewModel.setProTier(it) },
+            onSelectTheme = { viewModel.selectAccentTheme(it) },
+            onDismiss = { viewModel.dismissProLimitPrompt() }
+        )
+    }
 }
 
 @Composable
 fun TimerSetupScreen(
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
+    onNavigateToBlocklist: () -> Unit = {},
+    autoStartFromShortcut: Boolean = false,
+    onAutoStartConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val installedApps by viewModel.installedApps.collectAsState()
     val designatedReadingApp by viewModel.designatedReadingApp.collectAsState()
+    val blockedAppsList by viewModel.blockedAppsList.collectAsState()
+    val isWhitelistMode by viewModel.isWhitelistMode.collectAsState()
+    val stats by viewModel.statsSummary.collectAsState()
+    val selectedSoundId by viewModel.selectedAmbientSoundId.collectAsState()
+    val isProTier by viewModel.isProTier.collectAsState()
+    val accentThemeId by viewModel.accentThemeId.collectAsState()
+    val showProLimitPrompt by viewModel.showProLimitPrompt.collectAsState()
+    val isParentalLockEnabled by viewModel.isParentalLockEnabled.collectAsState()
+    val parentalPinHash by viewModel.parentalPinHash.collectAsState()
 
     // Store custom session minutes and onboarding status in SharedPreferences (defaults to 15m or last chosen, never forces 25m)
     val prefs = remember { context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE) }
@@ -387,6 +484,8 @@ fun TimerSetupScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     var showAccessibilityRequiredDialog by remember { mutableStateOf(false) }
     var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
+    var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
+    var showParentalPinForReader by remember { mutableStateOf(false) }
     var showHowToUseDialog by remember {
         mutableStateOf(!prefs.getBoolean("has_completed_onboarding", false))
     }
@@ -396,11 +495,33 @@ fun TimerSetupScreen(
     }
 
     val hasReadingApp = !designatedReadingApp.isNullOrBlank()
+    val blockedAppsCount = remember(blockedAppsList) { blockedAppsList.count { it.isBlocked } }
+    val hasBlockedAppsConfig = isWhitelistMode || blockedAppsCount > 0
     val selectedReadingAppLabel = remember(designatedReadingApp, installedApps) {
         if (designatedReadingApp.isNullOrBlank()) {
             "None Selected"
         } else {
             installedApps.find { it.packageName == designatedReadingApp }?.label ?: designatedReadingApp!!
+        }
+    }
+
+    fun tryStartFocusSession() {
+        if (!hasReadingApp) {
+            showReadingAppRequiredDialog = true
+        } else if (!hasBlockedAppsConfig) {
+            showBlockedAppsRequiredDialog = true
+        } else if (!isAccessibilityServiceEnabled(context)) {
+            showAccessibilityRequiredDialog = true
+        } else {
+            viewModel.startFocusSession(context, sessionMinutes)
+            onStartSession()
+        }
+    }
+
+    LaunchedEffect(autoStartFromShortcut, hasReadingApp, hasBlockedAppsConfig) {
+        if (autoStartFromShortcut) {
+            onAutoStartConsumed()
+            tryStartFocusSession()
         }
     }
 
@@ -492,8 +613,33 @@ fun TimerSetupScreen(
             // Quick How To Use Guide Banner Card
             HowToUseBannerCard(
                 onOpenGuide = { showHowToUseDialog = true },
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 12.dp)
             )
+
+            // Quick Summary Strip: Focus Minutes, Distractions Blocked, Virtual Tree Stage
+            val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerQuickStatPill(
+                    label = "FOCUS",
+                    value = "${stats.totalFocusMinutes}m",
+                    modifier = Modifier.weight(1f)
+                )
+                TimerQuickStatPill(
+                    label = "BLOCKED",
+                    value = "🛡️ ${stats.totalBlockedAttempts}",
+                    modifier = Modifier.weight(1f).testTag("timer_blocked_attempts_pill")
+                )
+                TimerQuickStatPill(
+                    label = "TREE",
+                    value = "🌳 Stg $treeStage",
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Text(
                 text = "Set Reading Goal",
@@ -507,7 +653,7 @@ fun TimerSetupScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             if (!isAccessibilityEnabled) {
                 Card(
@@ -605,7 +751,7 @@ fun TimerSetupScreen(
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = Color(0xFFE6E0E9)
+                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier.testTag("duration_slider")
                     )
@@ -625,8 +771,8 @@ fun TimerSetupScreen(
                                     .weight(1f)
                                     .padding(horizontal = 4.dp)
                                     .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF3EDF7))
-                                    .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else Color(0xFFE6E0E9), RoundedCornerShape(50))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                                     .clickable {
                                         sessionMinutes = mins
                                         prefs.edit().putInt("saved_session_minutes", mins).apply()
@@ -636,7 +782,7 @@ fun TimerSetupScreen(
                             ) {
                                 Text(
                                     text = "${mins}m",
-                                    color = if (isSelected) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onBackground,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 13.sp
                                 )
@@ -654,7 +800,7 @@ fun TimerSetupScreen(
                 shape = RoundedCornerShape(24.dp),
                 border = BorderStroke(
                     width = if (hasReadingApp) 1.dp else 1.5.dp,
-                    color = if (hasReadingApp) Color(0xFFE6E0E9) else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -714,9 +860,15 @@ fun TimerSetupScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFF3EDF7))
-                            .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(50))
-                            .clickable { showAppPicker = true }
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                            .clickable {
+                                if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                                    showParentalPinForReader = true
+                                } else {
+                                    showAppPicker = true
+                                }
+                            }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -738,22 +890,176 @@ fun TimerSetupScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Blocked Apps Status Card (Required unless Whitelist Mode is enabled)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(
+                    width = if (hasBlockedAppsConfig) 1.dp else 1.5.dp,
+                    color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("blocked_apps_status_card")
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = null,
+                                tint = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "DISTRACTION BLOCKING",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                        if (!hasBlockedAppsConfig) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "REQUIRED",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = when {
+                            isWhitelistMode -> "Whitelist Mode enabled — all distracting apps will be locked automatically."
+                            blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) selected to block during your session."
+                            else -> "Select at least one app to block (or enable Whitelist Mode) before starting."
+                        },
+                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                            .clickable { onNavigateToBlocklist() }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .testTag("configure_blocked_apps_row"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when {
+                                isWhitelistMode -> "WHITELIST MODE ACTIVE"
+                                blockedAppsCount > 0 -> "$blockedAppsCount APPS BLOCKED"
+                                else -> "NONE SELECTED"
+                            },
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = if (hasBlockedAppsConfig) "EDIT" else "SELECT",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Ambient & White Noise Soundscape Picker Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("ambient_sound_picker_card")
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "AMBIENT & WHITE NOISE SOUND",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AmbientSoundType.entries.forEach { sound ->
+                            val isSelected = selectedSoundId == sound.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                        RoundedCornerShape(50)
+                                    )
+                                    .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = false) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    .testTag("ambient_chip_${sound.id}")
+                            ) {
+                                Text(
+                                    text = buildString {
+                                        append("${sound.emoji} ${sound.displayName}")
+                                        if (sound.isProOnly && !isProTier) append(" ★PRO")
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Action Start Button (Solid black high impact layout)
         Button(
-            onClick = {
-                if (!hasReadingApp) {
-                    showReadingAppRequiredDialog = true
-                } else if (!isAccessibilityServiceEnabled(context)) {
-                    showAccessibilityRequiredDialog = true
-                } else {
-                    viewModel.startFocusSession(context, sessionMinutes)
-                    onStartSession()
-                }
-            },
+            onClick = { tryStartFocusSession() },
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.outline
             ),
@@ -810,8 +1116,8 @@ fun TimerSetupScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (!hasReadingApp) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF3EDF7))
-                                    .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(12.dp))
+                                    .background(if (!hasReadingApp) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                                     .clickable {
                                         viewModel.selectReadingApp(null)
                                         showAppPicker = false
@@ -820,8 +1126,16 @@ fun TimerSetupScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text("None (Clear selection)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                    Text("A reading app must be selected to start a session", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
+                                    Text(
+                                        text = "None (Clear selection)",
+                                        color = if (!hasReadingApp) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "A reading app must be selected to start a session",
+                                        color = if (!hasReadingApp) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.secondary,
+                                        fontSize = 11.sp
+                                    )
                                 }
                             }
                         }
@@ -832,8 +1146,8 @@ fun TimerSetupScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF3EDF7))
-                                    .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                                     .clickable {
                                         viewModel.selectReadingApp(app.packageName)
                                         showAppPicker = false
@@ -843,8 +1157,16 @@ fun TimerSetupScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(app.label, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                    Text(app.packageName, color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
+                                    Text(
+                                        text = app.label,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = app.packageName,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.secondary,
+                                        fontSize = 11.sp
+                                    )
                                 }
                                 if (isSelected) {
                                     Icon(
@@ -882,6 +1204,16 @@ fun TimerSetupScreen(
         )
     }
 
+    if (showBlockedAppsRequiredDialog) {
+        BlockedAppsRequiredDialog(
+            onSelectBlockedApps = {
+                showBlockedAppsRequiredDialog = false
+                onNavigateToBlocklist()
+            },
+            onDismiss = { showBlockedAppsRequiredDialog = false }
+        )
+    }
+
     if (showAccessibilityRequiredDialog) {
         AccessibilityRequiredDialog(
             onDismiss = { showAccessibilityRequiredDialog = false }
@@ -896,6 +1228,65 @@ fun TimerSetupScreen(
             }
         )
     }
+
+    if (showParentalPinForReader) {
+        ParentalPinDialog(
+            title = "Parental Control Active",
+            subtitle = "Enter your parental PIN to change the designated reading app.",
+            storedPinHash = parentalPinHash,
+            onPinConfirmed = {
+                showParentalPinForReader = false
+                showAppPicker = true
+            },
+            onDismiss = { showParentalPinForReader = false }
+        )
+    }
+
+    if (showProLimitPrompt) {
+        PremiumUpgradeDialog(
+            isProActive = isProTier,
+            selectedThemeId = accentThemeId,
+            onTogglePro = { viewModel.setProTier(it) },
+            onSelectTheme = { viewModel.selectAccentTheme(it) },
+            onDismiss = { viewModel.dismissProLimitPrompt() }
+        )
+    }
+}
+
+@Composable
+private fun TimerQuickStatPill(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.secondary,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
 }
 
 @Composable
@@ -904,10 +1295,18 @@ fun FocusSessionScreen(
     onStopSession: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val timeLeftSeconds by viewModel.timeLeftSeconds.collectAsState()
     val blockedAttempts by viewModel.blockedAttemptsCount.collectAsState()
     val stats by viewModel.statsSummary.collectAsState()
+    val isDndActive by viewModel.isDndActivatedBySession.collectAsState()
+    val selectedSoundId by viewModel.selectedAmbientSoundId.collectAsState()
+    val isAudioPlaying by AmbientSoundPlayer.isPlaying.collectAsState()
+    val audioVolume by AmbientSoundPlayer.volume.collectAsState()
+    val isProTier by viewModel.isProTier.collectAsState()
+    val isParentalLockEnabled by viewModel.isParentalLockEnabled.collectAsState()
+    val parentalPinHash by viewModel.parentalPinHash.collectAsState()
+
+    var showParentalQuitDialog by remember { mutableStateOf(false) }
 
     val totalDuration = FocusSessionManager.totalDurationSeconds
     val progress = if (totalDuration > 0) {
@@ -926,61 +1325,92 @@ fun FocusSessionScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val isDark = LocalDarkTheme.current
+        val streakBg = if (isDark) Color(0xFF4A2532) else Color(0xFFFFD8E4)
+        val streakBorder = if (isDark) Color(0xFFFFB1C8) else Color(0xFFD78391)
+        val streakText = if (isDark) Color(0xFFFFD8E4) else Color(0xFF31111D)
+
         // Upper stats row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Streak counter badge (chunky pink rose)
+            // Streak counter badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFFFD8E4))
-                    .border(1.dp, Color(0xFFD78391), RoundedCornerShape(50))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .background(streakBg)
+                    .border(1.dp, streakBorder, RoundedCornerShape(50))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = Color(0xFF31111D),
+                    tint = streakText,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${stats.currentStreak} DAY STREAK 🔥",
-                    color = Color(0xFF31111D),
+                    color = streakText,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black
                 )
             }
 
-            // Blocked alerts indicator badge (chunky alert red/pink)
+            // Live Distraction Attempts Counter badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFFFDAD6))
-                    .border(1.dp, Color(0xFFFFB4AB), RoundedCornerShape(50))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(50))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .testTag("live_blocked_attempts_badge")
             ) {
                 Icon(
                     imageVector = Icons.Default.Block,
                     contentDescription = null,
-                    tint = Color(0xFF410002),
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "BLOCKED: $blockedAttempts",
-                    color = Color(0xFF410002),
+                    text = "ATTEMPTS BLOCKED: $blockedAttempts",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black
+                )
+            }
+        }
+
+        if (isDndActive) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 12.dp, vertical = 5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DoNotDisturbOn,
+                    contentDescription = "DND Active",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Do Not Disturb Engaged",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
@@ -989,10 +1419,10 @@ fun FocusSessionScreen(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(280.dp)
-                .padding(16.dp)
+                .size(240.dp)
+                .padding(8.dp)
         ) {
-            val primaryTrackColor = Color(0xFFE6E0E9)
+            val primaryTrackColor = MaterialTheme.colorScheme.outlineVariant
             val accentActiveColor = MaterialTheme.colorScheme.primary
 
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1031,70 +1461,181 @@ fun FocusSessionScreen(
             }
         }
 
-        // Bottom Action buttons
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
+        // Virtual Focus Tree growing live with session progress
+        FocusForestRewardCard(
+            stats = stats,
+            liveSessionProgress = (1f - progress).coerceIn(0.08f, 1f)
+        )
+
+        // Live Ambient & White Noise Sound Controller
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(22.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("session_ambient_sound_card")
         ) {
-            Text(
-                text = "ReadLock locks your distractions. Keep reading to build healthy mind habits!",
-                color = MaterialTheme.colorScheme.secondary,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeUp,
+                            contentDescription = "Ambient Sound",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isAudioPlaying) "SOUND: ${AmbientSoundType.fromId(selectedSoundId).displayName}" else "AMBIENT SOUND: OFF",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            if (isAudioPlaying) {
+                                AmbientSoundPlayer.stop()
+                            } else {
+                                val target = AmbientSoundType.fromId(selectedSoundId).takeIf { it != AmbientSoundType.NONE }
+                                    ?: AmbientSoundType.WHITE_NOISE
+                                viewModel.selectAmbientSound(target, previewIfSessionActive = true)
+                            }
+                        },
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(if (isAudioPlaying) "MUTE" else "PLAY", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Strict Lock Information Card
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Lock Icon",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    AmbientSoundType.entries.forEach { sound ->
+                        val active = selectedSoundId == sound.id && (sound == AmbientSoundType.NONE || isAudioPlaying)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                                .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = true) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "${sound.emoji} ${sound.displayName}${if (sound.isProOnly && !isProTier) " ★" else ""}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "STRICT LOCK ENGAGED",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "This session is strictly locked. Distracting apps are blocked and cannot be opened until the countdown reaches 00:00.",
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                }
+                if (isAudioPlaying) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Slider(
+                        value = audioVolume,
+                        onValueChange = { AmbientSoundPlayer.setVolume(it) },
+                        valueRange = 0.05f..1f
+                    )
                 }
             }
         }
+
+        // Strict Lock Information Card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Lock Icon",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "STRICT LOCK ENGAGED",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Distracting apps are locked until 00:00. Quitting early triggers your accountability alert if configured.",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        OutlinedButton(
+            onClick = {
+                if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                    showParentalQuitDialog = true
+                } else {
+                    onStopSession()
+                }
+            },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .testTag("end_session_early_button")
+        ) {
+            Icon(Icons.Default.Stop, contentDescription = "End Session Early", modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = if (isParentalLockEnabled) "END EARLY (PIN REQUIRED)" else "END SESSION EARLY",
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+        }
+    }
+
+    if (showParentalQuitDialog) {
+        ParentalPinDialog(
+            title = "Parental Lock Active",
+            subtitle = "Enter your parental PIN to end this focus session early.",
+            storedPinHash = parentalPinHash,
+            onPinConfirmed = {
+                showParentalQuitDialog = false
+                onStopSession()
+            },
+            onDismiss = { showParentalQuitDialog = false }
+        )
     }
 }
 
@@ -1119,6 +1660,19 @@ fun CoffeeBreakScreen(
         String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
     }
 
+    val isDark = LocalDarkTheme.current
+    val coffeeBadgeBg = if (isDark) Color(0xFF2B211D) else Color(0xFFEFEBE9)
+    val coffeeBorderColor = if (isDark) Color(0xFFBCAAA4) else Color(0xFF8D6E63)
+    val coffeeIconTint = if (isDark) Color(0xFFD7CCC8) else Color(0xFF5D4037)
+    val coffeeTrackColor = if (isDark) Color(0xFF322824) else Color(0xFFF5EBE6)
+    val coffeeActiveColor = if (isDark) Color(0xFFD7CCC8) else Color(0xFF8D6E63)
+    val coffeeTitleText = if (isDark) Color(0xFFEFEBE9) else Color(0xFF3E2723)
+    val coffeeBodyText = if (isDark) Color(0xFFBCAAA4) else Color(0xFF5D4037)
+    val coffeeCardBg = if (isDark) Color(0xFF231B18) else Color(0xFFEFEBE9).copy(alpha = 0.5f)
+    val coffeeCardBorder = if (isDark) Color(0xFF4E342E) else Color(0xFFD7CCC8)
+    val coffeeButtonBg = if (isDark) Color(0xFFD7CCC8) else Color(0xFF3E2723)
+    val coffeeButtonContent = if (isDark) Color(0xFF2B1B17) else Color.White
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1141,13 +1695,13 @@ fun CoffeeBreakScreen(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFEFEBE9)) // very light brown/warm grey
-                    .border(2.dp, Color(0xFF8D6E63), CircleShape) // warm brown border
+                    .background(coffeeBadgeBg)
+                    .border(2.dp, coffeeBorderColor, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.LocalCafe,
                     contentDescription = "Coffee Cup",
-                    tint = Color(0xFF5D4037), // rich espresso brown
+                    tint = coffeeIconTint,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -1161,16 +1715,13 @@ fun CoffeeBreakScreen(
                     .size(280.dp)
                     .padding(16.dp)
             ) {
-                val primaryTrackColor = Color(0xFFF5EBE6)
-                val accentActiveColor = Color(0xFF8D6E63) // warm brown
-
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
-                        color = primaryTrackColor,
+                        color = coffeeTrackColor,
                         style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
                     )
                     drawArc(
-                        color = accentActiveColor,
+                        color = coffeeActiveColor,
                         startAngle = -90f,
                         sweepAngle = 360f * progress,
                         useCenter = false,
@@ -1181,7 +1732,7 @@ fun CoffeeBreakScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "COFFEE BREAK",
-                        color = Color(0xFF8D6E63),
+                        color = coffeeBorderColor,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp
@@ -1189,14 +1740,14 @@ fun CoffeeBreakScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formattedTime,
-                        color = Color(0xFF3E2723), // deep chocolate brown
+                        color = coffeeTitleText,
                         style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black),
                         modifier = Modifier.testTag("break_timer_text")
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Time to Recharge",
-                        color = Color(0xFF795548),
+                        color = coffeeBodyText,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -1207,10 +1758,10 @@ fun CoffeeBreakScreen(
             // Friendly Message Card
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFEFEBE9).copy(alpha = 0.5f)
+                    containerColor = coffeeCardBg
                 ),
                 shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, Color(0xFFD7CCC8)),
+                border = BorderStroke(1.dp, coffeeCardBorder),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -1220,14 +1771,14 @@ fun CoffeeBreakScreen(
                     Text(
                         text = "Excellent Work! 🎉",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF3E2723),
+                        color = coffeeTitleText,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "You've successfully finished your focus session. Now take a deep breath, stand up, stretch, and rest your eyes.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF5D4037),
+                        color = coffeeBodyText,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1238,8 +1789,8 @@ fun CoffeeBreakScreen(
         Button(
             onClick = onSkipBreak,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF3E2723), // deep chocolate/espresso high contrast
-                contentColor = Color.White
+                containerColor = coffeeButtonBg,
+                contentColor = coffeeButtonContent
             ),
             shape = RoundedCornerShape(50),
             modifier = Modifier
@@ -1501,10 +2052,15 @@ fun HistoryStatsScreen(
                 fontWeight = FontWeight.Black
             )
             Text(
-                text = "Weekly reading insights, streak counters, and achievements.",
+                text = "Virtual focus tree, distraction shields, weekly reading insights & achievements.",
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+
+        // 1.5 Virtual Focus Tree Reward Card
+        item {
+            FocusForestRewardCard(stats = stats)
         }
 
         // 2. Weekly Reading Progress Dashboard Card (Custom 7-day bar chart)
@@ -1699,13 +2255,24 @@ fun HistoryStatsScreen(
 
         // 3. Side-by-side Quick metrics
         item {
+            val isDark = LocalDarkTheme.current
+            val streakCardBg = if (isDark) Color(0xFF2D2014) else Color(0xFFFFF3E0)
+            val streakCardBorder = if (isDark) Color(0xFFFFB74D).copy(alpha = 0.5f) else Color(0xFFFFB74D).copy(alpha = 0.4f)
+            val streakLabelColor = if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)
+            val streakValueColor = if (isDark) Color(0xFFFFE0B2) else Color(0xFFD84315)
+
+            val minutesCardBg = if (isDark) Color(0xFF102A27) else Color(0xFFE0F2F1)
+            val minutesCardBorder = if (isDark) Color(0xFF4DB6AC).copy(alpha = 0.5f) else Color(0xFF4DB6AC).copy(alpha = 0.4f)
+            val minutesLabelColor = if (isDark) Color(0xFF80CBC4) else Color(0xFF004D40)
+            val minutesValueColor = if (isDark) Color(0xFFB2DFDB) else Color(0xFF00695C)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                    border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(alpha = 0.4f)),
+                    colors = CardDefaults.cardColors(containerColor = streakCardBg),
+                    border = BorderStroke(1.dp, streakCardBorder),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .weight(1f)
@@ -1719,7 +2286,7 @@ fun HistoryStatsScreen(
                     ) {
                         Text(
                             text = "STREAK",
-                            color = Color(0xFFE65100),
+                            color = streakLabelColor,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelSmall,
                             letterSpacing = 1.sp
@@ -1738,7 +2305,7 @@ fun HistoryStatsScreen(
                             )
                             Text(
                                 text = "${stats.currentStreak} Days",
-                                color = Color(0xFFD84315),
+                                color = streakValueColor,
                                 fontWeight = FontWeight.Black,
                                 style = MaterialTheme.typography.titleLarge
                             )
@@ -1747,8 +2314,8 @@ fun HistoryStatsScreen(
                 }
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
-                    border = BorderStroke(1.dp, Color(0xFF4DB6AC).copy(alpha = 0.4f)),
+                    colors = CardDefaults.cardColors(containerColor = minutesCardBg),
+                    border = BorderStroke(1.dp, minutesCardBorder),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .weight(1f)
@@ -1762,7 +2329,7 @@ fun HistoryStatsScreen(
                     ) {
                         Text(
                             text = "TOTAL MINUTES",
-                            color = Color(0xFF004D40),
+                            color = minutesLabelColor,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelSmall,
                             letterSpacing = 1.sp
@@ -1770,11 +2337,53 @@ fun HistoryStatsScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "⏱️ ${stats.totalFocusMinutes} Min",
-                            color = Color(0xFF00695C),
+                            color = minutesValueColor,
                             fontWeight = FontWeight.Black,
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Distraction Attempts Counter Metric Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("stats_distraction_attempts_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "DISTRACTION ATTEMPTS BLOCKED",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Times FocusLock intercepted blocked apps across your sessions.",
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Text(
+                        text = "🛡️ ${stats.totalBlockedAttempts}",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.headlineSmall
+                    )
                 }
             }
         }
@@ -1803,19 +2412,19 @@ fun HistoryStatsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(Color(0xFFE8DEF8))
+                                .background(MaterialTheme.colorScheme.primaryContainer)
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "LEVEL ${(stats.focusScore / 200) + 1}",
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Black
                             )
@@ -1834,7 +2443,7 @@ fun HistoryStatsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    HorizontalDivider(color = Color(0xFFE6E0E9))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -2278,7 +2887,7 @@ fun HistoryStatsScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(24.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
                         .padding(32.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -2312,7 +2921,7 @@ fun HistoryStatsScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, Color(0xFFE6E0E9), RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -2335,7 +2944,7 @@ fun HistoryStatsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "•",
-                                color = Color(0xFFE6E0E9),
+                                color = MaterialTheme.colorScheme.outlineVariant,
                                 fontSize = 12.sp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -2646,10 +3255,23 @@ fun SettingsScreen(
                         )
                     }
 
-                    val badgeBg = if (accessibilityEnabled) Color(0xFFFFD8E4) else Color(0xFFFFDAD6)
-                    val badgeBorder = if (accessibilityEnabled) Color(0xFFD78391) else Color(0xFFFFB4AB)
+                    val isDarkSettings = LocalDarkTheme.current
+                    val badgeBg = if (accessibilityEnabled) {
+                        if (isDarkSettings) Color(0xFF4A2532) else Color(0xFFFFD8E4)
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    }
+                    val badgeBorder = if (accessibilityEnabled) {
+                        if (isDarkSettings) Color(0xFFFFB1C8) else Color(0xFFD78391)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    }
                     val badgeText = if (accessibilityEnabled) "ACTIVE" else "DISABLED"
-                    val badgeTextColor = if (accessibilityEnabled) Color(0xFF31111D) else Color(0xFF410002)
+                    val badgeTextColor = if (accessibilityEnabled) {
+                        if (isDarkSettings) Color(0xFFFFD8E4) else Color(0xFF31111D)
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    }
 
                     Box(
                         contentAlignment = Alignment.Center,
@@ -2670,7 +3292,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                HorizontalDivider(color = Color(0xFFE6E0E9))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -2691,7 +3313,7 @@ fun SettingsScreen(
                         context.startActivity(intent)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (accessibilityEnabled) Color(0xFFF3EDF7) else MaterialTheme.colorScheme.outline
+                        containerColor = if (accessibilityEnabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.outline
                     ),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
@@ -2716,7 +3338,7 @@ fun SettingsScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, Color(0xFFE6E0E9)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -2789,7 +3411,7 @@ fun SettingsScreen(
                                 colors = SliderDefaults.colors(
                                     thumbColor = MaterialTheme.colorScheme.primary,
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = Color(0xFFE6E0E9)
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -2804,7 +3426,7 @@ fun SettingsScreen(
                                 colors = SliderDefaults.colors(
                                     thumbColor = MaterialTheme.colorScheme.primary,
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = Color(0xFFE6E0E9)
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -2814,13 +3436,16 @@ fun SettingsScreen(
             }
         }
 
+        // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
+        SettingsAdvancedSections(viewModel = viewModel)
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Policy Considerations Card with light outline
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, Color(0xFFE6E0E9)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {

@@ -63,7 +63,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.AppDatabase
+import com.example.data.repository.FocusRepository
 import com.example.service.FocusSessionManager
+import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -77,9 +80,11 @@ class BlockActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
+        val repository = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
 
         setContent {
-            MyApplicationTheme {
+            val isDarkModeEnabled by repository.isDarkModeEnabled().collectAsState(initial = false)
+            MyApplicationTheme(darkTheme = isDarkModeEnabled) {
                 BackHandler {
                     // Intercept back button so users cannot bypass the focus session
                 }
@@ -132,6 +137,7 @@ fun BlockScreenContent(
     val context = LocalContext.current
     val isSessionActive by FocusSessionManager.isSessionActive.collectAsState()
     val timeLeftSeconds by FocusSessionManager.timeLeftSeconds.collectAsState()
+    val blockedAttempts by FocusSessionManager.blockedAttemptsCount.collectAsState()
 
     val formattedTime = remember(timeLeftSeconds) {
         val mins = timeLeftSeconds / 60
@@ -169,24 +175,44 @@ fun BlockScreenContent(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
+            val isDark = LocalDarkTheme.current
             // Gamification/Status Badge (Chunky border & background)
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFFFD8E4))
-                    .border(1.dp, Color(0xFFD78391), RoundedCornerShape(50))
+                    .background(if (isDark) Color(0xFF4A2532) else Color(0xFFFFD8E4))
+                    .border(1.dp, if (isDark) Color(0xFFFFB1C8) else Color(0xFFD78391), RoundedCornerShape(50))
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = "ReadLock Focus Active 🔒",
-                    color = Color(0xFF31111D),
+                    color = if (isDark) Color(0xFFFFD8E4) else Color(0xFF31111D),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Distraction Attempts Counter Pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f), RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                    .testTag("block_screen_attempt_counter")
+            ) {
+                Text(
+                    text = "🛡️ Distraction Attempt #$blockedAttempts Blocked",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Main warning header
             Text(
