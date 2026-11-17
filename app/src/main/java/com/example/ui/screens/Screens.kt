@@ -333,9 +333,7 @@ fun AppSelectionScreen(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
                         containerSize = 32.dp,
-                        iconSize = 18.dp,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        iconTint = MaterialTheme.colorScheme.secondary
+                        iconSize = 18.dp
                     )
                 },
                 placeholder = { Text("Search apps...", color = MaterialTheme.colorScheme.secondary) },
@@ -580,14 +578,18 @@ fun TimerSetupScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                        .background(Color.Black)
+                        .border(
+                            1.dp,
+                            if (isDarkModeEnabled) Color.White.copy(alpha = 0.24f) else MaterialTheme.colorScheme.outlineVariant,
+                            CircleShape
+                        )
                         .testTag("quick_theme_toggle")
                 ) {
                     Icon(
                         imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
                         contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -836,9 +838,7 @@ fun TimerSetupScreen(
                                 imageVector = Icons.Default.Block,
                                 contentDescription = null,
                                 containerSize = 30.dp,
-                                iconSize = 16.dp,
-                                containerColor = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
-                                iconTint = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                iconSize = 16.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -994,8 +994,9 @@ fun TimerSetupScreen(
                 contentDescription = null,
                 containerSize = 28.dp,
                 iconSize = 17.dp,
-                containerColor = Color.White.copy(alpha = 0.18f),
-                iconTint = Color.White
+                containerColor = Color.Black,
+                iconTint = Color.White,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -1095,9 +1096,7 @@ fun TimerSetupScreen(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         containerSize = 30.dp,
-                                        iconSize = 18.dp,
-                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                        iconTint = MaterialTheme.colorScheme.primary
+                                        iconSize = 18.dp
                                     )
                                 }
                             }
@@ -1275,9 +1274,7 @@ fun FocusSessionScreen(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
                     containerSize = 22.dp,
-                    iconSize = 13.dp,
-                    containerColor = streakText.copy(alpha = 0.14f),
-                    iconTint = streakText
+                    iconSize = 13.dp
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1302,9 +1299,7 @@ fun FocusSessionScreen(
                     imageVector = Icons.Default.Block,
                     contentDescription = null,
                     containerSize = 22.dp,
-                    iconSize = 13.dp,
-                    containerColor = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.14f),
-                    iconTint = MaterialTheme.colorScheme.onErrorContainer
+                    iconSize = 13.dp
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1328,9 +1323,7 @@ fun FocusSessionScreen(
                     imageVector = Icons.Default.DoNotDisturbOn,
                     contentDescription = "DND Active",
                     containerSize = 22.dp,
-                    iconSize = 13.dp,
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    iconTint = MaterialTheme.colorScheme.primary
+                    iconSize = 13.dp
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1500,13 +1493,13 @@ fun FocusSessionScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        .background(Color.Black)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = "Lock Icon",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1549,8 +1542,9 @@ fun FocusSessionScreen(
                 contentDescription = "End Session Early",
                 containerSize = 26.dp,
                 iconSize = 15.dp,
-                containerColor = Color.White.copy(alpha = 0.18f),
-                iconTint = Color.White
+                containerColor = Color.Black,
+                iconTint = Color.White,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
@@ -1632,13 +1626,13 @@ fun CoffeeBreakScreen(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(coffeeBadgeBg)
+                    .background(Color.Black)
                     .border(2.dp, coffeeBorderColor, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.LocalCafe,
                     contentDescription = "Coffee Cup",
-                    tint = coffeeIconTint,
+                    tint = Color.White,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -1804,14 +1798,14 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
                         modifier = Modifier
                             .size(16.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(Color.Black)
                             .align(Alignment.BottomEnd),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Locked",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = Color.White,
                             modifier = Modifier.size(10.dp)
                         )
                     }
@@ -2420,9 +2414,7 @@ fun HistoryStatsScreen(
                                     imageVector = Icons.Default.Star,
                                     contentDescription = null,
                                     containerSize = 20.dp,
-                                    iconSize = 12.dp,
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    iconSize = 12.dp
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
@@ -2510,8 +2502,9 @@ fun HistoryStatsScreen(
                                     contentDescription = "Share Progress",
                                     containerSize = 26.dp,
                                     iconSize = 14.dp,
-                                    containerColor = Color.White.copy(alpha = 0.18f),
-                                    iconTint = Color.White
+                                    containerColor = Color.Black,
+                                    iconTint = Color.White,
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -2555,8 +2548,9 @@ fun HistoryStatsScreen(
                                     contentDescription = "Copy to Clipboard",
                                     containerSize = 26.dp,
                                     iconSize = 14.dp,
-                                    containerColor = Color.White.copy(alpha = 0.18f),
-                                    iconTint = Color.White
+                                    containerColor = Color.Black,
+                                    iconTint = Color.White,
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -2593,8 +2587,9 @@ fun HistoryStatsScreen(
                                 contentDescription = "Export to PDF",
                                 containerSize = 26.dp,
                                 iconSize = 14.dp,
-                                containerColor = Color.White.copy(alpha = 0.18f),
-                                iconTint = Color.White
+                                containerColor = Color.Black,
+                                iconTint = Color.White,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -2730,8 +2725,9 @@ fun HistoryStatsScreen(
                         contentDescription = "Add Task",
                         containerSize = 26.dp,
                         iconSize = 16.dp,
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        iconTint = Color.White
+                        containerColor = Color.Black,
+                        iconTint = Color.White,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("ADD", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
@@ -2897,9 +2893,7 @@ fun HistoryStatsScreen(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete Task",
                                 containerSize = 32.dp,
-                                iconSize = 17.dp,
-                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                iconTint = MaterialTheme.colorScheme.error
+                                iconSize = 17.dp
                             )
                         }
                     }
@@ -2936,8 +2930,6 @@ fun HistoryStatsScreen(
                             contentDescription = null,
                             containerSize = 72.dp,
                             iconSize = 36.dp,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                            iconTint = MaterialTheme.colorScheme.primary,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -3007,9 +2999,7 @@ fun HistoryStatsScreen(
                         contentDescription = null,
                         containerSize = 36.dp,
                         iconSize = 20.dp,
-                        containerColor = statusColor.copy(alpha = 0.14f),
-                        iconTint = statusColor,
-                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.35f))
+                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.45f))
                     )
                 }
             }
@@ -3528,8 +3518,6 @@ fun SettingsScreen(
                         contentDescription = null,
                         containerSize = 30.dp,
                         iconSize = 16.dp,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        iconTint = MaterialTheme.colorScheme.secondary,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     )
                     Spacer(modifier = Modifier.width(8.dp))

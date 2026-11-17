@@ -303,8 +303,9 @@ fun BlockScreenContent(
                     contentDescription = null,
                     containerSize = 28.dp,
                     iconSize = 16.dp,
-                    containerColor = Color.White.copy(alpha = 0.18f),
-                    iconTint = Color.White
+                    containerColor = Color.Black,
+                    iconTint = Color.White,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -338,13 +339,13 @@ fun BlockScreenContent(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .background(Color.Black)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Lock Icon",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                     }

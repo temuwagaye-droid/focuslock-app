@@ -98,13 +98,13 @@ fun AccessibilityRequiredDialog(
                         .size(72.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .background(Color.Black)
                         .border(2.dp, MaterialTheme.colorScheme.error, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Security,
                         contentDescription = "Accessibility Required",
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = Color.White,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -152,8 +152,9 @@ fun AccessibilityRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        iconTint = Color.White
+                        containerColor = Color.Black,
+                        iconTint = Color.White,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -234,13 +235,13 @@ fun ReadingAppRequiredDialog(
                         .size(72.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .background(Color.Black)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Book,
                         contentDescription = "Reading App Required",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color.White,
                         modifier = Modifier.size(38.dp)
                     )
                 }
@@ -282,8 +283,9 @@ fun ReadingAppRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        iconTint = Color.White
+                        containerColor = Color.Black,
+                        iconTint = Color.White,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -364,13 +366,13 @@ fun BlockedAppsRequiredDialog(
                         .size(72.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .background(Color.Black)
                         .border(2.dp, MaterialTheme.colorScheme.error, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Block,
                         contentDescription = "Blocked Apps Required",
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = Color.White,
                         modifier = Modifier.size(38.dp)
                     )
                 }
@@ -412,8 +414,9 @@ fun BlockedAppsRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        iconTint = Color.White
+                        containerColor = Color.Black,
+                        iconTint = Color.White,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(

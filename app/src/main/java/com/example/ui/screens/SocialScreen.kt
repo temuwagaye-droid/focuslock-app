@@ -181,12 +181,13 @@ private fun GoogleSignInGateCard(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .background(Color.Black)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
                     contentDescription = "Cloud Connect",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.White,
                     modifier = Modifier.size(38.dp)
                 )
             }
@@ -266,8 +267,9 @@ private fun SignedInSocialContent(
                             contentDescription = null,
                             containerSize = 24.dp,
                             iconSize = 14.dp,
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
-                            iconTint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                            containerColor = Color.Black,
+                            iconTint = Color.White,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.24f))
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -365,8 +367,9 @@ private fun SignedInSocialContent(
                                         contentDescription = null,
                                         containerSize = 24.dp,
                                         iconSize = 15.dp,
-                                        containerColor = Color.White.copy(alpha = 0.2f),
-                                        iconTint = Color.White
+                                        containerColor = Color.Black,
+                                        iconTint = Color.White,
+                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("CREATE GROUP FOCUS ROOM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
@@ -525,8 +528,9 @@ private fun ActiveRoomView(
                                 contentDescription = "Share Code",
                                 containerSize = 22.dp,
                                 iconSize = 13.dp,
-                                containerColor = Color.White.copy(alpha = 0.18f),
-                                iconTint = Color.White
+                                containerColor = Color.Black,
+                                iconTint = Color.White,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("INVITE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -553,8 +557,9 @@ private fun ActiveRoomView(
                                 contentDescription = null,
                                 containerSize = 24.dp,
                                 iconSize = 15.dp,
-                                containerColor = Color.White.copy(alpha = 0.2f),
-                                iconTint = Color.White
+                                containerColor = Color.Black,
+                                iconTint = Color.White,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -576,8 +581,9 @@ private fun ActiveRoomView(
                                 contentDescription = "Leave Room",
                                 containerSize = 26.dp,
                                 iconSize = 15.dp,
-                                containerColor = Color.White.copy(alpha = 0.18f),
-                                iconTint = Color.White
+                                containerColor = Color.Black,
+                                iconTint = Color.White,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                             )
                         }
                     }

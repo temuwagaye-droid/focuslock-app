@@ -88,13 +88,13 @@ fun PremiumUpgradeDialog(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .background(Color.Black)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.WorkspacePremium,
                         contentDescription = "FocusLock Pro",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color.White,
                         modifier = Modifier.size(34.dp)
                     )
                 }
@@ -273,8 +273,8 @@ fun AccountabilityQuitDialog(
                     contentDescription = "Accountability Alert",
                     containerSize = 64.dp,
                     iconSize = 34.dp,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    iconTint = MaterialTheme.colorScheme.error,
+                    containerColor = Color.Black,
+                    iconTint = Color.White,
                     border = BorderStroke(2.dp, MaterialTheme.colorScheme.error)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -397,8 +397,9 @@ fun DiagnosticsAndPrivacyDialog(
                             contentDescription = "Clear logs",
                             containerSize = 22.dp,
                             iconSize = 13.dp,
-                            containerColor = Color.White.copy(alpha = 0.18f),
-                            iconTint = Color.White
+                            containerColor = Color.Black,
+                            iconTint = Color.White,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("CLEAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)

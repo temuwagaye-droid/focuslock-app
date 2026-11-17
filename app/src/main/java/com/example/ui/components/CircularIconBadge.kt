@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+import com.example.ui.theme.LocalDarkTheme
+
 @Composable
 fun CircularIconBadge(
     imageVector: ImageVector,
@@ -24,17 +26,23 @@ fun CircularIconBadge(
     modifier: Modifier = Modifier,
     containerSize: Dp = 32.dp,
     iconSize: Dp = 18.dp,
-    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    containerColor: Color = Color.Black,
+    iconTint: Color = Color.White,
     border: BorderStroke? = null
 ) {
+    val isDark = LocalDarkTheme.current
+    val resolvedBorder = border ?: if (isDark && containerColor == Color.Black) {
+        BorderStroke(1.dp, Color.White.copy(alpha = 0.24f))
+    } else {
+        null
+    }
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(containerSize)
             .clip(CircleShape)
             .background(containerColor)
-            .then(if (border != null) Modifier.border(border, CircleShape) else Modifier)
+            .then(if (resolvedBorder != null) Modifier.border(resolvedBorder, CircleShape) else Modifier)
     ) {
         Icon(
             imageVector = imageVector,
