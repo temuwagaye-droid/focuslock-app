@@ -45,8 +45,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -68,6 +71,7 @@ import com.example.security.ParentalPinDialog
 import com.example.ui.FocusViewModel
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
+import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.widget.ShortcutHelper
 import java.util.Locale
@@ -79,6 +83,7 @@ fun SettingsAdvancedSections(
     val context = LocalContext.current
 
     val currentUser by viewModel.currentUser.collectAsState()
+    val isAuthBusy by viewModel.isAuthBusy.collectAsState()
     val isSyncing by viewModel.isSyncingCloud.collectAsState()
     val lastSyncText by viewModel.lastCloudSyncText.collectAsState()
     val cloudMessage by viewModel.cloudStatusMessage.collectAsState()
@@ -200,24 +205,37 @@ fun SettingsAdvancedSections(
             val user = currentUser
             if (user == null) {
                 Text(
-                    text = "Sign in with Google to back up sessions, blocklists, reading queue, and sync settings across devices.",
+                    text = "Sign in with Google via Supabase to authenticate your profile, access focus rooms, and sync across devices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = { viewModel.signInWithGoogle(context) },
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("SIGN IN WITH GOOGLE", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                cloudMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                GoogleSignInButton(
+                    onClick = { viewModel.signInWithGoogle(context) },
+                    isLoading = isAuthBusy,
+                    modifier = Modifier.testTag("settings_google_sign_in_button")
+                )
             } else {
                 Text(
-                    text = "Signed in: ${user.displayName ?: user.email ?: user.uid.take(8)} • $lastSyncText",
+                    text = "Supabase Account: ${user.displayName ?: user.email ?: user.uid.take(8)} • $lastSyncText",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                user.email?.let { mail ->
+                    Text(
+                        text = mail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
                 cloudMessage?.let {
                     Text(
                         text = it,
@@ -301,6 +319,12 @@ fun SettingsAdvancedSections(
                         }
                         viewModel.setAutoDndEnabled(want)
                     },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                    ),
                     modifier = Modifier.testTag("auto_dnd_switch")
                 )
             }
@@ -361,6 +385,12 @@ fun SettingsAdvancedSections(
                 Switch(
                     checked = notifyPartnerOnQuit,
                     onCheckedChange = { viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                    ),
                     modifier = Modifier.testTag("accountability_switch")
                 )
             }
@@ -371,6 +401,14 @@ fun SettingsAdvancedSections(
                 onValueChange = { partnerNameDraft = it.take(50) },
                 label = { Text("Partner Name") },
                 singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -379,6 +417,14 @@ fun SettingsAdvancedSections(
                 onValueChange = { partnerEmailDraft = it.take(100) },
                 label = { Text("Partner Email") },
                 singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -458,6 +504,12 @@ fun SettingsAdvancedSections(
                             else viewModel.setParentalLock(false)
                         }
                     },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                    ),
                     modifier = Modifier.testTag("parental_control_switch")
                 )
             }
@@ -521,6 +573,12 @@ fun SettingsAdvancedSections(
                             viewModel.updateReminderSettings(context, enable, reminderHour, reminderMinute)
                         }
                     },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surface
+                    ),
                     modifier = Modifier.testTag("daily_reminder_switch")
                 )
             }
@@ -529,13 +587,19 @@ fun SettingsAdvancedSections(
                     Text(
                         text = "Reminder Hour: ${reminderHour}:00",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Slider(
                         value = reminderHour.toFloat(),
                         onValueChange = { viewModel.updateReminderSettings(context, true, it.toInt(), 0) },
                         valueRange = 6f..22f,
-                        steps = 15
+                        steps = 15,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                        )
                     )
                 }
             }
@@ -705,6 +769,15 @@ private fun PrivacyToggleRow(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surface
+            )
+        )
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -22,6 +23,8 @@ private fun buildLightColorScheme(accent: AppAccentTheme) = lightColorScheme(
     onPrimaryContainer = accent.lightOnPrimaryContainer,
     secondary = BoldTextMuted,
     onSecondary = BoldBackground,
+    secondaryContainer = accent.lightPrimaryContainer.copy(alpha = 0.72f),
+    onSecondaryContainer = accent.lightOnPrimaryContainer,
     tertiary = BlockRed,
     onTertiary = Color.White,
     background = BoldBackground,
@@ -30,6 +33,11 @@ private fun buildLightColorScheme(accent: AppAccentTheme) = lightColorScheme(
     onSurface = BoldTextPrimary,
     surfaceVariant = BoldSurfaceWhite,
     onSurfaceVariant = BoldTextPrimary,
+    surfaceContainerLowest = BoldSurfaceWhite,
+    surfaceContainerLow = BoldBackground,
+    surfaceContainer = BoldSurface,
+    surfaceContainerHigh = BoldSurface,
+    surfaceContainerHighest = BoldBorder,
     outline = BoldTextPrimary,
     outlineVariant = BoldBorder,
     error = BlockRed,
@@ -45,6 +53,8 @@ private fun buildDarkColorScheme(accent: AppAccentTheme) = darkColorScheme(
     onPrimaryContainer = accent.darkOnPrimaryContainer,
     secondary = Color(0xFFCCC2DC),
     onSecondary = Color(0xFF332D41),
+    secondaryContainer = Color(0xFF332D41),
+    onSecondaryContainer = Color(0xFFE8DEF8),
     tertiary = Color(0xFFEFB8C8),
     onTertiary = Color(0xFF492532),
     background = Color(0xFF0F0E13),
@@ -53,6 +63,11 @@ private fun buildDarkColorScheme(accent: AppAccentTheme) = darkColorScheme(
     onSurface = Color(0xFFE6E1E5),
     surfaceVariant = Color(0xFF2C2A33),
     onSurfaceVariant = Color(0xFFCAC4D0),
+    surfaceContainerLowest = Color(0xFF0A090D),
+    surfaceContainerLow = Color(0xFF17151C),
+    surfaceContainer = Color(0xFF1D1B22),
+    surfaceContainerHigh = Color(0xFF26232D),
+    surfaceContainerHighest = Color(0xFF34303D),
     outline = Color(0xFF938F99),
     outlineVariant = Color(0xFF3E3A47),
     error = Color(0xFFFFB4AB),
@@ -73,6 +88,7 @@ fun MyApplicationTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
+                window.decorView.setBackgroundColor(colorScheme.background.toArgb())
                 val insetsController = WindowCompat.getInsetsController(window, view)
                 insetsController.isAppearanceLightStatusBars = !darkTheme
                 insetsController.isAppearanceLightNavigationBars = !darkTheme

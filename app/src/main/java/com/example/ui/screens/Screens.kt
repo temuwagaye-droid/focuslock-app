@@ -75,8 +75,9 @@ import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.text.style.TextDecoration
 import com.example.audio.AmbientSoundPlayer
@@ -87,8 +88,6 @@ import com.example.ui.components.AccessibilityRequiredDialog
 import com.example.ui.components.BlockedAppsRequiredDialog
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.FocusForestRewardCard
-import com.example.ui.components.HowToUseOnboardingDialog
-import com.example.ui.components.HowToUseBannerCard
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReadingAppRequiredDialog
 import com.example.ui.components.calculateTreeStage
@@ -491,9 +490,6 @@ fun TimerSetupScreen(
     var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
     var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
     var showParentalPinForReader by remember { mutableStateOf(false) }
-    var showHowToUseDialog by remember {
-        mutableStateOf(!prefs.getBoolean("has_completed_onboarding", false))
-    }
 
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
@@ -578,26 +574,6 @@ fun TimerSetupScreen(
                 )
                 Spacer(modifier = Modifier.weight(1f))
 
-                // How to Use Guide button in top bar
-                IconButton(
-                    onClick = { showHowToUseDialog = true },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
-                        .testTag("how_to_use_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "How to use guide",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
                 val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
                 IconButton(
                     onClick = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
@@ -605,21 +581,17 @@ fun TimerSetupScreen(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                         .testTag("quick_theme_toggle")
                 ) {
-                    Text(
-                        text = if (isDarkModeEnabled) "🌙" else "☀️",
-                        fontSize = 20.sp
+                    Icon(
+                        imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                        contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
-
-            // Quick How To Use Guide Banner Card
-            HowToUseBannerCard(
-                onOpenGuide = { showHowToUseDialog = true },
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
 
             // Quick Summary Strip: Focus Minutes, Distractions Blocked, Virtual Tree Stage
             val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
@@ -1067,17 +1039,17 @@ fun TimerSetupScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Action Start Button (Solid black high impact layout)
+        // Action Start Button (High-contrast themed primary action)
         Button(
             onClick = { tryStartFocusSession() },
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.outline
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             shape = RoundedCornerShape(50),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
                 .testTag("start_session_button")
         ) {
             CircularIconBadge(
@@ -1085,13 +1057,13 @@ fun TimerSetupScreen(
                 contentDescription = null,
                 containerSize = 28.dp,
                 iconSize = 17.dp,
-                containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.18f),
-                iconTint = MaterialTheme.colorScheme.background
+                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                iconTint = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "START FOCUS SESSION",
-                color = MaterialTheme.colorScheme.background,
+                color = MaterialTheme.colorScheme.onPrimary,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Black
             )
@@ -1104,9 +1076,9 @@ fun TimerSetupScreen(
             onDismissRequest = { showAppPicker = false }
         ) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.7f)
@@ -1199,11 +1171,18 @@ fun TimerSetupScreen(
 
                     Button(
                         onClick = { showAppPicker = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.outline),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("CANCEL", color = MaterialTheme.colorScheme.background, fontWeight = FontWeight.Black)
+                        Text(
+                            text = "CANCEL",
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.Black
+                        )
                     }
                 }
             }
@@ -1233,15 +1212,6 @@ fun TimerSetupScreen(
     if (showAccessibilityRequiredDialog) {
         AccessibilityRequiredDialog(
             onDismiss = { showAccessibilityRequiredDialog = false }
-        )
-    }
-
-    if (showHowToUseDialog) {
-        HowToUseOnboardingDialog(
-            onDismiss = {
-                prefs.edit().putBoolean("has_completed_onboarding", true).apply()
-                showHowToUseDialog = false
-            }
         )
     }
 
@@ -1859,7 +1829,7 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
             color = if (achievement.isUnlocked) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
             } else {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                MaterialTheme.colorScheme.outlineVariant
             }
         ),
         shape = RoundedCornerShape(16.dp),
@@ -1904,7 +1874,7 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Locked",
-                            tint = MaterialTheme.colorScheme.outline,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(10.dp)
                         )
                     }
@@ -1916,20 +1886,20 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = achievement.title,
-                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = achievement.description,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = achievement.progressText,
-                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -2705,8 +2675,14 @@ fun HistoryStatsScreen(
                     placeholder = { Text("E.g., Read Chapter 3 of Clean Code", fontSize = 14.sp) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedPlaceholderColor = MaterialTheme.colorScheme.secondary,
+                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -3182,7 +3158,6 @@ fun SettingsScreen(
     val endHour by viewModel.scheduleEndHour.collectAsState()
 
     var accessibilityEnabled by remember { mutableStateOf(false) }
-    var showSettingsHowToUse by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         accessibilityEnabled = isAccessibilityServiceEnabled(context)
@@ -3208,18 +3183,12 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Quick Onboarding / How to Use Guide card
-        HowToUseBannerCard(
-            onOpenGuide = { showSettingsHowToUse = true },
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
         // Global Theme Toggle for Dark Mode Card with outline
         val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -3233,18 +3202,12 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                        ) {
-                            Text(
-                                text = if (isDarkModeEnabled) "🌙" else "☀️",
-                                fontSize = 18.sp
-                            )
-                        }
+                        CircularIconBadge(
+                            imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            contentDescription = null,
+                            containerSize = 36.dp,
+                            iconSize = 18.dp
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
@@ -3364,18 +3327,23 @@ fun SettingsScreen(
                         context.startActivity(intent)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (accessibilityEnabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.outline
+                        containerColor = if (accessibilityEnabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
+                        contentColor = if (accessibilityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
+                        .border(
+                            1.dp,
+                            if (accessibilityEnabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(50)
+                        )
                         .testTag("enable_accessibility_button")
                 ) {
                     Text(
                         text = if (accessibilityEnabled) "OPEN ACCESSIBILITY SETTINGS" else "ENABLE PROTECTION",
-                        color = if (accessibilityEnabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background,
+                        color = if (accessibilityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -3586,12 +3554,6 @@ fun SettingsScreen(
                 }
             }
         }
-    }
-
-    if (showSettingsHowToUse) {
-        HowToUseOnboardingDialog(
-            onDismiss = { showSettingsHowToUse = false }
-        )
     }
 }
 

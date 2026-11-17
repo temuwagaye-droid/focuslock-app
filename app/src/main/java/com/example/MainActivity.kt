@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
         TelemetryManager.installCrashHandler(applicationContext)
         NotificationHelper.ensureChannels(this)
         launchActionState = intent?.getStringExtra("quick_action")
+        viewModel.handleAuthCallbackIntent(this, intent)
 
         setContent {
             val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
@@ -83,6 +84,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
@@ -160,6 +163,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         launchActionState = intent.getStringExtra("quick_action")
+        viewModel.handleAuthCallbackIntent(this, intent)
     }
 }
 

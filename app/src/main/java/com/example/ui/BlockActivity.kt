@@ -67,6 +67,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.service.FocusSessionManager
 import com.example.ui.components.CircularIconBadge
+import com.example.ui.theme.AppAccentTheme
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.Job
@@ -82,14 +83,22 @@ class BlockActivity : ComponentActivity() {
 
         val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: ""
         val repository = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
+        val prefs = getSharedPreferences("focuslock_prefs", MODE_PRIVATE)
+        val initialDark = prefs.getBoolean("cached_dark_mode", false)
+        val initialAccent = prefs.getString("cached_accent_theme", AppAccentTheme.VIOLET.id) ?: AppAccentTheme.VIOLET.id
 
         setContent {
-            val isDarkModeEnabled by repository.isDarkModeEnabled().collectAsState(initial = false)
-            MyApplicationTheme(darkTheme = isDarkModeEnabled) {
+            val isDarkModeEnabled by repository.isDarkModeEnabled().collectAsState(initial = initialDark)
+            val accentThemeId by repository.getAccentThemeId().collectAsState(initial = initialAccent)
+            val accentTheme = AppAccentTheme.fromId(accentThemeId)
+
+            MyApplicationTheme(darkTheme = isDarkModeEnabled, accentTheme = accentTheme) {
                 BackHandler {
                     // Intercept back button so users cannot bypass the focus session
                 }
                 Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
                     BlockScreenContent(
@@ -280,13 +289,13 @@ fun BlockScreenContent(
             Button(
                 onClick = onReturnToReading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.outline
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
                     .testTag("return_to_reading_button")
             ) {
                 CircularIconBadge(
@@ -294,13 +303,13 @@ fun BlockScreenContent(
                     contentDescription = null,
                     containerSize = 28.dp,
                     iconSize = 16.dp,
-                    containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.18f),
-                    iconTint = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                    iconTint = MaterialTheme.colorScheme.onPrimary
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "BACK TO READING APP",
-                    color = MaterialTheme.colorScheme.background,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Black
                 )

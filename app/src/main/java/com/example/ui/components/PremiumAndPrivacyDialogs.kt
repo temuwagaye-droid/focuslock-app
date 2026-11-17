@@ -56,6 +56,7 @@ import com.example.notifications.NotificationHelper
 import com.example.service.EarlyQuitAlert
 import com.example.telemetry.TelemetryManager
 import com.example.ui.theme.AppAccentTheme
+import com.example.ui.theme.LocalDarkTheme
 
 @Composable
 fun PremiumUpgradeDialog(
@@ -159,11 +160,12 @@ fun PremiumUpgradeDialog(
                                 .clickable { onSelectTheme(theme) }
                                 .padding(vertical = 8.dp)
                         ) {
+                            val isDark = LocalDarkTheme.current
                             Box(
                                 modifier = Modifier
                                     .size(24.dp)
                                     .clip(CircleShape)
-                                    .background(theme.lightPrimary)
+                                    .background(if (isDark) theme.darkPrimary else theme.lightPrimary)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -345,7 +347,7 @@ fun DiagnosticsAndPrivacyDialog(
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("diagnostics_dialog")

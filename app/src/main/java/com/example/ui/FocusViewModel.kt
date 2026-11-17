@@ -17,6 +17,9 @@ import com.example.data.remote.FirebaseService
 import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.FocusRoomRepository
 import com.example.data.remote.RoomParticipantDto
+import com.example.data.remote.SupabaseAuthService
+import com.example.data.remote.SupabaseGoogleSignInResult
+import com.example.data.remote.SupabaseUser
 import com.example.data.repository.FocusRepository
 import com.example.notifications.ReminderScheduler
 import com.example.service.FocusSessionManager
@@ -25,16 +28,13 @@ import com.example.ui.components.calculateTreeStage
 import com.example.ui.theme.AppAccentTheme
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -67,6 +67,8 @@ class FocusViewModel(
         const val FREE_TIER_MAX_BLOCKED_APPS = 5
     }
 
+    private val prefs = appContext?.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE)
+
     private val isFirebaseAvailable: Boolean = appContext?.let { ctx ->
         runCatching { FirebaseApp.getApps(ctx).isNotEmpty() }.getOrDefault(false)
     } ?: false
@@ -87,19 +89,8 @@ class FocusViewModel(
         }
     }
 
-    // Auth state stream (emits null when signed out or Firebase not initialized)
-    val currentUser: StateFlow<FirebaseUser?> = if (firebaseAuth != null) {
-        callbackFlow {
-            val listener = FirebaseAuth.AuthStateListener { auth ->
-                trySend(auth.currentUser)
-            }
-            firebaseAuth.addAuthStateListener(listener)
-            trySend(firebaseAuth.currentUser)
-            awaitClose { firebaseAuth.removeAuthStateListener(listener) }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), firebaseAuth.currentUser)
-    } else {
-        MutableStateFlow(null)
-    }
+    // Supabase Auth state stream
+    val currentUser: StateFlow<SupabaseUser?> = SupabaseAuthService.currentUser
 
     // Installed launcher apps list
     private val _installedApps = MutableStateFlow<List<AppInfoModel>>(emptyList())
@@ -128,14 +119,22 @@ class FocusViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val isDarkModeEnabled: StateFlow<Boolean> = repository.isDarkModeEnabled()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            prefs?.getBoolean("cached_dark_mode", false) ?: false
+        )
 
     // Pro tier & Accent Theme
     val isProTier: StateFlow<Boolean> = repository.isProTier()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val accentThemeId: StateFlow<String> = repository.getAccentThemeId()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppAccentTheme.VIOLET.id)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            prefs?.getString("cached_accent_theme", AppAccentTheme.VIOLET.id) ?: AppAccentTheme.VIOLET.id
+        )
 
     private val _showProLimitPrompt = MutableStateFlow(false)
     val showProLimitPrompt: StateFlow<Boolean> = _showProLimitPrompt.asStateFlow()
@@ -248,6 +247,22 @@ class FocusViewModel(
     val lastCloudSyncText: StateFlow<String> = _lastCloudSyncText.asStateFlow()
 
     init {
+        appContext?.let { ctx ->
+            SupabaseAuthService.initialize(ctx)
+            viewModelScope.launch {
+                SupabaseAuthService.refreshSessionIfNeeded(ctx)
+            }
+        }
+        viewModelScope.launch {
+            isDarkModeEnabled.collect { dark ->
+                prefs?.edit()?.putBoolean("cached_dark_mode", dark)?.apply()
+            }
+        }
+        viewModelScope.launch {
+            accentThemeId.collect { theme ->
+                prefs?.edit()?.putString("cached_accent_theme", theme)?.apply()
+            }
+        }
         viewModelScope.launch {
             analyticsOptIn.collect { TelemetryManager.isAnalyticsOptIn = it }
         }
@@ -374,6 +389,7 @@ class FocusViewModel(
     }
 
     fun toggleDarkMode(enabled: Boolean) {
+        prefs?.edit()?.putBoolean("cached_dark_mode", enabled)?.apply()
         viewModelScope.launch { repository.setDarkModeEnabled(enabled) }
     }
 
@@ -382,7 +398,10 @@ class FocusViewModel(
             repository.setProTier(enabled)
             if (!enabled) {
                 val theme = AppAccentTheme.fromId(accentThemeId.value)
-                if (theme.isProOnly) repository.setAccentThemeId(AppAccentTheme.VIOLET.id)
+                if (theme.isProOnly) {
+                    prefs?.edit()?.putString("cached_accent_theme", AppAccentTheme.VIOLET.id)?.apply()
+                    repository.setAccentThemeId(AppAccentTheme.VIOLET.id)
+                }
                 val sound = AmbientSoundType.fromId(selectedAmbientSoundId.value)
                 if (sound.isProOnly) repository.setAmbientSoundId(AmbientSoundType.WHITE_NOISE.id)
             }
@@ -396,6 +415,7 @@ class FocusViewModel(
                 _showProLimitPrompt.value = true
                 return@launch
             }
+            prefs?.edit()?.putString("cached_accent_theme", theme.id)?.apply()
             repository.setAccentThemeId(theme.id)
             appContext?.let { TelemetryManager.trackEvent(it, "theme_selected", theme.id) }
         }
@@ -481,18 +501,47 @@ class FocusViewModel(
         viewModelScope.launch { repository.deleteTodoItem(id) }
     }
 
-    // --- Google Sign-In & Cloud Operations ---
+    // --- Supabase Google Sign-In & Cloud Operations ---
     fun signInWithGoogle(activityContext: Context) {
         viewModelScope.launch {
             _isAuthBusy.value = true
             _cloudStatusMessage.value = null
-            val res = FirebaseService.signInWithGoogle(activityContext)
-            res.onSuccess { user ->
-                _cloudStatusMessage.value = "Signed in as ${user.displayName ?: user.email ?: "Reader"}"
-                TelemetryManager.trackEvent(activityContext, "google_sign_in_success")
-                syncNowInternal(showStatus = true)
+            val res = SupabaseAuthService.signInWithGoogle(activityContext)
+            res.onSuccess { outcome ->
+                when (outcome) {
+                    is SupabaseGoogleSignInResult.SignedIn -> {
+                        val user = outcome.user
+                        _cloudStatusMessage.value = "Signed in with Supabase as ${user.displayName ?: user.email ?: "Reader"}"
+                        TelemetryManager.trackEvent(activityContext, "supabase_google_sign_in_success")
+                        if (firebaseAuth?.currentUser != null) {
+                            syncNowInternal(showStatus = false)
+                        }
+                    }
+                    is SupabaseGoogleSignInResult.BrowserFlowLaunched -> {
+                        _cloudStatusMessage.value = "Complete Google Sign-In in your browser to finish connecting."
+                    }
+                }
             }.onFailure { err ->
                 _cloudStatusMessage.value = err.message ?: "Sign-in failed."
+            }
+            _isAuthBusy.value = false
+        }
+    }
+
+    fun handleAuthCallbackIntent(context: Context, intent: Intent?) {
+        val dataUri = intent?.data ?: return
+        if (dataUri.scheme != "readlock" || dataUri.host != "auth") return
+        viewModelScope.launch {
+            _isAuthBusy.value = true
+            val res = SupabaseAuthService.handleOAuthCallback(context, dataUri)
+            res.onSuccess { user ->
+                _cloudStatusMessage.value = "Signed in with Supabase as ${user.displayName ?: user.email ?: "Reader"}"
+                TelemetryManager.trackEvent(context, "supabase_oauth_callback_success")
+                if (firebaseAuth?.currentUser != null) {
+                    syncNowInternal(showStatus = false)
+                }
+            }.onFailure { err ->
+                _cloudStatusMessage.value = err.message ?: "OAuth sign-in failed."
             }
             _isAuthBusy.value = false
         }
@@ -501,7 +550,8 @@ class FocusViewModel(
     fun signOut(context: Context) {
         viewModelScope.launch {
             _selectedRoomId.value = null
-            FirebaseService.signOut(context)
+            SupabaseAuthService.signOut(context)
+            runCatching { firebaseAuth?.signOut() }
             _cloudStatusMessage.value = "Signed out cleanly."
         }
     }
@@ -511,11 +561,21 @@ class FocusViewModel(
     }
 
     private suspend fun syncNowInternal(showStatus: Boolean) {
-        val repo = cloudSyncRepo ?: return
+        val repo = cloudSyncRepo ?: run {
+            if (showStatus) {
+                _cloudStatusMessage.value = "Signed in with Supabase. Configure Firebase Firestore to enable cloud room/score sync."
+            }
+            return
+        }
+        if (firebaseAuth?.currentUser == null) {
+            if (showStatus) {
+                _cloudStatusMessage.value = "Supabase session active (${currentUser.value?.email ?: "Google"})."
+            }
+            return
+        }
         val user = currentUser.value ?: return
         _isSyncingCloud.value = true
         try {
-            val prefs = appContext?.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE)
             val savedDuration = prefs?.getInt("saved_session_minutes", 15) ?: 15
             val summary = statsSummary.value
             val stage = calculateTreeStage(summary.totalFocusMinutes, summary.completedSessionsCount)
@@ -585,8 +645,15 @@ class FocusViewModel(
     }
 
     fun restoreFromCloud() {
-        val repo = cloudSyncRepo ?: return
+        val repo = cloudSyncRepo ?: run {
+            _cloudStatusMessage.value = "Cloud restore requires Firebase Firestore configuration."
+            return
+        }
         if (currentUser.value == null) return
+        if (firebaseAuth?.currentUser == null) {
+            _cloudStatusMessage.value = "Supabase account connected (${currentUser.value?.email ?: "Google"}). Firestore backup is disabled without Firebase Auth."
+            return
+        }
         viewModelScope.launch {
             _isSyncingCloud.value = true
             val res = repo.fetchCloudRestoreBundle()
@@ -602,8 +669,15 @@ class FocusViewModel(
     }
 
     fun deleteCloudData() {
-        val repo = cloudSyncRepo ?: return
+        val repo = cloudSyncRepo ?: run {
+            _cloudStatusMessage.value = "No Firebase cloud backup configured."
+            return
+        }
         if (currentUser.value == null) return
+        if (firebaseAuth?.currentUser == null) {
+            _cloudStatusMessage.value = "Signed in with Supabase. No Firebase cloud records to delete."
+            return
+        }
         viewModelScope.launch {
             _isSyncingCloud.value = true
             val res = repo.deleteAllCloudData()
@@ -619,8 +693,15 @@ class FocusViewModel(
 
     // --- Group Focus Rooms ---
     fun createFocusRoom(name: String, durationMinutes: Int, isPublic: Boolean) {
-        val repo = roomRepo ?: return
+        val repo = roomRepo ?: run {
+            _cloudStatusMessage.value = "Focus Rooms require Firebase Firestore sync."
+            return
+        }
         if (currentUser.value == null) return
+        if (firebaseAuth?.currentUser == null) {
+            _cloudStatusMessage.value = "Supabase sign-in succeeded. Configure Firestore Auth to host shared rooms."
+            return
+        }
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
             val res = repo.createRoom(name, durationMinutes, isPublic, stage)
@@ -636,7 +717,7 @@ class FocusViewModel(
 
     fun joinFocusRoom(roomId: String) {
         val repo = roomRepo ?: return
-        if (currentUser.value == null) return
+        if (currentUser.value == null || firebaseAuth?.currentUser == null) return
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
             val res = repo.joinRoom(roomId, stage)
@@ -650,8 +731,15 @@ class FocusViewModel(
     }
 
     fun joinFocusRoomByCode(code: String) {
-        val repo = roomRepo ?: return
+        val repo = roomRepo ?: run {
+            _cloudStatusMessage.value = "Focus Rooms require Firebase Firestore sync."
+            return
+        }
         if (currentUser.value == null) return
+        if (firebaseAuth?.currentUser == null) {
+            _cloudStatusMessage.value = "Supabase sign-in succeeded. Configure Firestore Auth to join shared rooms."
+            return
+        }
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
             val res = repo.joinRoomByCode(code, stage)
@@ -667,7 +755,7 @@ class FocusViewModel(
 
     fun setRoomStatus(roomId: String, status: String) {
         val repo = roomRepo ?: return
-        if (currentUser.value == null) return
+        if (currentUser.value == null || firebaseAuth?.currentUser == null) return
         viewModelScope.launch {
             repo.updateRoomStatus(roomId, status).onFailure {
                 _cloudStatusMessage.value = it.message
@@ -679,6 +767,7 @@ class FocusViewModel(
         val repo = roomRepo ?: return
         val rid = _selectedRoomId.value ?: return
         _selectedRoomId.value = null
+        if (firebaseAuth?.currentUser == null) return
         viewModelScope.launch {
             repo.leaveRoom(rid)
         }

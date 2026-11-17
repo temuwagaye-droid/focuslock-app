@@ -39,8 +39,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -64,10 +67,11 @@ import androidx.compose.ui.window.Dialog
 import com.example.data.remote.CloudUserProfile
 import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.RoomParticipantDto
+import com.example.data.remote.SupabaseUser
 import com.example.ui.FocusViewModel
 import com.example.ui.components.CircularIconBadge
+import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.treeStageTitle
-import com.google.firebase.auth.FirebaseUser
 
 @Composable
 fun SocialScreen(
@@ -159,7 +163,7 @@ private fun GoogleSignInGateCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("google_sign_in_gate_card")
@@ -188,7 +192,7 @@ private fun GoogleSignInGateCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Sign In with Google",
+                text = "Sign in with Google",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
@@ -197,7 +201,7 @@ private fun GoogleSignInGateCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Connect your Google account to create or join friend focus rooms, appear on the leaderboard, and sync settings and sessions across devices.",
+                text = "Authenticate with Supabase using your Google account to create or join friend focus rooms, appear on the leaderboard, and sync settings and sessions across devices.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -205,31 +209,11 @@ private fun GoogleSignInGateCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Button(
+            GoogleSignInButton(
                 onClick = onSignInClick,
-                enabled = !isBusy,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("google_sign_in_button")
-            ) {
-                if (isBusy) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = "CONTINUE WITH GOOGLE",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp
-                    )
-                }
-            }
+                isLoading = isBusy,
+                modifier = Modifier.testTag("google_sign_in_button")
+            )
         }
     }
 }
@@ -237,7 +221,7 @@ private fun GoogleSignInGateCard(
 @Composable
 private fun SignedInSocialContent(
     viewModel: FocusViewModel,
-    user: FirebaseUser,
+    user: SupabaseUser,
     onStartGroupSession: (Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -774,29 +758,56 @@ private fun CreateRoomDialog(
                     onValueChange = { roomName = it.take(50) },
                     label = { Text("Room Name") },
                     singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Session Duration: ${duration}m",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Slider(
                     value = duration.toFloat(),
                     onValueChange = { duration = it.toInt() },
-                    valueRange = 5f..120f
+                    valueRange = 5f..120f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                    )
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Visible in Public Rooms", style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = isPublic, onCheckedChange = { isPublic = it })
+                    Text(
+                        text = "Visible in Public Rooms",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Switch(
+                        checked = isPublic,
+                        onCheckedChange = { isPublic = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
