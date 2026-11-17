@@ -68,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -163,16 +164,29 @@ fun SettingsAdvancedSections(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // 1. FocusLock Pro & Accent Themes Card
+    // 1. FocusLock Pro & Accent Themes Luxury Card
     Spacer(modifier = Modifier.height(16.dp))
+    val proGold = Color(0xFFD4AF37)
+    val proGoldSoft = Color(0xFFF3E5AB)
     CinematicCardEntrance(index = 0) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            shape = RoundedCornerShape(26.dp),
+            border = BorderStroke(1.5.dp, if (isProTier) proGold else proGold.copy(alpha = 0.72f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF121216),
+                            Color(0xFF1D1A2B),
+                            Color(0xFF282015)
+                        )
+                    )
+                )
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -181,34 +195,100 @@ fun SettingsAdvancedSections(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         CircularIconBadge(
                             imageVector = Icons.Default.WorkspacePremium,
-                            contentDescription = null,
-                            containerSize = 36.dp,
-                            iconSize = 20.dp
+                            contentDescription = "FocusLock Pro",
+                            containerSize = 44.dp,
+                            iconSize = 24.dp,
+                            containerColor = Color.Black,
+                            iconTint = proGoldSoft,
+                            border = BorderStroke(1.5.dp, proGold)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isProTier) proGold.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f))
+                                    .border(1.dp, proGold.copy(alpha = 0.55f), RoundedCornerShape(50))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (isProTier) "PRO PASS • ACTIVE" else "PRO MEMBERSHIP",
+                                    color = proGoldSoft,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(5.dp))
                             Text(
-                                text = if (isProTier) "FOCUSLOCK PRO" else "FREE TIER (UPGRADE AVAILABLE)",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = if (isProTier) "FocusLock Pro Unlocked" else "Upgrade to FocusLock Pro",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = if (isProTier) "Unlimited blocklist, Pro themes & Cloud sync active." else "Up to 5 blocked apps. Upgrade for unlimited & themes.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color.White
                             )
                         }
                     }
-                    Button(
-                        onClick = { showPremiumDialog = true },
-                        colors = appBlackButtonColors(),
-                        border = appBlackButtonBorder(),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier.testTag("open_pro_upgrade_btn")
-                    ) {
-                        Text(if (isProTier) "THEMES" else "UPGRADE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = if (isProTier) {
+                        "Unlimited distraction blocking, strict Whitelist Mode, Pro palettes & full soundscape library active."
+                    } else {
+                        "Remove the 5-app cap and unlock Whitelist Mode, cloud backup, ambient soundscapes & exclusive themes."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.78f),
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("∞ Blocked Apps", "Whitelist Mode", "Pro Themes").forEach { perk ->
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 6.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = perk,
+                                color = proGoldSoft,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = { showPremiumDialog = true },
+                    colors = appBlackButtonColors(),
+                    border = BorderStroke(1.2.dp, proGold.copy(alpha = 0.85f)),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("open_pro_upgrade_btn")
+                ) {
+                    Text(
+                        text = if (isProTier) "MANAGE PRO & THEMES" else "EXPLORE PRO PASS",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.6.sp
+                    )
                 }
             }
         }
@@ -243,7 +323,7 @@ fun SettingsAdvancedSections(
                 val user = currentUser
                 if (user == null) {
                     Text(
-                        text = "Sign in with Google via Supabase to authenticate your profile, access focus rooms, and sync across devices.",
+                        text = "Sign in with Google to sync stats, rooms & settings across devices.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -464,7 +544,7 @@ fun SettingsAdvancedSections(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = if (partnerName.isNotBlank()) "Partner: $partnerName" else "Prepare an alert if you quit a focus session early.",
+                                text = if (partnerName.isNotBlank()) "Partner: $partnerName" else "Notify a partner if you quit early.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.secondary
                             )
@@ -617,7 +697,7 @@ fun SettingsAdvancedSections(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "Require 4-digit PIN before editing blocklists or quitting sessions early.",
+                                text = "Require a PIN to edit blocklists or quit early.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.secondary
                             )
@@ -767,7 +847,7 @@ fun SettingsAdvancedSections(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Add the FocusLock home/lock widget from Android's widget picker or pin a 1-tap Start Focus shortcut.",
+                    text = "Pin a 1-tap Start Focus shortcut to your home screen.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )

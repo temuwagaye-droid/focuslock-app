@@ -72,6 +72,8 @@ import com.example.ui.FocusViewModel
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.GoogleSignInButton
+import com.example.ui.components.XpRewardChip
+import com.example.ui.components.readerRankTitle
 import com.example.ui.components.treeStageTitle
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
@@ -96,14 +98,14 @@ fun SocialScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "Focus Community",
+            text = "Study Rooms & Ranks",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "Study together in group rooms, climb leaderboards, and sync progress.",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "Co-op focus rooms, XP rankings & cloud sync.",
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary
         )
 
@@ -188,7 +190,7 @@ private fun GoogleSignInGateCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("google_sign_in_gate_card")
@@ -196,13 +198,13 @@ private fun GoogleSignInGateCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(64.dp)
                     .clip(CircleShape)
                     .background(Color.Black)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
@@ -211,29 +213,56 @@ private fun GoogleSignInGateCard(
                     imageVector = Icons.Default.CloudDone,
                     contentDescription = "Cloud Connect",
                     tint = Color.White,
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "Sign in with Google",
+                text = "Connect Your Focus Profile",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Authenticate with Supabase using your Google account to create or join friend focus rooms, appear on the leaderboard, and sync settings and sessions across devices.",
+                text = "Sign in with Google to join co-op focus rooms, climb XP ranks, and sync your tree.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Co-op Timer", "XP Ranks", "Tree Sync").forEach { perk ->
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                            .padding(vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = perk,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             GoogleSignInButton(
                 onClick = onSignInClick,
@@ -260,8 +289,39 @@ private fun SignedInSocialContent(
     val activeRoom by viewModel.activeRoom.collectAsState()
     val participants by viewModel.activeRoomParticipants.collectAsState()
     val leaderboard by viewModel.leaderboardEntries.collectAsState()
+    val stats by viewModel.statsSummary.collectAsState()
+    val playerLevel = (stats.focusScore / 200) + 1
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Compact Gamified Rank Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = user.displayName ?: user.email ?: "Reader",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "LVL $playerLevel • ${readerRankTitle(playerLevel)} • 🔥 ${stats.currentStreak}d",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+            XpRewardChip(text = "${stats.focusScore} XP")
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // Sub-tab switcher
         Row(
             modifier = Modifier
@@ -750,10 +810,10 @@ private fun LeaderboardView(
                         containerColor = if (isSelf) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                     ),
                     border = BorderStroke(
-                        width = if (isSelf) 2.dp else 1.dp,
+                        width = if (isSelf) 1.5.dp else 1.dp,
                         color = if (isSelf) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(18.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -778,18 +838,13 @@ private fun LeaderboardView(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "🔥 ${entry.currentStreak}d • ${entry.totalFocusMinutes}m • 🌳 Stage ${entry.treeStage}",
+                                    text = "Lvl ${(entry.focusScore / 200) + 1} • 🔥 ${entry.currentStreak}d • ${entry.totalFocusMinutes}m",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        Text(
-                            text = "${entry.focusScore} pts",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        XpRewardChip(text = "${entry.focusScore} XP")
                     }
                 }
             }

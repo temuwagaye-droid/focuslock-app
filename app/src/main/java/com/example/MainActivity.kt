@@ -490,21 +490,6 @@ private fun FocusLockTopAppBar(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = sectionLabel.uppercase(),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
                     }
                 }
 

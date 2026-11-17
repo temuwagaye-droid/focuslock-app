@@ -114,9 +114,12 @@ import com.example.ui.components.BlockedAppsRequiredDialog
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.FocusForestRewardCard
+import com.example.ui.components.GamifiedLevelHudCard
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReadingAppRequiredDialog
+import com.example.ui.components.XpRewardChip
 import com.example.ui.components.calculateTreeStage
+import com.example.ui.components.readerRankTitle
 import com.example.ui.components.treeStageTitle
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.appBlackButtonBorder
@@ -291,14 +294,15 @@ fun AppSelectionScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Restrict Distractions",
+                    text = "App Shield",
                     color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "Select distracting apps to block, or switch to strict whitelisting.",
+                    text = "Choose apps to block during reading sessions.",
                     color = MaterialTheme.colorScheme.secondary,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
             if (!isProTier) {
@@ -306,10 +310,11 @@ fun AppSelectionScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.primaryContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(50))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "${blockedPackagesSet.size}/${FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS} FREE",
+                        text = "${blockedPackagesSet.size}/${FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS} SLOTS",
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black
@@ -318,7 +323,22 @@ fun AppSelectionScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        if (!isProTier) {
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = {
+                    (blockedPackagesSet.size.toFloat() / FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS.toFloat()).coerceIn(0f, 1f)
+                },
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(4.dp))
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Whitelist Toggle Card (Gated behind Pro tier)
         CinematicCardEntrance(index = 0) {
@@ -326,15 +346,15 @@ fun AppSelectionScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -344,13 +364,14 @@ fun AppSelectionScreen(
                                 imageVector = Icons.Default.Block,
                                 contentDescription = null,
                                 containerSize = 28.dp,
-                                iconSize = 16.dp
+                                iconSize = 15.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "WHITELIST MODE",
                                 color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black
                             )
                             if (!isProTier) {
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -362,7 +383,7 @@ fun AppSelectionScreen(
                                 ) {
                                     Text(
                                         text = "PRO",
-                                        color = Color.White,
+                                        color = Color(0xFFF3E5AB),
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Black
                                     )
@@ -372,12 +393,12 @@ fun AppSelectionScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isProTier) {
-                                "Blocks all applications except your designated reading app during focus."
+                                "Blocks every app except your reading app."
                             } else {
-                                "Pro Feature: Auto-blocks every app except your designated reading app."
+                                "Pro: auto-block all apps except your reader."
                             },
                             color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                     Switch(
@@ -446,15 +467,25 @@ fun AppSelectionScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(
+                                    if (isChecked) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                )
+                                .border(
+                                    width = if (isChecked) 1.5.dp else 1.dp,
+                                    color = if (isChecked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
                                 .clickable {
                                     runWithParentalCheck {
                                         viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
                                     }
                                 }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -474,10 +505,11 @@ fun AppSelectionScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = app.packageName,
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    text = if (isChecked) "Shielded during focus" else app.packageName,
+                                    color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                                     fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = if (isChecked) FontFamily.SansSerif else FontFamily.Monospace,
+                                    fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -508,29 +540,29 @@ fun AppSelectionScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), RoundedCornerShape(24.dp))
                     .padding(24.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularIconBadge(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        containerSize = 84.dp,
-                        iconSize = 44.dp,
-                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                        containerSize = 72.dp,
+                        iconSize = 38.dp,
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
                         text = "WHITELIST ENGAGED",
                         color = MaterialTheme.colorScheme.onBackground,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Individual selection disabled. All standard apps are auto-locked except ReadLock and your active designated reading app.",
+                        text = "Only ReadLock and your designated reading app remain open during sessions.",
                         color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -723,13 +755,15 @@ fun TimerSetupScreen(
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Quick Summary Strip: Focus Minutes, Distractions Blocked, Virtual Tree Stage (taps open Stats)
+            // Minimal Gamified HUD Strip: Focus, Blocked, Tree Stage & Streak (taps open Stats)
             val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
+            val playerLevel = (stats.focusScore / 200) + 1
+            val playerRank = readerRankTitle(playerLevel)
             CinematicCardEntrance(index = 0) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                        .padding(bottom = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TimerQuickStatPill(
@@ -748,37 +782,52 @@ fun TimerSetupScreen(
                     )
                     TimerQuickStatPill(
                         label = "TREE",
-                        value = "🌳 Stg $treeStage",
+                        value = "🌳 L$treeStage",
+                        onClick = onNavigateToStats,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TimerQuickStatPill(
+                        label = "STREAK",
+                        value = "🔥 ${stats.currentStreak}d",
                         onClick = onNavigateToStats,
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            Text(
-                text = "Set Reading Goal",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Choose your reading duration and active trigger app.",
-                color = MaterialTheme.colorScheme.secondary,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Focus Timer",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = "Pick your duration & launch reading mode.",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                XpRewardChip(text = "LVL $playerLevel • $playerRank")
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Stepper Slider Duration Card with High Contrast Outline
+            // Clean Minimal Stepper Slider Duration Card
             CinematicCardEntrance(index = 1) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(18.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -787,14 +836,10 @@ fun TimerSetupScreen(
                             Text(
                                 text = "SESSION DURATION",
                                 color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.labelMedium
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = "±5m STEP",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black
-                            )
+                            XpRewardChip(text = "+${sessionMinutes * 2 + 50} XP")
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -925,15 +970,15 @@ fun TimerSetupScreen(
             CinematicCardEntrance(index = 2) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(22.dp),
                     border = BorderStroke(
-                        width = if (hasReadingApp) 1.dp else 1.5.dp,
-                        color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                        width = 1.dp,
+                        color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -943,14 +988,15 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.Book,
                                     contentDescription = null,
-                                    containerSize = 30.dp,
-                                    iconSize = 16.dp
+                                    containerSize = 28.dp,
+                                    iconSize = 15.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "DESIGNATED READING APP",
+                                    text = "READING APP",
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Black
                                 )
                             }
                             if (!hasReadingApp) {
@@ -974,12 +1020,12 @@ fun TimerSetupScreen(
 
                         Text(
                             text = if (hasReadingApp) {
-                                "Required for focus sessions. Keeps you locked into your reading app."
+                                "Allowed during lock while distraction shields stay up."
                             } else {
-                                "Select a reading app first — focus sessions cannot start without one."
+                                "Pick a reading app to unlock focus sessions."
                             },
                             color = if (hasReadingApp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodySmall
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1044,17 +1090,17 @@ fun TimerSetupScreen(
             CinematicCardEntrance(index = 3) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(22.dp),
                     border = BorderStroke(
-                        width = if (hasBlockedAppsConfig) 1.dp else 1.5.dp,
-                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                        width = 1.dp,
+                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("blocked_apps_status_card")
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1064,14 +1110,15 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.Block,
                                     contentDescription = null,
-                                    containerSize = 30.dp,
-                                    iconSize = 16.dp
+                                    containerSize = 28.dp,
+                                    iconSize = 15.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "DISTRACTION BLOCKING",
+                                    text = "APP SHIELD",
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Black
                                 )
                             }
                             if (!hasBlockedAppsConfig) {
@@ -1095,12 +1142,12 @@ fun TimerSetupScreen(
 
                         Text(
                             text = when {
-                                isProTier && isWhitelistMode -> "Whitelist Mode enabled — all distracting apps will be locked automatically."
-                                blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) selected to block during your session."
-                                else -> "Select at least one app to block before starting."
+                                isProTier && isWhitelistMode -> "Whitelist Mode active — distracting apps auto-locked."
+                                blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) shielded."
+                                else -> "Select at least 1 distracting app before starting."
                             },
                             color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodySmall
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -1839,26 +1886,27 @@ fun FocusSessionScreen(
         }
 
         // Central Countdown Arc
+        val potentialSessionXp = ((totalDuration / 60).coerceAtLeast(1) * 2 + 50)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(240.dp)
+                .size(236.dp)
                 .padding(8.dp)
         ) {
-            val primaryTrackColor = MaterialTheme.colorScheme.outlineVariant
+            val primaryTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
             val accentActiveColor = MaterialTheme.colorScheme.primary
 
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
                     color = primaryTrackColor,
-                    style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
                     color = accentActiveColor,
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter = false,
-                    style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
@@ -1866,7 +1914,9 @@ fun FocusSessionScreen(
                 Text(
                     text = "STAY FOCUSED",
                     color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -1875,12 +1925,8 @@ fun FocusSessionScreen(
                     style = MaterialTheme.typography.displayLarge,
                     modifier = Modifier.testTag("countdown_timer_text")
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Reading Active",
-                    color = MaterialTheme.colorScheme.secondary,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Spacer(modifier = Modifier.height(6.dp))
+                XpRewardChip(text = "+$potentialSessionXp XP")
             }
         }
 
@@ -1980,8 +2026,8 @@ fun FocusSessionScreen(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant
             ),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+            shape = RoundedCornerShape(22.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1991,22 +2037,13 @@ fun FocusSessionScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Lock Icon",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
+                CircularIconBadge(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Lock Icon",
+                    containerSize = 36.dp,
+                    iconSize = 18.dp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         text = "STRICT LOCK ENGAGED",
@@ -2014,9 +2051,9 @@ fun FocusSessionScreen(
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Black
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Distracting apps are locked until 00:00. Quitting early triggers your accountability alert if configured.",
+                        text = "Shielded apps remain locked until 00:00.",
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -2146,20 +2183,20 @@ fun CoffeeBreakScreen(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(280.dp)
+                    .size(260.dp)
                     .padding(16.dp)
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
                         color = coffeeTrackColor,
-                        style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                     )
                     drawArc(
                         color = coffeeActiveColor,
                         startAngle = -90f,
                         sweepAngle = 360f * progress,
                         useCenter = false,
-                        style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
 
@@ -2167,7 +2204,7 @@ fun CoffeeBreakScreen(
                     Text(
                         text = "COFFEE BREAK",
                         color = coffeeBorderColor,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp
                     )
@@ -2178,12 +2215,8 @@ fun CoffeeBreakScreen(
                         style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black),
                         modifier = Modifier.testTag("break_timer_text")
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Time to Recharge",
-                        color = coffeeBodyText,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    XpRewardChip(text = "Session XP Banked")
                 }
             }
 
@@ -2478,20 +2511,27 @@ fun HistoryStatsScreen(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Header
+        // 1. Header + Gamified Level HUD
         item {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Your Progress",
+                text = "Progress & Quests",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black
             )
             Text(
-                text = "Virtual focus tree, distraction shields, weekly reading insights & achievements.",
+                text = "XP rank, growing forest, weekly insights & badges.",
                 color = MaterialTheme.colorScheme.secondary,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        // 1.25 Gamified Level & XP Progress HUD Card
+        item {
+            CinematicCardEntrance(index = 0) {
+                GamifiedLevelHudCard(stats = stats)
+            }
         }
 
         // 1.5 Virtual Focus Tree Reward Card
@@ -2875,13 +2915,13 @@ fun HistoryStatsScreen(
             }
         }
 
-        // 4. Large high-contrast gamified score level card
+        // 4. Large clean gamified score level card
         item {
             CinematicCardEntrance(index = 4) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3484,17 +3524,18 @@ fun HistoryStatsScreen(
             }
         } else {
             items(sessionLogs) { log ->
+                val sessionXp = if (log.isCompleted) ((log.durationSeconds / 60).coerceAtLeast(1) * 2 + 50) else 0L
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(18.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         val formattedDate = remember(log.timestamp) { dateHelper.format(Date(log.timestamp)) }
                         Text(
                             text = formattedDate,
@@ -3525,15 +3566,23 @@ fun HistoryStatsScreen(
                         }
                     }
 
-                    val statusIcon = if (log.isCompleted) Icons.Default.CheckCircle else Icons.Default.Error
-                    val statusColor = if (log.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
-                    CircularIconBadge(
-                        imageVector = statusIcon,
-                        contentDescription = null,
-                        containerSize = 36.dp,
-                        iconSize = 20.dp,
-                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.45f))
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (sessionXp > 0L) {
+                            XpRewardChip(text = "+$sessionXp XP")
+                        }
+                        val statusIcon = if (log.isCompleted) Icons.Default.CheckCircle else Icons.Default.Error
+                        val statusColor = if (log.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+                        CircularIconBadge(
+                            imageVector = statusIcon,
+                            contentDescription = null,
+                            containerSize = 34.dp,
+                            iconSize = 18.dp,
+                            border = BorderStroke(1.dp, statusColor.copy(alpha = 0.45f))
+                        )
+                    }
                 }
             }
         }
@@ -3734,85 +3783,26 @@ fun SettingsScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "Settings & Rules",
+            text = "Settings",
             color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black
         )
         Text(
-            text = "Configure automated focus hours, permissions, and accessibility.",
+            text = "Focus rules, cloud sync, alerts & privacy.",
             color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodySmall
         )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Global Theme Toggle for Dark Mode Card with outline
-        val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
-        CinematicCardEntrance(index = 0) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            CircularIconBadge(
-                                imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                contentDescription = null,
-                                containerSize = 36.dp,
-                                iconSize = 18.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "NIGHT-TIME DARK MODE",
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Comfortable dark palette for late night reading.",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = isDarkModeEnabled,
-                            onCheckedChange = { viewModel.toggleDarkMode(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                            ),
-                            modifier = Modifier.testTag("dark_mode_switch")
-                        )
-                    }
-                }
-            }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Accessibility Service configuration Card (defaults collapsed with chevron-down; remembers enabled once)
         var isAccessibilityExpanded by remember { mutableStateOf(false) }
-        CinematicCardEntrance(index = 1) {
+        CinematicCardEntrance(index = 0) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3838,17 +3828,18 @@ fun SettingsScreen(
                             Text(
                                 text = "ACCESSIBILITY SERVICE",
                                 color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (accessibilityEnabled) {
-                                    "Enabled by default for real-time app redirection & blocker protection."
+                                    "Active by default for real-time app protection."
                                 } else {
-                                    "Enables real-time app redirection & overlay blocker protection."
+                                    "Enable once for real-time app blocking."
                                 },
                                 color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
 
@@ -3965,7 +3956,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Scheduled Focus Hours Card with outline
-        CinematicCardEntrance(index = 2) {
+        CinematicCardEntrance(index = 1) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(24.dp),

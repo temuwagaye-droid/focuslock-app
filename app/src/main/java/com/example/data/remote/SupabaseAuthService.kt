@@ -118,8 +118,12 @@ object SupabaseAuthService {
 
         if (!googleWebClientId.isNullOrBlank()) {
             try {
+                val rawNonce = generateCodeVerifier()
+                val hashedNonce = sha256Hex(rawNonce)
                 val credentialManager = CredentialManager.create(context)
-                val googleIdOption = GetSignInWithGoogleOption.Builder(googleWebClientId).build()
+                val googleIdOption = GetSignInWithGoogleOption.Builder(googleWebClientId)
+                    .setNonce(hashedNonce)
+                    .build()
                 val request = GetCredentialRequest.Builder()
                     .addCredentialOption(googleIdOption)
                     .build()
@@ -136,7 +140,8 @@ object SupabaseAuthService {
                     val user = exchangeGoogleIdTokenWithSupabase(
                         supabaseUrl = supabaseUrl,
                         anonKey = anonKey,
-                        idToken = googleCredential.idToken
+                        idToken = googleCredential.idToken,
+                        rawNonce = rawNonce
                     )
                     persistUser(context, user)
                     _currentUser.value = user
@@ -291,11 +296,15 @@ object SupabaseAuthService {
     private suspend fun exchangeGoogleIdTokenWithSupabase(
         supabaseUrl: String,
         anonKey: String,
-        idToken: String
+        idToken: String,
+        rawNonce: String? = null
     ): SupabaseUser = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("provider", "google")
             .put("id_token", idToken)
+        if (!rawNonce.isNullOrBlank()) {
+            payload.put("nonce", rawNonce)
+        }
 
         val responseJson = executeAuthPost(
             url = "$supabaseUrl/auth/v1/token?grant_type=id_token",
@@ -391,18 +400,22 @@ object SupabaseAuthService {
     }
 
     private fun resolveSupabaseConfig(): Pair<String, String>? {
-        val url = listOf(BuildConfig.SUPABASE_URL, BuildConfig.NEXT_PUBLIC_SUPABASE_URL)
+        val url = listOf(BuildConfig.NEXT_PUBLIC_SUPABASE_URL, BuildConfig.SUPABASE_URL)
             .map { it.trim().trimEnd('/') }
             .firstOrNull { it.isNotBlank() && !it.contains("your-project.supabase.co", ignoreCase = true) }
             ?: return null
-        val key = listOf(BuildConfig.SUPABASE_ANON_KEY, BuildConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
-            .map { it.trim() }
-            .firstOrNull {
+        val candidates = listOf(
+            BuildConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+            BuildConfig.SUPABASE_ANON_KEY
+        ).map { it.trim() }
+            .filter {
                 it.isNotBlank() &&
                     it != "YOUR_SUPABASE_ANON_KEY" &&
                     it != "YOUR_SUPABASE_PUBLISHABLE_KEY"
             }
-            ?: return null
+        val key = candidates.firstOrNull {
+            it.startsWith("sb_publishable_") || it.startsWith("eyJ")
+        } ?: candidates.firstOrNull() ?: return null
         return url to key
     }
 
@@ -461,6 +474,11 @@ object SupabaseAuthService {
     private fun generateCodeChallenge(verifier: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
         return Base64.encodeToString(digest, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+    }
+
+    private fun sha256Hex(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
     private fun extractFragmentParam(uri: Uri, key: String): String? {
