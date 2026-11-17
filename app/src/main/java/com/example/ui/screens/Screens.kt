@@ -747,23 +747,22 @@ fun TimerSetupScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Minimal Gamified HUD Strip: Focus, Blocked, Tree Stage & Streak (taps open Stats)
+            // Borderless Medium HUD Strip: Focus, Blocked, Tree Stage & Streak
             val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
             val playerLevel = (stats.focusScore / 200) + 1
             val playerRank = readerRankTitle(playerLevel)
             CinematicCardEntrance(index = 0) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 14.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TimerQuickStatPill(
@@ -796,7 +795,9 @@ fun TimerSetupScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -808,7 +809,7 @@ fun TimerSetupScreen(
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = "Pick your duration & launch reading mode.",
+                        text = "Set duration & start distraction-free reading.",
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -816,18 +817,16 @@ fun TimerSetupScreen(
                 XpRewardChip(text = "LVL $playerLevel • $playerRank")
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Clean Minimal Stepper Slider Duration Card
+            // Medium Borderless Stepper Slider Duration Card (tonal elevation + recessed surface wells)
             CinematicCardEntrance(index = 1) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -836,17 +835,22 @@ fun TimerSetupScreen(
                             Text(
                                 text = "SESSION DURATION",
                                 color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
                             )
                             XpRewardChip(text = "+${sessionMinutes * 2 + 50} XP")
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // Stepper row with Minus (-) and Plus (+) increment buttons
+                        // Compact Stepper row with borderless circular Minus (-) and Plus (+) controls
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -858,14 +862,13 @@ fun TimerSetupScreen(
                                     .size(48.dp)
                                     .clip(CircleShape)
                                     .background(if (canDecrement) Color.Black else Color.Black.copy(alpha = 0.35f))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                                     .testTag("duration_decrement_btn")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Remove,
                                     contentDescription = "Decrease session duration by 5 minutes",
                                     tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
@@ -875,22 +878,25 @@ fun TimerSetupScreen(
                                 label = "stepper_minutes_anim",
                                 modifier = Modifier.weight(1f)
                             ) { mins ->
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.Bottom,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
                                         text = "$mins",
                                         color = MaterialTheme.colorScheme.onBackground,
-                                        style = MaterialTheme.typography.displayMedium,
+                                        style = MaterialTheme.typography.headlineLarge,
                                         fontWeight = FontWeight.Black,
                                         modifier = Modifier.testTag("session_minutes_display")
                                     )
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Minutes",
+                                        text = "min",
                                         color = MaterialTheme.colorScheme.secondary,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(bottom = 4.dp)
                                     )
                                 }
                             }
@@ -903,19 +909,18 @@ fun TimerSetupScreen(
                                     .size(48.dp)
                                     .clip(CircleShape)
                                     .background(if (canIncrement) Color.Black else Color.Black.copy(alpha = 0.35f))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                                     .testTag("duration_increment_btn")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = "Increase session duration by 5 minutes",
                                     tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Slider(
                             value = sessionMinutes.toFloat(),
@@ -925,17 +930,17 @@ fun TimerSetupScreen(
                             colors = SliderDefaults.colors(
                                 thumbColor = MaterialTheme.colorScheme.primary,
                                 activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                inactiveTrackColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier.testTag("duration_slider")
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                        // Preset pill rows
+                        // Borderless tonal preset pills
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             listOf(15, 25, 45, 60).forEach { mins ->
                                 val isSelected = sessionMinutes == mins
@@ -943,19 +948,17 @@ fun TimerSetupScreen(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .padding(horizontal = 4.dp)
-                                        .clip(RoundedCornerShape(50))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                                         .clickable { updateSessionMinutes(mins) }
-                                        .padding(vertical = 10.dp)
+                                        .padding(vertical = 8.dp)
                                         .testTag("preset_${mins}_btn")
                                 ) {
                                     Text(
                                         text = "${mins}m",
                                         color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 13.sp
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
@@ -964,21 +967,22 @@ fun TimerSetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Reading App Trigger Selector (navigates to dedicated ReadingAppSelectionScreen)
+            // Medium Borderless Reading App Card
             CinematicCardEntrance(index = 2) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(22.dp),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (hasReadingApp) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (hasReadingApp) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                        }
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -988,15 +992,16 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.Book,
                                     contentDescription = null,
-                                    containerSize = 28.dp,
-                                    iconSize = 15.dp
+                                    containerSize = 26.dp,
+                                    iconSize = 14.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "READING APP",
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Black
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
                                 )
                             }
                             if (!hasReadingApp) {
@@ -1004,38 +1009,31 @@ fun TimerSetupScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(50))
                                         .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         text = "REQUIRED",
                                         color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                 }
+                            } else {
+                                Text(
+                                    text = "Allowed during lock",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = if (hasReadingApp) {
-                                "Allowed during lock while distraction shields stay up."
-                            } else {
-                                "Pick a reading app to unlock focus sessions."
-                            },
-                            color = if (hasReadingApp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(50))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(MaterialTheme.colorScheme.surface)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                                 .clickable {
                                     if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
                                         showParentalPinForReader = true
@@ -1043,7 +1041,7 @@ fun TimerSetupScreen(
                                         openReadingAppChooser()
                                     }
                                 }
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                                 .testTag("open_reading_app_picker_row"),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1057,7 +1055,7 @@ fun TimerSetupScreen(
                                     AppLauncherIcon(
                                         packageName = pkg,
                                         contentDescription = selectedReadingAppLabel,
-                                        size = 30.dp
+                                        size = 28.dp
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                 }
@@ -1065,7 +1063,7 @@ fun TimerSetupScreen(
                                     text = selectedReadingAppLabel.uppercase(Locale.getDefault()),
                                     color = MaterialTheme.colorScheme.onBackground,
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.testTag("selected_reading_app_label")
@@ -1074,9 +1072,9 @@ fun TimerSetupScreen(
                             Text(
                                 text = if (hasReadingApp) "CHANGE" else "SELECT",
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
+                                letterSpacing = 0.8.sp,
                                 modifier = Modifier.padding(start = 8.dp)
                             )
                         }
@@ -1084,23 +1082,24 @@ fun TimerSetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Blocked Apps Status Card (connects cleanly to Apps screen)
+            // Medium Borderless App Shield Card
             CinematicCardEntrance(index = 3) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(22.dp),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (hasBlockedAppsConfig) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                        }
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("blocked_apps_status_card")
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1110,15 +1109,16 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.Block,
                                     contentDescription = null,
-                                    containerSize = 28.dp,
-                                    iconSize = 15.dp
+                                    containerSize = 26.dp,
+                                    iconSize = 14.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "APP SHIELD",
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Black
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
                                 )
                             }
                             if (!hasBlockedAppsConfig) {
@@ -1126,40 +1126,33 @@ fun TimerSetupScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(50))
                                         .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         text = "REQUIRED",
                                         color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                 }
+                            } else {
+                                Text(
+                                    text = if (isProTier && isWhitelistMode) "Strict whitelist" else "$blockedAppsCount shielded",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = when {
-                                isProTier && isWhitelistMode -> "Whitelist Mode active — distracting apps auto-locked."
-                                blockedAppsCount > 0 -> "$blockedAppsCount distracting app(s) shielded."
-                                else -> "Select at least 1 distracting app before starting."
-                            },
-                            color = if (hasBlockedAppsConfig) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(50))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(MaterialTheme.colorScheme.surface)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                                 .clickable { onNavigateToBlocklist() }
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                                 .testTag("configure_blocked_apps_row"),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1172,34 +1165,32 @@ fun TimerSetupScreen(
                                 },
                                 color = MaterialTheme.colorScheme.onBackground,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
                             Text(
                                 text = if (hasBlockedAppsConfig) "EDIT" else "SELECT",
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp
+                                letterSpacing = 0.8.sp
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Ambient & White Noise Soundscape Picker Card
+            // Medium Borderless Ambient Soundscape Card
             CinematicCardEntrance(index = 4) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("ambient_sound_picker_card")
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1209,16 +1200,24 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.MusicNote,
                                     contentDescription = null,
-                                    containerSize = 30.dp,
-                                    iconSize = 16.dp
+                                    containerSize = 26.dp,
+                                    iconSize = 14.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "AMBIENT & WHITE NOISE SOUND",
+                                    text = "AMBIENT SOUNDSCAPE",
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
                                 )
                             }
+                            Text(
+                                text = AmbientSoundType.fromId(selectedSoundId).displayName,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Row(
@@ -1231,15 +1230,10 @@ fun TimerSetupScreen(
                                 val isSelected = selectedSoundId == sound.id
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                                        .border(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                            RoundedCornerShape(50)
-                                        )
                                         .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = false) }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .padding(horizontal = 12.dp, vertical = 7.dp)
                                         .testTag("ambient_chip_${sound.id}")
                                 ) {
                                     Text(
@@ -1258,33 +1252,38 @@ fun TimerSetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Cross-screen link to Group Rooms
+            // Medium Borderless Study Rooms Link Card
             CinematicCardEntrance(index = 5) {
-                Row(
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onNavigateToRooms() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .testTag("timer_to_rooms_link"),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .testTag("timer_to_rooms_link")
                 ) {
-                    Text(
-                        text = "Prefer studying with friends?",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "STUDY ROOMS →",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Prefer studying with friends?",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = "STUDY ROOMS →",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
@@ -1727,16 +1726,17 @@ private fun TimerQuickStatPill(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(14.dp),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -1749,7 +1749,7 @@ private fun TimerQuickStatPill(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,

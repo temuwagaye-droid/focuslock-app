@@ -327,9 +327,8 @@ fun XpRewardChip(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f))
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f), RoundedCornerShape(50))
-            .padding(horizontal = 9.dp, vertical = 4.dp)
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Bolt,
