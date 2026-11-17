@@ -57,6 +57,8 @@ import com.example.service.EarlyQuitAlert
 import com.example.telemetry.TelemetryManager
 import com.example.ui.theme.AppAccentTheme
 import com.example.ui.theme.LocalDarkTheme
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 
 @Composable
 fun PremiumUpgradeDialog(
@@ -193,7 +195,8 @@ fun PremiumUpgradeDialog(
                         onTogglePro(!isProActive)
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -202,7 +205,7 @@ fun PremiumUpgradeDialog(
                 ) {
                     Text(
                         text = if (isProActive) "SWITCH TO FREE TIER" else "ACTIVATE PRO PASS (PREVIEW)",
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp
                     )
@@ -210,14 +213,16 @@ fun PremiumUpgradeDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedButton(
+                Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp)
                 ) {
-                    Text("CLOSE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("CLOSE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -304,7 +309,8 @@ fun AccountabilityQuitDialog(
                         }
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -313,21 +319,23 @@ fun AccountabilityQuitDialog(
                 ) {
                     Text(
                         text = "NOTIFY PARTNER NOW",
-                        color = MaterialTheme.colorScheme.onError,
+                        color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
+                Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
                 ) {
-                    Text("DISMISS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("DISMISS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -375,11 +383,13 @@ fun DiagnosticsAndPrivacyDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = {
                             TelemetryManager.clearAllLogs(context)
                             refreshTrigger++
                         },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50)
                     ) {
                         CircularIconBadge(
@@ -387,11 +397,11 @@ fun DiagnosticsAndPrivacyDialog(
                             contentDescription = "Clear logs",
                             containerSize = 22.dp,
                             iconSize = 13.dp,
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                            iconTint = MaterialTheme.colorScheme.error
+                            containerColor = Color.White.copy(alpha = 0.18f),
+                            iconTint = Color.White
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("CLEAR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("CLEAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -471,12 +481,14 @@ fun DiagnosticsAndPrivacyDialog(
                 Spacer(modifier = Modifier.height(14.dp))
                 Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp)
                 ) {
-                    Text("DONE", fontWeight = FontWeight.Black)
+                    Text("DONE", color = Color.White, fontWeight = FontWeight.Black)
                 }
             }
         }

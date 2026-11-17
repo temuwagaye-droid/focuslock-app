@@ -306,11 +306,14 @@ object SupabaseAuthService {
     }
 
     private fun executeAuthPost(url: String, anonKey: String, body: JSONObject): JSONObject {
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(url)
             .addHeader("apikey", anonKey)
-            .addHeader("Authorization", "Bearer $anonKey")
             .addHeader("Content-Type", "application/json")
+        if (anonKey.startsWith("eyJ")) {
+            requestBuilder.addHeader("Authorization", "Bearer $anonKey")
+        }
+        val request = requestBuilder
             .post(body.toString().toRequestBody(jsonMediaType))
             .build()
 

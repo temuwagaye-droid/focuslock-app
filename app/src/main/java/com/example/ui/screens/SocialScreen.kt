@@ -72,6 +72,8 @@ import com.example.ui.FocusViewModel
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.treeStageTitle
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 
 @Composable
 fun SocialScreen(
@@ -335,12 +337,14 @@ private fun SignedInSocialContent(
                                     )
                                     Button(
                                         onClick = { viewModel.joinFocusRoomByCode(joinCodeInput) },
+                                        colors = appBlackButtonColors(),
+                                        border = appBlackButtonBorder(),
                                         shape = RoundedCornerShape(14.dp),
                                         modifier = Modifier
                                             .height(54.dp)
                                             .testTag("join_room_by_code_btn")
                                     ) {
-                                        Text("JOIN", fontWeight = FontWeight.Black)
+                                        Text("JOIN", color = Color.White, fontWeight = FontWeight.Black)
                                     }
                                 }
 
@@ -349,7 +353,8 @@ private fun SignedInSocialContent(
                                 Button(
                                     onClick = { showCreateRoomDialog = true },
                                     shape = RoundedCornerShape(50),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    colors = appBlackButtonColors(),
+                                    border = appBlackButtonBorder(),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(48.dp)
@@ -360,11 +365,11 @@ private fun SignedInSocialContent(
                                         contentDescription = null,
                                         containerSize = 24.dp,
                                         iconSize = 15.dp,
-                                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
-                                        iconTint = MaterialTheme.colorScheme.onPrimary
+                                        containerColor = Color.White.copy(alpha = 0.2f),
+                                        iconTint = Color.White
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("CREATE GROUP FOCUS ROOM", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                    Text("CREATE GROUP FOCUS ROOM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
                                 }
                             }
                         }
@@ -509,15 +514,22 @@ private fun ActiveRoomView(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                             )
                         }
-                        OutlinedButton(onClick = onShareCode, shape = RoundedCornerShape(50)) {
+                        Button(
+                            onClick = onShareCode,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50)
+                        ) {
                             CircularIconBadge(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = "Share Code",
                                 containerSize = 22.dp,
-                                iconSize = 13.dp
+                                iconSize = 13.dp,
+                                containerColor = Color.White.copy(alpha = 0.18f),
+                                iconTint = Color.White
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("INVITE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("INVITE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -529,7 +541,8 @@ private fun ActiveRoomView(
                     ) {
                         Button(
                             onClick = onStartTogether,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
                             shape = RoundedCornerShape(50),
                             modifier = Modifier
                                 .weight(1f)
@@ -540,19 +553,21 @@ private fun ActiveRoomView(
                                 contentDescription = null,
                                 containerSize = 24.dp,
                                 iconSize = 15.dp,
-                                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
-                                iconTint = MaterialTheme.colorScheme.onPrimary
+                                containerColor = Color.White.copy(alpha = 0.2f),
+                                iconTint = Color.White
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (room.hostId == currentUid) "START GROUP FOCUS" else "JOIN FOCUS TIMER",
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = Color.White,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 11.sp
                             )
                         }
-                        OutlinedButton(
+                        Button(
                             onClick = onLeaveRoom,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
                             shape = RoundedCornerShape(50),
                             modifier = Modifier.height(48.dp)
                         ) {
@@ -561,8 +576,8 @@ private fun ActiveRoomView(
                                 contentDescription = "Leave Room",
                                 containerSize = 26.dp,
                                 iconSize = 15.dp,
-                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                iconTint = MaterialTheme.colorScheme.error
+                                containerColor = Color.White.copy(alpha = 0.18f),
+                                iconTint = Color.White
                             )
                         }
                     }
@@ -646,8 +661,13 @@ private fun LeaderboardView(
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.secondary
                 )
-                OutlinedButton(onClick = onSyncNow, shape = RoundedCornerShape(50)) {
-                    Text("SYNC MY SCORE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onSyncNow,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("SYNC MY SCORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -813,14 +833,23 @@ private fun CreateRoomDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                        Text("CANCEL")
+                    Button(
+                        onClick = onDismiss,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("CANCEL", color = Color.White)
                     }
                     Button(
                         onClick = { onCreate(roomName, duration, isPublic) },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("CREATE")
+                        Text("CREATE", color = Color.White)
                     }
                 }
             }

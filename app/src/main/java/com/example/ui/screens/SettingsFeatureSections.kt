@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +74,8 @@ import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.PremiumUpgradeDialog
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 import com.example.widget.ShortcutHelper
 import java.util.Locale
 
@@ -168,10 +171,12 @@ fun SettingsAdvancedSections(
                 }
                 Button(
                     onClick = { showPremiumDialog = true },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.testTag("open_pro_upgrade_btn")
                 ) {
-                    Text(if (isProTier) "THEMES" else "UPGRADE", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text(if (isProTier) "THEMES" else "UPGRADE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -249,27 +254,33 @@ fun SettingsAdvancedSections(
                     Button(
                         onClick = { viewModel.syncCloudNow() },
                         enabled = !isSyncing,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(if (isSyncing) "SYNCING..." else "BACKUP NOW", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(if (isSyncing) "SYNCING..." else "BACKUP NOW", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = { viewModel.restoreFromCloud() },
                         enabled = !isSyncing,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("RESTORE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("RESTORE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
+                Button(
                     onClick = { viewModel.signOut(context) },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("SIGN OUT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("SIGN OUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -330,17 +341,19 @@ fun SettingsAdvancedSections(
             }
             if (!hasDndPolicyAccess) {
                 Spacer(modifier = Modifier.height(10.dp))
-                OutlinedButton(
+                Button(
                     onClick = {
                         val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
                         context.startActivity(intent)
                     },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("GRANT DND POLICY ACCESS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("GRANT DND POLICY ACCESS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -434,12 +447,14 @@ fun SettingsAdvancedSections(
                         viewModel.saveAccountabilityPartner(partnerNameDraft, partnerEmailDraft, notifyPartnerOnQuit)
                         Toast.makeText(context, "Partner saved!", Toast.LENGTH_SHORT).show()
                     },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("SAVE PARTNER", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text("SAVE PARTNER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
-                OutlinedButton(
+                Button(
                     onClick = {
                         val intent = NotificationHelper.buildAccountabilityShareIntent(
                             partnerEmailDraft,
@@ -449,10 +464,12 @@ fun SettingsAdvancedSections(
                         )
                         context.startActivity(Intent.createChooser(intent, "Send Test Accountability Message"))
                     },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("TEST ALERT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("TEST ALERT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -515,12 +532,14 @@ fun SettingsAdvancedSections(
             }
             if (isParentalLockEnabled) {
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
+                Button(
                     onClick = { showSetPinDialog = true },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("CHANGE PARENTAL PIN", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("CHANGE PARENTAL PIN", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -637,19 +656,21 @@ fun SettingsAdvancedSections(
                 color = MaterialTheme.colorScheme.secondary
             )
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedButton(
+            Button(
                 onClick = {
                     val ok = ShortcutHelper.pinFocusShortcut(context)
                     if (!ok) {
                         Toast.makeText(context, "Long-press FocusLock app icon or open Android Widgets to add shortcut.", Toast.LENGTH_LONG).show()
                     }
                 },
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("pin_shortcut_button")
             ) {
-                Text("PIN HOME / LOCK SHORTCUT", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Text("PIN HOME / LOCK SHORTCUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -687,23 +708,26 @@ fun SettingsAdvancedSections(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
+                Button(
                     onClick = { showDiagnosticsDialog = true },
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .weight(1f)
                         .testTag("view_diagnostics_button")
                 ) {
-                    Text("VIEW LOGS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("VIEW LOGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 if (currentUser != null) {
-                    OutlinedButton(
+                    Button(
                         onClick = { viewModel.deleteCloudData() },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("DELETE CLOUD", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("DELETE CLOUD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

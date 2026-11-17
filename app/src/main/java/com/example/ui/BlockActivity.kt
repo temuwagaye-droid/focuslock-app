@@ -70,6 +70,8 @@ import com.example.ui.components.CircularIconBadge
 import com.example.ui.theme.AppAccentTheme
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -285,13 +287,11 @@ fun BlockScreenContent(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Return to Reading App button (chunky solid action)
+            // Return to Reading App button (solid black with white text)
             Button(
                 onClick = onReturnToReading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -303,13 +303,13 @@ fun BlockScreenContent(
                     contentDescription = null,
                     containerSize = 28.dp,
                     iconSize = 16.dp,
-                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                    iconTint = MaterialTheme.colorScheme.onPrimary
+                    containerColor = Color.White.copy(alpha = 0.18f),
+                    iconTint = Color.White
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "BACK TO READING APP",
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = Color.White,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Black
                 )

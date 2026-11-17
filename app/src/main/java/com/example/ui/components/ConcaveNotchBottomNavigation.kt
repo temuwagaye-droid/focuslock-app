@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -89,9 +90,11 @@ fun ConcaveNotchBottomNavigationBar(
     val isDark = LocalDarkTheme.current
     val barSurfaceColor = if (isDark) MaterialTheme.colorScheme.surface else BoldSurfaceWhite
     val hairlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-    val inactiveIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f)
-    val activeCircleBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
-    val activeIconTint = if (isDark) MaterialTheme.colorScheme.onSurface else BoldTextPrimary
+    val inactiveIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+    val activeCircleBg = if (isDark) Color.White else Color.Black
+    val activeIconTint = if (isDark) Color.Black else Color.White
+    val activeCircleBorder = if (isDark) Color.Black.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
+    val activeLabelColor = if (isDark) Color.White else Color.Black
 
     var circleBounced by remember { mutableStateOf(false) }
     LaunchedEffect(currentTab) {
@@ -219,6 +222,7 @@ fun ConcaveNotchBottomNavigationBar(
                         selected = currentTab == DashboardTab.TIMER,
                         onClick = { onTabSelected(DashboardTab.TIMER) },
                         inactiveColor = inactiveIconColor,
+                        activeLabelColor = activeLabelColor,
                         modifier = Modifier.weight(1f)
                     )
                     ConcaveNavItem(
@@ -228,6 +232,7 @@ fun ConcaveNotchBottomNavigationBar(
                         selected = currentTab == DashboardTab.BLOCKLIST,
                         onClick = { onTabSelected(DashboardTab.BLOCKLIST) },
                         inactiveColor = inactiveIconColor,
+                        activeLabelColor = activeLabelColor,
                         modifier = Modifier.weight(1f)
                     )
                     ConcaveNavItem(
@@ -237,6 +242,7 @@ fun ConcaveNotchBottomNavigationBar(
                         selected = currentTab == DashboardTab.SOCIAL,
                         onClick = { onTabSelected(DashboardTab.SOCIAL) },
                         inactiveColor = inactiveIconColor,
+                        activeLabelColor = activeLabelColor,
                         modifier = Modifier.weight(1f)
                     )
                     ConcaveNavItem(
@@ -246,6 +252,7 @@ fun ConcaveNotchBottomNavigationBar(
                         selected = currentTab == DashboardTab.STATS,
                         onClick = { onTabSelected(DashboardTab.STATS) },
                         inactiveColor = inactiveIconColor,
+                        activeLabelColor = activeLabelColor,
                         modifier = Modifier.weight(1f)
                     )
                     ConcaveNavItem(
@@ -255,6 +262,7 @@ fun ConcaveNotchBottomNavigationBar(
                         selected = currentTab == DashboardTab.SETTINGS,
                         onClick = { onTabSelected(DashboardTab.SETTINGS) },
                         inactiveColor = inactiveIconColor,
+                        activeLabelColor = activeLabelColor,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -272,9 +280,10 @@ fun ConcaveNotchBottomNavigationBar(
                         }
                         .size(circleSizeDp)
                         .scale(circleScale)
-                        .shadow(elevation = 6.dp, shape = CircleShape, clip = false)
+                        .shadow(elevation = 8.dp, shape = CircleShape, clip = false)
                         .clip(CircleShape)
                         .background(activeCircleBg)
+                        .border(1.5.dp, activeCircleBorder, CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = ripple(bounded = true, radius = 26.dp),
@@ -315,12 +324,13 @@ private fun ConcaveNavItem(
     selected: Boolean,
     onClick: () -> Unit,
     inactiveColor: Color,
+    activeLabelColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val itemAlpha by animateFloatAsState(
+    val iconAlpha by animateFloatAsState(
         targetValue = if (selected) 0f else 1f,
         animationSpec = tween(durationMillis = 220),
-        label = "inactive_nav_item_alpha"
+        label = "inactive_nav_icon_alpha"
     )
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -338,22 +348,23 @@ private fun ConcaveNavItem(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.alpha(itemAlpha)
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = inactiveColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier
+                    .size(20.dp)
+                    .alpha(iconAlpha)
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
-                color = inactiveColor,
+                color = if (selected) activeLabelColor else inactiveColor,
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = if (selected) 11.sp else 10.sp,
+                fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
                 maxLines = 1
             )
         }

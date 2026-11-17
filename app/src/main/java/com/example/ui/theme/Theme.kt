@@ -11,6 +11,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 val LocalDarkTheme = compositionLocalOf { false }
@@ -107,3 +108,20 @@ fun MyApplicationTheme(
         )
     }
 }
+
+@Composable
+fun appBlackButtonColors() = androidx.compose.material3.ButtonDefaults.buttonColors(
+    containerColor = Color.Black,
+    contentColor = Color.White,
+    disabledContainerColor = Color.Black.copy(alpha = 0.45f),
+    disabledContentColor = Color.White.copy(alpha = 0.72f)
+)
+
+@Composable
+fun appBlackButtonBorder(): androidx.compose.foundation.BorderStroke? =
+    if (LocalDarkTheme.current) {
+        androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    } else {
+        null
+    }
+

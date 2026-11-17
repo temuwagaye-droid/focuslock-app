@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.components.CircularIconBadge
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 import java.security.MessageDigest
 
 object ParentalControlHelper {
@@ -141,14 +144,16 @@ fun ParentalPinDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(
+                    Button(
                         onClick = onDismiss,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                     ) {
-                        Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("CANCEL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     Button(
@@ -166,7 +171,8 @@ fun ParentalPinDialog(
                             }
                         },
                         shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
@@ -174,7 +180,7 @@ fun ParentalPinDialog(
                     ) {
                         Text(
                             text = if (isSettingNewPin) "SAVE PIN" else "UNLOCK",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = Color.White,
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
                         )

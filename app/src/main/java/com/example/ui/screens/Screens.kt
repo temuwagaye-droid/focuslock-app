@@ -14,7 +14,9 @@ import com.example.ui.FocusStatsSummary
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -25,6 +27,10 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.mutableFloatStateOf
@@ -44,6 +50,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,8 +84,11 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import com.example.audio.AmbientSoundPlayer
 import com.example.audio.AmbientSoundType
@@ -93,6 +103,8 @@ import com.example.ui.components.ReadingAppRequiredDialog
 import com.example.ui.components.calculateTreeStage
 import com.example.ui.components.treeStageTitle
 import com.example.ui.theme.LocalDarkTheme
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -533,18 +545,6 @@ fun TimerSetupScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        var isAccessibilityEnabled by remember { mutableStateOf(false) }
-
-        // Refresh accessibility status whenever the screen is resumed (e.g. after coming back from Settings)
-        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-        LaunchedEffect(lifecycleOwner) {
-            lifecycleOwner.lifecycle.addObserver(androidx.lifecycle.LifecycleEventObserver { _, event ->
-                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                    isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
-                }
-            })
-        }
-
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
@@ -631,67 +631,6 @@ fun TimerSetupScreen(
             )
 
             Spacer(modifier = Modifier.height(20.dp))
-
-            if (!isAccessibilityEnabled) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .testTag("accessibility_warning_card")
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularIconBadge(
-                                imageVector = Icons.Default.Error,
-                                contentDescription = "Warning",
-                                containerSize = 36.dp,
-                                iconSize = 20.dp,
-                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                                iconTint = MaterialTheme.colorScheme.onErrorContainer,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "ACCESSIBILITY REQUIRED",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "To block distracting apps, you must enable ReadLock in your phone's Accessibility settings. Without this, app blocking cannot function.",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = {
-                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "ENABLE ACCESSIBILITY SERVICE",
-                                color = MaterialTheme.colorScheme.onError,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
 
             // Duration Slider Card with High Contrast Outline
             Card(
@@ -1039,13 +978,11 @@ fun TimerSetupScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Action Start Button (High-contrast themed primary action)
+        // Action Start Button (Solid black button with white font)
         Button(
             onClick = { tryStartFocusSession() },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
+            colors = appBlackButtonColors(),
+            border = appBlackButtonBorder(),
             shape = RoundedCornerShape(50),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1057,13 +994,13 @@ fun TimerSetupScreen(
                 contentDescription = null,
                 containerSize = 28.dp,
                 iconSize = 17.dp,
-                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                iconTint = MaterialTheme.colorScheme.onPrimary
+                containerColor = Color.White.copy(alpha = 0.18f),
+                iconTint = Color.White
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "START FOCUS SESSION",
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Black
             )
@@ -1171,16 +1108,14 @@ fun TimerSetupScreen(
 
                     Button(
                         onClick = { showAppPicker = false },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        ),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             text = "CANCEL",
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            color = Color.White,
                             fontWeight = FontWeight.Black
                         )
                     }
@@ -1489,7 +1424,7 @@ fun FocusSessionScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = {
                             if (isAudioPlaying) {
                                 AmbientSoundPlayer.stop()
@@ -1499,9 +1434,11 @@ fun FocusSessionScreen(
                                 viewModel.selectAmbientSound(target, previewIfSessionActive = true)
                             }
                         },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50)
                     ) {
-                        Text(if (isAudioPlaying) "MUTE" else "PLAY", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text(if (isAudioPlaying) "MUTE" else "PLAY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
 
@@ -1591,7 +1528,7 @@ fun FocusSessionScreen(
             }
         }
 
-        OutlinedButton(
+        Button(
             onClick = {
                 if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
                     showParentalQuitDialog = true
@@ -1599,8 +1536,8 @@ fun FocusSessionScreen(
                     onStopSession()
                 }
             },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+            colors = appBlackButtonColors(),
+            border = appBlackButtonBorder(),
             shape = RoundedCornerShape(50),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1612,12 +1549,13 @@ fun FocusSessionScreen(
                 contentDescription = "End Session Early",
                 containerSize = 26.dp,
                 iconSize = 15.dp,
-                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
-                iconTint = MaterialTheme.colorScheme.error
+                containerColor = Color.White.copy(alpha = 0.18f),
+                iconTint = Color.White
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = if (isParentalLockEnabled) "END EARLY (PIN REQUIRED)" else "END SESSION EARLY",
+                color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp
             )
@@ -1787,10 +1725,8 @@ fun CoffeeBreakScreen(
         // Action Button to Skip or return early
         Button(
             onClick = onSkipBreak,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = coffeeButtonBg,
-                contentColor = coffeeButtonContent
-            ),
+            colors = appBlackButtonColors(),
+            border = appBlackButtonBorder(),
             shape = RoundedCornerShape(50),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1799,6 +1735,7 @@ fun CoffeeBreakScreen(
         ) {
             Text(
                 text = "SKIP BREAK & START FRESH",
+                color = Color.White,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.bodyLarge
             )
@@ -2002,6 +1939,8 @@ fun HistoryStatsScreen(
     }
 
     var weeklyGoalMinutes by remember { mutableFloatStateOf(150f) }
+    var isWeeklyProgressExpanded by remember { mutableStateOf(true) }
+    var isFocusMetricExpanded by remember { mutableStateOf(true) }
     val goalProgress = (totalWeeklyMinutes / weeklyGoalMinutes).coerceIn(0f, 1f)
 
     val animatedGoalProgress by animateFloatAsState(
@@ -2070,15 +2009,25 @@ fun HistoryStatsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
                     .testTag("weekly_progress_dashboard_card")
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                role = Role.Button,
+                                onClick = { isWeeklyProgressExpanded = !isWeeklyProgressExpanded }
+                            )
+                            .padding(vertical = 2.dp)
+                            .testTag("weekly_progress_toggle"),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "WEEKLY READING PROGRESS",
                                 color = MaterialTheme.colorScheme.primary,
@@ -2092,23 +2041,47 @@ fun HistoryStatsScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "Goal: ${weeklyGoalMinutes.toInt()}m",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Goal: ${weeklyGoalMinutes.toInt()}m",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+
+                            Crossfade(
+                                targetState = isWeeklyProgressExpanded,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "weekly_progress_chevron"
+                            ) { expanded ->
+                                CircularIconBadge(
+                                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (expanded) "Collapse weekly reading progress" else "Expand weekly reading progress",
+                                    containerSize = 32.dp,
+                                    iconSize = 20.dp
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    AnimatedVisibility(
+                        visible = isWeeklyProgressExpanded,
+                        enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+                        exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(24.dp))
 
                     val maxMinutes = remember(dayLabelsAndMinutes) {
                         dayLabelsAndMinutes.maxOf { it.second }.coerceAtLeast(30f)
@@ -2248,6 +2221,8 @@ fun HistoryStatsScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
+                        }
+                    }
                 }
             }
         }
@@ -2394,59 +2369,106 @@ fun HistoryStatsScreen(
                 shape = RoundedCornerShape(24.dp),
                 border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                    .testTag("focus_metric_score_card")
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                role = Role.Button,
+                                onClick = { isFocusMetricExpanded = !isFocusMetricExpanded }
+                            )
+                            .padding(vertical = 2.dp)
+                            .testTag("focus_metric_toggle"),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "FOCUS METRIC SCORE",
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelMedium
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "FOCUS METRIC SCORE",
+                                color = MaterialTheme.colorScheme.secondary,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            AnimatedVisibility(visible = !isFocusMetricExpanded) {
+                                Text(
+                                    text = "${stats.focusScore} Points",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CircularIconBadge(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                containerSize = 20.dp,
-                                iconSize = 12.dp,
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "LEVEL ${(stats.focusScore / 200) + 1}",
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                CircularIconBadge(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    containerSize = 20.dp,
+                                    iconSize = 12.dp,
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "LEVEL ${(stats.focusScore / 200) + 1}",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+
+                            Crossfade(
+                                targetState = isFocusMetricExpanded,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "focus_metric_chevron"
+                            ) { expanded ->
+                                CircularIconBadge(
+                                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (expanded) "Collapse focus metric score" else "Expand focus metric score",
+                                    containerSize = 32.dp,
+                                    iconSize = 20.dp
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    AnimatedVisibility(
+                        visible = isFocusMetricExpanded,
+                        enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+                        exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                    Text(
-                        text = "${stats.focusScore} Points",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.testTag("gamified_focus_score_text")
-                    )
+                            Text(
+                                text = "${stats.focusScore} Points",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.displayMedium,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.testTag("gamified_focus_score_text")
+                            )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2471,10 +2493,8 @@ fun HistoryStatsScreen(
                                 val shareIntent = Intent.createChooser(sendIntent, "Share focus stats via")
                                 context.startActivity(shareIntent)
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
@@ -2490,12 +2510,13 @@ fun HistoryStatsScreen(
                                     contentDescription = "Share Progress",
                                     containerSize = 26.dp,
                                     iconSize = 14.dp,
-                                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                                    iconTint = MaterialTheme.colorScheme.onPrimary
+                                    containerColor = Color.White.copy(alpha = 0.18f),
+                                    iconTint = Color.White
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "SHARE",
+                                    color = Color.White,
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp
@@ -2517,10 +2538,8 @@ fun HistoryStatsScreen(
                                 clipboardManager.setPrimaryClip(clip)
                                 Toast.makeText(context, "Stats copied to clipboard!", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary,
-                                contentColor = MaterialTheme.colorScheme.onSecondary
-                            ),
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
@@ -2536,12 +2555,13 @@ fun HistoryStatsScreen(
                                     contentDescription = "Copy to Clipboard",
                                     containerSize = 26.dp,
                                     iconSize = 14.dp,
-                                    containerColor = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.18f),
-                                    iconTint = MaterialTheme.colorScheme.onSecondary
+                                    containerColor = Color.White.copy(alpha = 0.18f),
+                                    iconTint = Color.White
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "COPY STATS",
+                                    color = Color.White,
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp
@@ -2556,10 +2576,8 @@ fun HistoryStatsScreen(
                         onClick = {
                             exportStatsToPdf(context, stats, sessionLogs, dateHelper)
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
-                        ),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2575,16 +2593,19 @@ fun HistoryStatsScreen(
                                 contentDescription = "Export to PDF",
                                 containerSize = 26.dp,
                                 iconSize = 14.dp,
-                                containerColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.18f),
-                                iconTint = MaterialTheme.colorScheme.onTertiary
+                                containerColor = Color.White.copy(alpha = 0.18f),
+                                iconTint = Color.White
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "EXPORT TO PDF REPORT",
+                                color = Color.White,
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
+                        }
+                    }
                         }
                     }
                 }
@@ -2698,10 +2719,8 @@ fun HistoryStatsScreen(
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     modifier = Modifier
                         .height(52.dp)
                         .testTag("todo_add_button")
@@ -2711,11 +2730,11 @@ fun HistoryStatsScreen(
                         contentDescription = "Add Task",
                         containerSize = 26.dp,
                         iconSize = 16.dp,
-                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                        iconTint = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color.White.copy(alpha = 0.18f),
+                        iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("ADD", fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    Text("ADD", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
             }
         }
@@ -3242,16 +3261,29 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Accessibility Service configuration Card with outline
+        var isAccessibilityExpanded by remember { mutableStateOf(true) }
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(24.dp),
             border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                .testTag("accessibility_service_card")
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(
+                            role = Role.Button,
+                            onClick = { isAccessibilityExpanded = !isAccessibilityExpanded }
+                        )
+                        .padding(vertical = 2.dp)
+                        .testTag("accessibility_service_toggle"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -3268,6 +3300,8 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     val isDarkSettings = LocalDarkTheme.current
                     val badgeBg = if (accessibilityEnabled) {
@@ -3287,66 +3321,85 @@ fun SettingsScreen(
                         MaterialTheme.colorScheme.onErrorContainer
                     }
 
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(badgeBg)
-                            .border(1.dp, badgeBorder, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = badgeText,
-                            color = badgeTextColor,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 10.sp
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(badgeBg)
+                                .border(1.dp, badgeBorder, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                color = badgeTextColor,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        Crossfade(
+                            targetState = isAccessibilityExpanded,
+                            animationSpec = tween(durationMillis = 200),
+                            label = "accessibility_chevron"
+                        ) { expanded ->
+                            CircularIconBadge(
+                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (expanded) "Collapse accessibility service" else "Expand accessibility service",
+                                containerSize = 32.dp,
+                                iconSize = 20.dp
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "How to enable: Tap below to open Settings, search for/select 'ReadLock Focus Service' under downloaded apps, and toggle it ON.",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        context.startActivity(intent)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (accessibilityEnabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
-                        contentColor = if (accessibilityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .border(
-                            1.dp,
-                            if (accessibilityEnabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(50)
-                        )
-                        .testTag("enable_accessibility_button")
+                AnimatedVisibility(
+                    visible = isAccessibilityExpanded,
+                    enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+                    exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
                 ) {
-                    Text(
-                        text = if (accessibilityEnabled) "OPEN ACCESSIBILITY SETTINGS" else "ENABLE PROTECTION",
-                        color = if (accessibilityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "How to enable: Tap below to open Settings, search for/select 'ReadLock Focus Service' under downloaded apps, and toggle it ON.",
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            },
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("enable_accessibility_button")
+                        ) {
+                            Text(
+                                text = if (accessibilityEnabled) "OPEN ACCESSIBILITY SETTINGS" else "ENABLE PROTECTION",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
                 }
             }
         }

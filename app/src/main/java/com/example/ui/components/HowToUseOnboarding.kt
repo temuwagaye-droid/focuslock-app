@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 
 /**
  * Dialog shown when user attempts to start a focus session without Accessibility Service enabled.
@@ -136,7 +139,8 @@ fun AccessibilityRequiredDialog(
                         context.startActivity(intent)
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -148,13 +152,13 @@ fun AccessibilityRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.18f),
-                        iconTint = MaterialTheme.colorScheme.onError
+                        containerColor = Color.White.copy(alpha = 0.18f),
+                        iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "TURN ON IN SETTINGS",
-                        color = MaterialTheme.colorScheme.onError,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
@@ -162,10 +166,11 @@ fun AccessibilityRequiredDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedButton(
+                Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -173,7 +178,7 @@ fun AccessibilityRequiredDialog(
                 ) {
                     Text(
                         text = "CANCEL",
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -264,7 +269,8 @@ fun ReadingAppRequiredDialog(
 
                 Button(
                     onClick = onSelectReadingApp,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -276,13 +282,13 @@ fun ReadingAppRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                        iconTint = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color.White.copy(alpha = 0.18f),
+                        iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "SELECT READING APP",
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
@@ -290,10 +296,11 @@ fun ReadingAppRequiredDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedButton(
+                Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -301,7 +308,7 @@ fun ReadingAppRequiredDialog(
                 ) {
                     Text(
                         text = "CANCEL",
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -392,7 +399,8 @@ fun BlockedAppsRequiredDialog(
 
                 Button(
                     onClick = onSelectBlockedApps,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -404,13 +412,13 @@ fun BlockedAppsRequiredDialog(
                         contentDescription = null,
                         containerSize = 26.dp,
                         iconSize = 15.dp,
-                        containerColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.18f),
-                        iconTint = MaterialTheme.colorScheme.onError
+                        containerColor = Color.White.copy(alpha = 0.18f),
+                        iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "SELECT BLOCKED APPS",
-                        color = MaterialTheme.colorScheme.onError,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
@@ -418,10 +426,11 @@ fun BlockedAppsRequiredDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedButton(
+                Button(
                     onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -429,7 +438,7 @@ fun BlockedAppsRequiredDialog(
                 ) {
                     Text(
                         text = "CANCEL",
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
