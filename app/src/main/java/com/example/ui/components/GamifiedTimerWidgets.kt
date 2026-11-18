@@ -806,12 +806,12 @@ fun ReaderAndShieldLoadoutRow(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (hasBlockedAppsConfig) readyBg else purpleTintBg)
+                            .background(if (hasBlockedAppsConfig) readyBg else setupBg)
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (hasBlockedAppsConfig) "ARMED" else "OPTIONAL",
-                            color = if (hasBlockedAppsConfig) readyText else GamifiedPurple,
+                            text = if (hasBlockedAppsConfig) "ARMED" else "SETUP",
+                            color = if (hasBlockedAppsConfig) readyText else setupText,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.6.sp

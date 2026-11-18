@@ -51,7 +51,7 @@ class FocusCoreAndAdminTest {
     }
 
     @Test
-    fun `startSession succeeds with reading app and zero blocked apps`() {
+    fun `startSession requires blocked apps in blacklist mode and starts once configured`() {
         FocusSessionManager.startSession(
             context = context,
             durationMinutes = 25,
@@ -59,8 +59,20 @@ class FocusCoreAndAdminTest {
             isWhitelist = false,
             blockedPkgs = emptyList()
         )
+        assertFalse(
+            "Session must not start without blocked apps in blacklist mode",
+            FocusSessionManager.isSessionActive.value
+        )
+
+        FocusSessionManager.startSession(
+            context = context,
+            durationMinutes = 25,
+            readingAppPackage = "com.amazon.kindle",
+            isWhitelist = false,
+            blockedPkgs = listOf("com.zhiliaoapp.musically")
+        )
         assertTrue(
-            "Session should start immediately with reading app selected and no blocked apps",
+            "Session should start once reading app and blocked apps are provided",
             FocusSessionManager.isSessionActive.value
         )
         assertEquals("com.amazon.kindle", FocusSessionManager.designatedReadingApp)

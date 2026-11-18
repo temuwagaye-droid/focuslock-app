@@ -382,6 +382,7 @@ class FocusViewModel(
                 ?: return@launch
             val isWhitelist = repository.isWhitelistModeEnabledSync()
             val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
             val autoDnd = repository.isAutoDndEnabledSync()
             val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
             val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound

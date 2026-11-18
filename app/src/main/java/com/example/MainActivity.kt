@@ -389,7 +389,11 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     ReadingAppSelectionScreen(
                                         viewModel = viewModel,
-                                        onBack = { navController.popBackStack() }
+                                        onBack = { navController.popBackStack() },
+                                        onReadingAppSelected = {
+                                            navController.popBackStack()
+                                            navigateToTab(DashboardTab.BLOCKLIST)
+                                        }
                                     )
                                 }
                                 composable(

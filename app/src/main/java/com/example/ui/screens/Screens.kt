@@ -668,6 +668,7 @@ fun TimerSetupScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     var showAccessibilityRequiredDialog by remember { mutableStateOf(false) }
     var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
+    var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
     var showParentalPinForReader by remember { mutableStateOf(false) }
 
     var accessibilityReady by remember {
@@ -734,6 +735,8 @@ fun TimerSetupScreen(
             accessibilityReady
         if (!hasReadingApp) {
             showReadingAppRequiredDialog = true
+        } else if (!hasBlockedAppsConfig) {
+            showBlockedAppsRequiredDialog = true
         } else if (!canProceedAccessibility) {
             showAccessibilityRequiredDialog = true
         } else {
@@ -742,7 +745,7 @@ fun TimerSetupScreen(
         }
     }
 
-    LaunchedEffect(autoStartFromShortcut, hasReadingApp) {
+    LaunchedEffect(autoStartFromShortcut, hasReadingApp, hasBlockedAppsConfig) {
         if (autoStartFromShortcut) {
             onAutoStartConsumed()
             tryStartFocusSession()
@@ -1135,6 +1138,7 @@ fun TimerSetupScreen(
                                     .clickable {
                                         viewModel.selectReadingApp(app.packageName)
                                         showAppPicker = false
+                                        onNavigateToBlocklist()
                                     }
                                     .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1203,6 +1207,16 @@ fun TimerSetupScreen(
         )
     }
 
+    if (showBlockedAppsRequiredDialog) {
+        BlockedAppsRequiredDialog(
+            onSelectBlockedApps = {
+                showBlockedAppsRequiredDialog = false
+                onNavigateToBlocklist()
+            },
+            onDismiss = { showBlockedAppsRequiredDialog = false }
+        )
+    }
+
     if (showAccessibilityRequiredDialog) {
         AccessibilityRequiredDialog(
             onDismiss = { showAccessibilityRequiredDialog = false }
@@ -1240,6 +1254,7 @@ fun TimerSetupScreen(
 fun ReadingAppSelectionScreen(
     viewModel: FocusViewModel,
     onBack: () -> Unit,
+    onReadingAppSelected: () -> Unit = onBack,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)
@@ -1385,7 +1400,7 @@ fun ReadingAppSelectionScreen(
                             )
                             .clickable {
                                 viewModel.selectReadingApp(app.packageName)
-                                onBack()
+                                onReadingAppSelected()
                             }
                             .padding(horizontal = 14.dp, vertical = 12.dp)
                             .testTag("reading_app_option_${app.packageName}"),

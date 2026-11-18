@@ -72,6 +72,7 @@ object FocusSessionManager {
     ) {
         if (_isSessionActive.value) return
         if (readingAppPackage.isNullOrBlank()) return
+        if (!isWhitelist && blockedPkgs.isEmpty()) return
 
         totalDurationSeconds = durationMinutes * 60L
         _timeLeftSeconds.value = totalDurationSeconds
