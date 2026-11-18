@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -805,12 +806,12 @@ fun ReaderAndShieldLoadoutRow(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (hasBlockedAppsConfig) readyBg else setupBg)
+                            .background(if (hasBlockedAppsConfig) readyBg else purpleTintBg)
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (hasBlockedAppsConfig) "ARMED" else "SETUP",
-                            color = if (hasBlockedAppsConfig) readyText else setupText,
+                            text = if (hasBlockedAppsConfig) "ARMED" else "OPTIONAL",
+                            color = if (hasBlockedAppsConfig) readyText else GamifiedPurple,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.6.sp
@@ -889,6 +890,7 @@ fun AccountProfileDialog(
     onSignInWithGoogle: () -> Unit,
     onSignOut: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAdminDashboard: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
@@ -991,6 +993,23 @@ fun AccountProfileDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("ACCOUNT SETTINGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = onOpenAdminDashboard,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GamifiedPurple,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("dialog_admin_dashboard_button")
+                    ) {
+                        Text("ADMIN DASHBOARD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 } else {
                     val initial = (currentUser.displayName ?: currentUser.email ?: "R")
@@ -1119,6 +1138,23 @@ fun AccountProfileDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("SIGN OUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = onOpenAdminDashboard,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GamifiedPurple,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("dialog_admin_dashboard_button")
+                    ) {
+                        Text("ADMIN DASHBOARD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }

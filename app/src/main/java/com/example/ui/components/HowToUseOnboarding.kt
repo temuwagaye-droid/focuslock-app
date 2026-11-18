@@ -259,7 +259,7 @@ fun ReadingAppRequiredDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "You need to select a designated reading app before starting a focus session.\n\nChoose the app you want to read in so ReadLock can keep your session focused.",
+                    text = "You need to select a designated reading app before starting a focus session.\n\nChoose the app you want to read in so FocusLock can keep your session focused.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

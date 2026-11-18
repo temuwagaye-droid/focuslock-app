@@ -16,6 +16,7 @@ import com.example.data.remote.CloudUserProfile
 import com.example.data.remote.FirebaseService
 import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.FocusRoomRepository
+import com.example.data.remote.FocusRoomSyncStore
 import com.example.data.remote.RoomParticipantDto
 import com.example.data.remote.SupabaseAuthService
 import com.example.data.remote.SupabaseGoogleSignInResult
@@ -88,6 +89,7 @@ class FocusViewModel(
             } else null
         }
     }
+    private val roomSyncStore = FocusRoomSyncStore(appContext)
 
     // Supabase Auth state stream
     val currentUser: StateFlow<SupabaseUser?> = SupabaseAuthService.currentUser
@@ -215,24 +217,48 @@ class FocusViewModel(
 
     val publicRooms: StateFlow<List<FocusRoomDto>> = currentUser
         .flatMapLatest { user ->
-            if (user == null || roomRepo == null) flowOf(emptyList())
-            else roomRepo.observePublicRooms()
+            if (user == null) flowOf(emptyList())
+            else if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                combine(roomSyncStore.observePublicRooms(), roomRepo.observePublicRooms()) { local, remote ->
+                    (local + remote).distinctBy { it.roomId }
+                }
+            } else {
+                roomSyncStore.observePublicRooms()
+            }
         }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allRooms: StateFlow<List<FocusRoomDto>> = roomSyncStore.observeAllRooms()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeRoom: StateFlow<FocusRoomDto?> = combine(currentUser, _selectedRoomId) { user, rid ->
         if (user == null || rid.isNullOrBlank()) null else rid
     }.flatMapLatest { rid ->
-        if (rid == null || roomRepo == null) flowOf(null)
-        else roomRepo.observeRoom(rid)
+        if (rid == null) flowOf(null)
+        else if (firebaseAuth?.currentUser != null && roomRepo != null) {
+            combine(roomSyncStore.observeRoom(rid), roomRepo.observeRoom(rid)) { local, remote ->
+                local ?: remote
+            }
+        } else {
+            roomSyncStore.observeRoom(rid)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val activeRoomParticipants: StateFlow<List<RoomParticipantDto>> = combine(currentUser, _selectedRoomId) { user, rid ->
         if (user == null || rid.isNullOrBlank()) null else rid
     }.flatMapLatest { rid ->
-        if (rid == null || roomRepo == null) flowOf(emptyList())
-        else roomRepo.observeParticipants(rid)
+        if (rid == null) flowOf(emptyList())
+        else if (firebaseAuth?.currentUser != null && roomRepo != null) {
+            combine(roomSyncStore.observeParticipants(rid), roomRepo.observeParticipants(rid)) { local, remote ->
+                if (local.isNotEmpty()) local else remote
+            }
+        } else {
+            roomSyncStore.observeParticipants(rid)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _telemetryRefreshTick = MutableStateFlow(0)
+    val telemetryRefreshTick: StateFlow<Int> = _telemetryRefreshTick.asStateFlow()
 
     private val _isAuthBusy = MutableStateFlow(false)
     val isAuthBusy: StateFlow<Boolean> = _isAuthBusy.asStateFlow()
@@ -344,9 +370,6 @@ class FocusViewModel(
                 ?: return@launch
             val isWhitelist = repository.isWhitelistModeEnabledSync()
             val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
-            if (!isWhitelist && blockedPkgs.isEmpty()) {
-                return@launch
-            }
             val autoDnd = repository.isAutoDndEnabledSync()
             val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
             val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound
@@ -363,9 +386,13 @@ class FocusViewModel(
 
             // Update active multiplayer room participant status if inside a room
             val rid = _selectedRoomId.value
-            if (!rid.isNullOrBlank() && currentUser.value != null) {
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
                 val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
-                roomRepo?.updateMyParticipantStatus(rid, "focusing", 0, stage)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+                if (firebaseAuth?.currentUser != null) {
+                    roomRepo?.updateMyParticipantStatus(rid, "focusing", 0, stage)
+                }
             }
         }
     }
@@ -373,15 +400,20 @@ class FocusViewModel(
     fun stopFocusSession(context: Context, completed: Boolean) {
         FocusSessionManager.stopSession(context, completed)
         val rid = _selectedRoomId.value
-        if (!rid.isNullOrBlank() && currentUser.value != null) {
+        val user = currentUser.value
+        if (!rid.isNullOrBlank() && user != null) {
             viewModelScope.launch {
                 val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
-                roomRepo?.updateMyParticipantStatus(
-                    rid,
-                    if (completed) "completed" else "ready",
-                    blockedAttemptsCount.value,
-                    stage
-                )
+                val status = if (completed) "completed" else "ready"
+                roomSyncStore.updateParticipantStatus(user.uid, rid, status, blockedAttemptsCount.value, stage)
+                if (firebaseAuth?.currentUser != null) {
+                    roomRepo?.updateMyParticipantStatus(
+                        rid,
+                        status,
+                        blockedAttemptsCount.value,
+                        stage
+                    )
+                }
             }
         }
     }
@@ -713,83 +745,222 @@ class FocusViewModel(
 
     // --- Group Focus Rooms ---
     fun createFocusRoom(name: String, durationMinutes: Int, isPublic: Boolean) {
-        val repo = roomRepo ?: run {
-            _cloudStatusMessage.value = "Focus Rooms require Firebase Firestore sync."
-            return
-        }
-        if (currentUser.value == null) return
-        if (firebaseAuth?.currentUser == null) {
-            _cloudStatusMessage.value = "Supabase sign-in succeeded. Configure Firestore Auth to host shared rooms."
+        val user = currentUser.value ?: run {
+            _cloudStatusMessage.value = "Sign in with Google first to create a focus room."
             return
         }
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
-            val res = repo.createRoom(name, durationMinutes, isPublic, stage)
-            res.onSuccess { room ->
-                _selectedRoomId.value = room.roomId
-                _cloudStatusMessage.value = "Room ${room.roomCode} created!"
-                appContext?.let { TelemetryManager.trackEvent(it, "room_created", room.roomCode) }
-            }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Could not create room."
+            val createdRoom = roomSyncStore.createRoom(
+                user = user,
+                name = name,
+                durationMinutes = durationMinutes,
+                isPublic = isPublic,
+                treeStage = stage
+            )
+            _selectedRoomId.value = createdRoom.roomId
+            _cloudStatusMessage.value = "Room ${createdRoom.roomCode} created!"
+            appContext?.let { TelemetryManager.trackEvent(it, "room_created", createdRoom.roomCode) }
+
+            if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.createRoom(name, durationMinutes, isPublic, stage)
             }
         }
     }
 
     fun joinFocusRoom(roomId: String) {
-        val repo = roomRepo ?: return
-        if (currentUser.value == null || firebaseAuth?.currentUser == null) return
+        val user = currentUser.value ?: return
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
-            val res = repo.joinRoom(roomId, stage)
-            res.onSuccess {
+            val localRes = roomSyncStore.joinRoom(user, roomId, stage)
+            if (localRes.isSuccess) {
                 _selectedRoomId.value = roomId
                 appContext?.let { TelemetryManager.trackEvent(it, "room_joined", roomId) }
-            }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Could not join room."
+            } else if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.joinRoom(roomId, stage).onSuccess {
+                    _selectedRoomId.value = roomId
+                    appContext?.let { TelemetryManager.trackEvent(it, "room_joined", roomId) }
+                }.onFailure { err ->
+                    _cloudStatusMessage.value = err.message ?: "Could not join room."
+                }
+            } else {
+                _cloudStatusMessage.value = localRes.exceptionOrNull()?.message ?: "Could not join room."
             }
         }
     }
 
     fun joinFocusRoomByCode(code: String) {
-        val repo = roomRepo ?: run {
-            _cloudStatusMessage.value = "Focus Rooms require Firebase Firestore sync."
-            return
-        }
-        if (currentUser.value == null) return
-        if (firebaseAuth?.currentUser == null) {
-            _cloudStatusMessage.value = "Supabase sign-in succeeded. Configure Firestore Auth to join shared rooms."
+        val user = currentUser.value ?: run {
+            _cloudStatusMessage.value = "Sign in with Google first to join a focus room."
             return
         }
         viewModelScope.launch {
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
-            val res = repo.joinRoomByCode(code, stage)
-            res.onSuccess { room ->
+            val localRes = roomSyncStore.joinRoomByCode(user, code, stage)
+            if (localRes.isSuccess) {
+                val room = localRes.getOrThrow()
                 _selectedRoomId.value = room.roomId
                 _cloudStatusMessage.value = "Joined ${room.name}!"
                 appContext?.let { TelemetryManager.trackEvent(it, "room_joined_by_code", room.roomCode) }
-            }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Room code not found."
+            } else if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.joinRoomByCode(code, stage).onSuccess { room ->
+                    _selectedRoomId.value = room.roomId
+                    _cloudStatusMessage.value = "Joined ${room.name}!"
+                    appContext?.let { TelemetryManager.trackEvent(it, "room_joined_by_code", room.roomCode) }
+                }.onFailure { err ->
+                    _cloudStatusMessage.value = err.message ?: "Room code not found."
+                }
+            } else {
+                _cloudStatusMessage.value = localRes.exceptionOrNull()?.message ?: "Room code not found."
             }
         }
     }
 
     fun setRoomStatus(roomId: String, status: String) {
-        val repo = roomRepo ?: return
-        if (currentUser.value == null || firebaseAuth?.currentUser == null) return
+        val user = currentUser.value ?: return
         viewModelScope.launch {
-            repo.updateRoomStatus(roomId, status).onFailure {
-                _cloudStatusMessage.value = it.message
+            roomSyncStore.updateRoomStatus(roomId, status).onFailure { err ->
+                _cloudStatusMessage.value = err.message
             }
+            if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.updateRoomStatus(roomId, status)
+            }
+            appContext?.let { TelemetryManager.trackEvent(it, "room_status_$status", "${user.uid}:$roomId") }
         }
     }
 
     fun leaveActiveRoom() {
-        val repo = roomRepo ?: return
+        val user = currentUser.value
         val rid = _selectedRoomId.value ?: return
         _selectedRoomId.value = null
-        if (firebaseAuth?.currentUser == null) return
         viewModelScope.launch {
-            repo.leaveRoom(rid)
+            if (user != null) {
+                roomSyncStore.leaveRoom(user.uid, rid)
+            }
+            if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.leaveRoom(rid)
+            }
+        }
+    }
+
+    // --- Admin Dashboard Full Control Operations ---
+    fun adminSetWhitelistOverride(enabled: Boolean) {
+        viewModelScope.launch {
+            if (enabled && !isProTier.value) {
+                repository.setProTier(true)
+            }
+            repository.setWhitelistModeEnabled(enabled)
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_whitelist_override", "enabled=$enabled") }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminForceStartSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: installedApps.value.firstOrNull()?.packageName
+                ?: context.packageName
+            if (designatedReadingApp.value.isNullOrBlank() && readingApp != context.packageName) {
+                repository.setReadingAppPackage(readingApp)
+            }
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            val autoDnd = repository.isAutoDndEnabledSync()
+            val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes.coerceIn(1, 180),
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = sound
+            )
+            TelemetryManager.trackEvent(context, "admin_force_start_session", "${durationMinutes}m")
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminForceStopSessionOrBreak(context: Context) {
+        if (isSessionActive.value) {
+            FocusSessionManager.stopSession(context, completed = false)
+        }
+        if (isBreakActive.value) {
+            FocusSessionManager.stopBreak(context)
+        }
+        TelemetryManager.trackEvent(context, "admin_force_stop_session")
+        _telemetryRefreshTick.value += 1
+    }
+
+    fun adminClearAllBlockedApps() {
+        viewModelScope.launch {
+            repository.clearBlockedApps()
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_clear_blocked_apps") }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminResetParentalLock() {
+        viewModelScope.launch {
+            repository.setParentalLockEnabled(false)
+            repository.setParentalPinHash("")
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_reset_parental_lock") }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminResetSessionHistory() {
+        viewModelScope.launch {
+            repository.clearSessionLogs()
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_reset_session_history") }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminClearTelemetry(context: Context) {
+        TelemetryManager.clearAllLogs(context)
+        _telemetryRefreshTick.value += 1
+    }
+
+    fun adminSetRoomStatus(roomId: String, status: String) {
+        viewModelScope.launch {
+            roomSyncStore.updateRoomStatus(roomId, status)
+            if (firebaseAuth?.currentUser != null && roomRepo != null) {
+                roomRepo.updateRoomStatus(roomId, status)
+            }
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_room_status", "$roomId->$status") }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminDeleteRoom(roomId: String) {
+        viewModelScope.launch {
+            if (_selectedRoomId.value == roomId) {
+                _selectedRoomId.value = null
+            }
+            roomSyncStore.deleteRoom(roomId)
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_delete_room", roomId) }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    fun adminQuickCreateRoom(name: String, durationMinutes: Int, isPublic: Boolean) {
+        val adminUser = currentUser.value ?: SupabaseUser(
+            uid = "admin_host",
+            email = "admin@focuslock.app",
+            displayName = "Admin Host",
+            avatarUrl = null,
+            accessToken = "",
+            refreshToken = null,
+            expiresAtEpochSeconds = Long.MAX_VALUE
+        )
+        viewModelScope.launch {
+            val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+            val created = roomSyncStore.createRoom(adminUser, name, durationMinutes, isPublic, stage)
+            appContext?.let { TelemetryManager.trackEvent(it, "admin_create_room", created.roomCode) }
+            _telemetryRefreshTick.value += 1
         }
     }
 

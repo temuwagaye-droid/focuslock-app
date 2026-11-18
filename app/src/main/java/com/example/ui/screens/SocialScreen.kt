@@ -941,18 +941,24 @@ private fun CreateRoomDialog(
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("cancel_create_room_btn")
                     ) {
-                        Text("CANCEL", color = Color.White)
+                        Text("CANCEL", color = Color.White, fontWeight = FontWeight.Black)
                     }
                     Button(
                         onClick = { onCreate(roomName, duration, isPublic) },
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("confirm_create_room_btn")
                     ) {
-                        Text("CREATE", color = Color.White)
+                        Text("CREATE", color = Color.White, fontWeight = FontWeight.Black)
                     }
                 }
             }

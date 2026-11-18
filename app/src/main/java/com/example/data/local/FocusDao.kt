@@ -35,6 +35,9 @@ interface FocusDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSessionLog(log: SessionLogEntity)
 
+    @Query("DELETE FROM session_logs")
+    suspend fun clearAllSessionLogs()
+
     // Settings Queries
     @Query("SELECT * FROM settings WHERE `key` = :key")
     fun getSettingFlow(key: String): Flow<SettingEntity?>
@@ -54,4 +57,7 @@ interface FocusDao {
 
     @Query("DELETE FROM todo_items WHERE id = :id")
     suspend fun deleteTodoItem(id: Long)
+
+    @Query("DELETE FROM todo_items")
+    suspend fun clearAllTodoItems()
 }

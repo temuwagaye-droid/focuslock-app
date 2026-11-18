@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">ReadLock</string>
-    <string name="accessibility_service_description">ReadLock Focus Service detects when you open blocked distracting apps during an active focus session, redirecting you back to your reading material.</string>
+    <string name="app_name">FocusLock</string>
+    <string name="accessibility_service_description">FocusLock Focus Service detects when you open blocked distracting apps during an active focus session, redirecting you back to your reading material.</string>
     <string name="widget_description">Quick-start focus timer and today\'s reading streak stats.</string>
     <string name="shortcut_start_focus_short">Start Focus</string>
     <string name="shortcut_start_focus_long">Start Reading Focus Session</string>

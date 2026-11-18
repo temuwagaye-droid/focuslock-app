@@ -197,7 +197,7 @@ fun BlockScreenContent(
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "ReadLock Focus Active 🔒",
+                    text = "FocusLock Focus Active 🔒",
                     color = if (isDark) Color(0xFFFFD8E4) else Color(0xFF31111D),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,

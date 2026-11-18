@@ -1,5 +1,5 @@
 {
-  "name": "ReadLock",
+  "name": "FocusLock",
   "description": "A native focus app that locks down distractions to build reading habits, complete with stats, streaks, auto-trigger, and an override blocker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

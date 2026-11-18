@@ -86,6 +86,7 @@ import com.example.ui.FocusViewModelFactory
 import com.example.ui.components.AccountProfileDialog
 import com.example.ui.components.AccountabilityQuitDialog
 import com.example.ui.components.ConcaveNotchBottomNavigationBar
+import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AppSelectionScreen
 import com.example.ui.screens.CoffeeBreakScreen
 import com.example.ui.screens.FocusSessionScreen
@@ -108,6 +109,7 @@ object AppRoutes {
     const val STATS = "stats"
     const val SETTINGS = "settings"
     const val READING_APP_PICKER = "reading_app_picker"
+    const val ADMIN_DASHBOARD = "admin_dashboard"
     const val FOCUS_SESSION = "focus_session"
     const val COFFEE_BREAK = "coffee_break"
 }
@@ -265,7 +267,8 @@ class MainActivity : ComponentActivity() {
 
                 val isImmersiveRoute = isSessionActive || isBreakActive ||
                     currentRoute == AppRoutes.FOCUS_SESSION || currentRoute == AppRoutes.COFFEE_BREAK
-                val isChildRoute = currentRoute == AppRoutes.READING_APP_PICKER
+                val isChildRoute = currentRoute == AppRoutes.READING_APP_PICKER ||
+                    currentRoute == AppRoutes.ADMIN_DASHBOARD
 
                 Box(
                     modifier = Modifier
@@ -370,7 +373,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                                 composable(AppRoutes.SETTINGS) {
-                                    SettingsScreen(viewModel = viewModel)
+                                    SettingsScreen(
+                                        viewModel = viewModel,
+                                        onOpenAdminDashboard = {
+                                            navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
+                                                launchSingleTop = true
+                                            }
+                                        }
+                                    )
                                 }
                                 composable(
                                     route = AppRoutes.READING_APP_PICKER,
@@ -380,6 +390,23 @@ class MainActivity : ComponentActivity() {
                                     ReadingAppSelectionScreen(
                                         viewModel = viewModel,
                                         onBack = { navController.popBackStack() }
+                                    )
+                                }
+                                composable(
+                                    route = AppRoutes.ADMIN_DASHBOARD,
+                                    enterTransition = { slideInHorizontally(initialOffsetX = { it / 3 }) + fadeIn(tween(260)) },
+                                    popExitTransition = { slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut(tween(200)) }
+                                ) {
+                                    AdminDashboardScreen(
+                                        viewModel = viewModel,
+                                        onBack = { navController.popBackStack() },
+                                        onOpenReadingAppPicker = {
+                                            navController.navigate(AppRoutes.READING_APP_PICKER) {
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onOpenBlocklist = { navigateToTab(DashboardTab.BLOCKLIST) },
+                                        onOpenRooms = { navigateToTab(DashboardTab.SOCIAL) }
                                     )
                                 }
                                 composable(AppRoutes.FOCUS_SESSION) {
@@ -428,6 +455,12 @@ class MainActivity : ComponentActivity() {
                                 showAccountDialog = false
                                 navigateToTab(DashboardTab.SETTINGS)
                             },
+                            onOpenAdminDashboard = {
+                                showAccountDialog = false
+                                navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
+                                    launchSingleTop = true
+                                }
+                            },
                             onDismiss = { showAccountDialog = false }
                         )
                     }
@@ -468,6 +501,7 @@ private fun FocusLockTopAppBar(
         AppRoutes.STATS -> "Stats"
         AppRoutes.SETTINGS -> "Settings"
         AppRoutes.READING_APP_PICKER -> "Select Reading App"
+        AppRoutes.ADMIN_DASHBOARD -> "Admin Control Center"
         else -> "FocusLock"
     }
 
@@ -490,7 +524,7 @@ private fun FocusLockTopAppBar(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    if (currentRoute == AppRoutes.READING_APP_PICKER) {
+                    if (currentRoute == AppRoutes.READING_APP_PICKER || currentRoute == AppRoutes.ADMIN_DASHBOARD) {
                         IconButton(
                             onClick = onBackClick,
                             modifier = Modifier

@@ -568,7 +568,7 @@ fun AppSelectionScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Only ReadLock and your designated reading app remain open during sessions.",
+                        text = "Only FocusLock and your designated reading app remain open during sessions.",
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
@@ -668,7 +668,6 @@ fun TimerSetupScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     var showAccessibilityRequiredDialog by remember { mutableStateOf(false) }
     var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
-    var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
     var showParentalPinForReader by remember { mutableStateOf(false) }
 
     var accessibilityReady by remember {
@@ -735,8 +734,6 @@ fun TimerSetupScreen(
             accessibilityReady
         if (!hasReadingApp) {
             showReadingAppRequiredDialog = true
-        } else if (!hasBlockedAppsConfig) {
-            showBlockedAppsRequiredDialog = true
         } else if (!canProceedAccessibility) {
             showAccessibilityRequiredDialog = true
         } else {
@@ -745,7 +742,7 @@ fun TimerSetupScreen(
         }
     }
 
-    LaunchedEffect(autoStartFromShortcut, hasReadingApp, hasBlockedAppsConfig) {
+    LaunchedEffect(autoStartFromShortcut, hasReadingApp) {
         if (autoStartFromShortcut) {
             onAutoStartConsumed()
             tryStartFocusSession()
@@ -1203,16 +1200,6 @@ fun TimerSetupScreen(
                 openReadingAppChooser()
             },
             onDismiss = { showReadingAppRequiredDialog = false }
-        )
-    }
-
-    if (showBlockedAppsRequiredDialog) {
-        BlockedAppsRequiredDialog(
-            onSelectBlockedApps = {
-                showBlockedAppsRequiredDialog = false
-                onNavigateToBlocklist()
-            },
-            onDismiss = { showBlockedAppsRequiredDialog = false }
         )
     }
 
@@ -3479,6 +3466,7 @@ fun exportStatsToPdf(
 @Composable
 fun SettingsScreen(
     viewModel: FocusViewModel,
+    onOpenAdminDashboard: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -3652,7 +3640,7 @@ fun SettingsScreen(
                                 text = if (accessibilityEnabled) {
                                     "Accessibility protection has been enabled and is set as active by default."
                                 } else {
-                                    "How to enable: Tap below to open Settings, select 'ReadLock Focus Service' under downloaded apps, and toggle it ON once."
+                                    "How to enable: Tap below to open Settings, select 'FocusLock Focus Service' under downloaded apps, and toggle it ON once."
                                 },
                                 color = MaterialTheme.colorScheme.secondary,
                                 fontSize = 11.sp,
@@ -3798,7 +3786,10 @@ fun SettingsScreen(
         }
 
         // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
-        SettingsAdvancedSections(viewModel = viewModel)
+        SettingsAdvancedSections(
+            viewModel = viewModel,
+            onOpenAdminDashboard = onOpenAdminDashboard
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -3830,7 +3821,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "ReadLock is designed for safe local use. In strict compliance with Android policy guidelines, all tracking is processed 100% offline, keeping your private app usage completely private.",
+                        text = "FocusLock is designed for safe local use. In strict compliance with Android policy guidelines, all tracking is processed 100% offline, keeping your private app usage completely private.",
                         color = MaterialTheme.colorScheme.secondary,
                         fontSize = 11.sp,
                         lineHeight = 16.sp

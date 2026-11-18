@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DoNotDisturbOff
 import androidx.compose.material.icons.filled.DoNotDisturbOn
@@ -94,7 +95,8 @@ import java.util.Locale
 
 @Composable
 fun SettingsAdvancedSections(
-    viewModel: FocusViewModel
+    viewModel: FocusViewModel,
+    onOpenAdminDashboard: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -983,6 +985,58 @@ fun SettingsAdvancedSections(
                             Text("DELETE CLOUD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // 9. Admin Control Center Card
+    Spacer(modifier = Modifier.height(16.dp))
+    CinematicCardEntrance(index = 8) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("open_admin_dashboard_card")
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.AdminPanelSettings,
+                        contentDescription = null,
+                        containerSize = 32.dp,
+                        iconSize = 18.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "ADMIN DASHBOARD",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Full master controls for tiers, shield, rooms, PIN & logs.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onOpenAdminDashboard,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("open_admin_dashboard_button")
+                ) {
+                    Text("OPEN ADMIN CONTROL CENTER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
         }

@@ -52,6 +52,14 @@ class FocusRepository(private val focusDao: FocusDao) {
         focusDao.clearAllBlockedApps()
     }
 
+    suspend fun clearSessionLogs() {
+        focusDao.clearAllSessionLogs()
+    }
+
+    suspend fun clearTodoItems() {
+        focusDao.clearAllTodoItems()
+    }
+
     suspend fun saveSessionLog(
         durationSeconds: Long,
         blockedAttempts: Int,
