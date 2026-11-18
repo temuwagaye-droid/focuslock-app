@@ -3,23 +3,28 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Bold Typography High-Contrast Color Palette
-val BoldBackground = Color(0xFFFEF7FF)
-val BoldTextPrimary = Color(0xFF1D1B20)
-val BoldTextSecondary = Color(0xFF49454F)
-val BoldTextMuted = Color(0xFF625B71)
+val GamifiedPurple = Color(0xFF6C4DFF)
+val GamifiedMint = Color(0xFF3DDC97)
+val GamifiedYellow = Color(0xFFFFC857)
+val GamifiedOffWhite = Color(0xFFF7F7FB)
 
-val BoldPrimary = Color(0xFF6750A4)
-val BoldPrimaryContainer = Color(0xFFE8DEF8)
-val BoldOnPrimaryContainer = Color(0xFF21005D)
+val BoldBackground = GamifiedOffWhite
+val BoldTextPrimary = Color(0xFF1A1824)
+val BoldTextSecondary = Color(0xFF4F4B5C)
+val BoldTextMuted = Color(0xFF6C687A)
 
-val BoldSurface = Color(0xFFF3EDF7)
+val BoldPrimary = GamifiedPurple
+val BoldPrimaryContainer = Color(0xFFEEEAFF)
+val BoldOnPrimaryContainer = Color(0xFF23115E)
+
+val BoldSurface = Color(0xFFF1F1F7)
 val BoldSurfaceWhite = Color(0xFFFFFFFF)
-val BoldBorder = Color(0xFFE6E0E9)
+val BoldBorder = Color(0xFFE6E4F0)
 
 // Rose/Pink highlight accent (Streak Badge)
-val StreakBg = Color(0xFFFFD8E4)
-val StreakText = Color(0xFF31111D)
-val StreakBorder = Color(0xFFD78391)
+val StreakBg = Color(0xFFFFF3D6)
+val StreakText = Color(0xFF4A2E00)
+val StreakBorder = Color(0xFFFFC857)
 
 // Soft red alert override colors
 val OverrideBg = Color(0xFFFFDAD6)
@@ -40,14 +45,14 @@ enum class AppAccentTheme(
 ) {
     VIOLET(
         id = "violet",
-        title = "Royal Violet",
+        title = "Electric Purple",
         isProOnly = false,
-        lightPrimary = Color(0xFF6750A4),
-        lightPrimaryContainer = Color(0xFFE8DEF8),
-        lightOnPrimaryContainer = Color(0xFF21005D),
-        darkPrimary = Color(0xFFD0BCFF),
-        darkPrimaryContainer = Color(0xFF4F378B),
-        darkOnPrimaryContainer = Color(0xFFEADDFF)
+        lightPrimary = Color(0xFF6C4DFF),
+        lightPrimaryContainer = Color(0xFFEEEAFF),
+        lightOnPrimaryContainer = Color(0xFF23115E),
+        darkPrimary = Color(0xFFB5A4FF),
+        darkPrimaryContainer = Color(0xFF3F2B96),
+        darkOnPrimaryContainer = Color(0xFFEEEAFF)
     ),
     EMERALD(
         id = "emerald",

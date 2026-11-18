@@ -113,14 +113,20 @@ import com.example.ui.components.AppLauncherIcon
 import com.example.ui.components.BlockedAppsRequiredDialog
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
+import com.example.ui.components.DailyQuestsRingsCard
+import com.example.ui.components.FitnessDurationRing
 import com.example.ui.components.FocusForestRewardCard
 import com.example.ui.components.GamifiedLevelHudCard
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReadingAppRequiredDialog
+import com.example.ui.components.TimerBadgesStripCard
+import com.example.ui.components.TimerXpAndStreakCard
 import com.example.ui.components.XpRewardChip
 import com.example.ui.components.calculateTreeStage
 import com.example.ui.components.readerRankTitle
 import com.example.ui.components.treeStageTitle
+import com.example.ui.theme.GamifiedMint
+import com.example.ui.theme.GamifiedPurple
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
@@ -644,6 +650,7 @@ fun TimerSetupScreen(
     val blockedAppsList by viewModel.blockedAppsList.collectAsState()
     val isWhitelistMode by viewModel.isWhitelistMode.collectAsState()
     val stats by viewModel.statsSummary.collectAsState()
+    val sessionLogs by viewModel.sessionLogs.collectAsState()
     val selectedSoundId by viewModel.selectedAmbientSoundId.collectAsState()
     val isProTier by viewModel.isProTier.collectAsState()
     val accentThemeId by viewModel.accentThemeId.collectAsState()
@@ -754,105 +761,48 @@ fun TimerSetupScreen(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Borderless Medium HUD Strip: Focus, Blocked, Tree Stage & Streak
-            val treeStage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
-            val playerLevel = (stats.focusScore / 200) + 1
-            val playerRank = readerRankTitle(playerLevel)
+            // 1. Duolingo-inspired XP Bar, Rank & Pulsing Streak Flame Card (borderless + soft shadow)
             CinematicCardEntrance(index = 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TimerQuickStatPill(
-                        label = "FOCUS",
-                        value = "${stats.totalFocusMinutes}m",
-                        onClick = onNavigateToStats,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TimerQuickStatPill(
-                        label = "BLOCKED",
-                        value = "🛡️ ${stats.totalBlockedAttempts}",
-                        onClick = onNavigateToStats,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("timer_blocked_attempts_pill")
-                    )
-                    TimerQuickStatPill(
-                        label = "TREE",
-                        value = "🌳 L$treeStage",
-                        onClick = onNavigateToStats,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TimerQuickStatPill(
-                        label = "STREAK",
-                        value = "🔥 ${stats.currentStreak}d",
-                        onClick = onNavigateToStats,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                TimerXpAndStreakCard(
+                    stats = stats,
+                    onOpenStats = onNavigateToStats
+                )
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Focus Timer",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Set duration & start distraction-free reading.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                XpRewardChip(text = "LVL $playerLevel • $playerRank")
-            }
-
-            // Medium Borderless Stepper Slider Duration Card (tonal elevation + recessed surface wells)
+            // 2. Hero Duration Ring Stepper Card (Apple Fitness ring + Duolingo stepper pills)
             CinematicCardEntrance(index = 1) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(22.dp),
                     border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "SESSION DURATION",
+                                text = "FOCUS TIMER",
                                 color = MaterialTheme.colorScheme.secondary,
                                 style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.9.sp
                             )
                             XpRewardChip(text = "+${sessionMinutes * 2 + 50} XP")
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Compact Stepper row with borderless circular Minus (-) and Plus (+) controls
+                        // Minus (-), Apple-Fitness-style Duration Ring, and Plus (+)
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             val canDecrement = sessionMinutes > 5
                             IconButton(
@@ -872,34 +822,7 @@ fun TimerSetupScreen(
                                 )
                             }
 
-                            AnimatedContent(
-                                targetState = sessionMinutes,
-                                transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
-                                label = "stepper_minutes_anim",
-                                modifier = Modifier.weight(1f)
-                            ) { mins ->
-                                Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.Bottom,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "$mins",
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        style = MaterialTheme.typography.headlineLarge,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.testTag("session_minutes_display")
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "min",
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(bottom = 4.dp)
-                                    )
-                                }
-                            }
+                            FitnessDurationRing(sessionMinutes = sessionMinutes)
 
                             val canIncrement = sessionMinutes < 120
                             IconButton(
@@ -920,7 +843,7 @@ fun TimerSetupScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Slider(
                             value = sessionMinutes.toFloat(),
@@ -928,8 +851,8 @@ fun TimerSetupScreen(
                             valueRange = 5f..120f,
                             steps = 22,
                             colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                thumbColor = GamifiedPurple,
+                                activeTrackColor = GamifiedPurple,
                                 inactiveTrackColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier.testTag("duration_slider")
@@ -937,7 +860,7 @@ fun TimerSetupScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Borderless tonal preset pills
+                        // Borderless quick duration chips
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -948,15 +871,15 @@ fun TimerSetupScreen(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.surface)
                                         .clickable { updateSessionMinutes(mins) }
                                         .padding(vertical = 8.dp)
                                         .testTag("preset_${mins}_btn")
                                 ) {
                                     Text(
                                         text = "${mins}m",
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onBackground,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 12.sp
                                     )
@@ -967,225 +890,204 @@ fun TimerSetupScreen(
                 }
             }
 
-            // Medium Borderless Reading App Card
+            // 3. Apple Fitness-style Daily Quests with Progress Rings
             CinematicCardEntrance(index = 2) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (hasReadingApp) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                        }
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                    border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier.fillMaxWidth()
+                DailyQuestsRingsCard(
+                    sessionLogs = sessionLogs,
+                    stats = stats,
+                    onOpenStats = onNavigateToStats
+                )
+            }
+
+            // 4. Side-by-side Medium Borderless Setup Tiles: Reading App & App Shield
+            CinematicCardEntrance(index = 3) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularIconBadge(
-                                    imageVector = Icons.Default.Book,
-                                    contentDescription = null,
-                                    containerSize = 26.dp,
-                                    iconSize = 14.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "READING APP",
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 0.8.sp
-                                )
+                    // Reading App tile
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (hasReadingApp) {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
                             }
-                            if (!hasReadingApp) {
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        border = null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularIconBadge(
+                                        imageVector = Icons.Default.Book,
+                                        contentDescription = null,
+                                        containerSize = 24.dp,
+                                        iconSize = 13.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "READER",
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.7.sp
+                                    )
+                                }
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "REQUIRED",
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = "Allowed during lock",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.labelSmall
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (hasReadingApp) GamifiedMint else MaterialTheme.colorScheme.error)
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable {
-                                    if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
-                                        showParentalPinForReader = true
-                                    } else {
-                                        openReadingAppChooser()
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                                .testTag("open_reading_app_picker_row"),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
                             Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable {
+                                        if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                                            showParentalPinForReader = true
+                                        } else {
+                                            openReadingAppChooser()
+                                        }
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 9.dp)
+                                    .testTag("open_reading_app_picker_row"),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                val pkg = designatedReadingApp
-                                if (!pkg.isNullOrBlank()) {
-                                    AppLauncherIcon(
-                                        packageName = pkg,
-                                        contentDescription = selectedReadingAppLabel,
-                                        size = 28.dp
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    val pkg = designatedReadingApp
+                                    if (!pkg.isNullOrBlank()) {
+                                        AppLauncherIcon(
+                                            packageName = pkg,
+                                            contentDescription = selectedReadingAppLabel,
+                                            size = 22.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = if (hasReadingApp) selectedReadingAppLabel else "Pick app",
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.testTag("selected_reading_app_label")
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
                                 }
+                            }
+                        }
+                    }
+
+                    // App Shield tile
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (hasBlockedAppsConfig) {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                            }
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        border = null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("blocked_apps_status_card")
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularIconBadge(
+                                        imageVector = Icons.Default.Block,
+                                        contentDescription = null,
+                                        containerSize = 24.dp,
+                                        iconSize = 13.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "SHIELD",
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.7.sp
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (hasBlockedAppsConfig) GamifiedMint else MaterialTheme.colorScheme.error)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { onNavigateToBlocklist() }
+                                    .padding(horizontal = 10.dp, vertical = 9.dp)
+                                    .testTag("configure_blocked_apps_row"),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
                                 Text(
-                                    text = selectedReadingAppLabel.uppercase(Locale.getDefault()),
+                                    text = when {
+                                        isProTier && isWhitelistMode -> "Whitelist"
+                                        blockedAppsCount > 0 -> "$blockedAppsCount Blocked"
+                                        else -> "Pick apps"
+                                    },
                                     color = MaterialTheme.colorScheme.onBackground,
-                                    fontWeight = FontWeight.Black,
+                                    fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.testTag("selected_reading_app_label")
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Text(
-                                text = if (hasReadingApp) "CHANGE" else "SELECT",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.8.sp,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
                         }
                     }
                 }
             }
 
-            // Medium Borderless App Shield Card
-            CinematicCardEntrance(index = 3) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (hasBlockedAppsConfig) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                        }
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                    border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("blocked_apps_status_card")
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularIconBadge(
-                                    imageVector = Icons.Default.Block,
-                                    contentDescription = null,
-                                    containerSize = 26.dp,
-                                    iconSize = 14.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "APP SHIELD",
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 0.8.sp
-                                )
-                            }
-                            if (!hasBlockedAppsConfig) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "REQUIRED",
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = if (isProTier && isWhitelistMode) "Strict whitelist" else "$blockedAppsCount shielded",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { onNavigateToBlocklist() }
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                                .testTag("configure_blocked_apps_row"),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = when {
-                                    isProTier && isWhitelistMode -> "WHITELIST MODE ACTIVE"
-                                    blockedAppsCount > 0 -> "$blockedAppsCount APPS BLOCKED"
-                                    else -> "NONE SELECTED"
-                                },
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = if (hasBlockedAppsConfig) "EDIT" else "SELECT",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.8.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Medium Borderless Ambient Soundscape Card
+            // 5. Compact Gamified Badges Strip
             CinematicCardEntrance(index = 4) {
+                TimerBadgesStripCard(
+                    stats = stats,
+                    sessionLogs = sessionLogs,
+                    onOpenStats = onNavigateToStats
+                )
+            }
+
+            // 6. Medium Borderless Ambient Soundscape Card
+            CinematicCardEntrance(index = 5) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(22.dp),
                     border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("ambient_sound_picker_card")
@@ -1200,13 +1102,13 @@ fun TimerSetupScreen(
                                 CircularIconBadge(
                                     imageVector = Icons.Default.MusicNote,
                                     contentDescription = null,
-                                    containerSize = 26.dp,
-                                    iconSize = 14.dp
+                                    containerSize = 24.dp,
+                                    iconSize = 13.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "AMBIENT SOUNDSCAPE",
-                                    color = MaterialTheme.colorScheme.onBackground,
+                                    text = "SOUNDSCAPE",
+                                    color = MaterialTheme.colorScheme.secondary,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 0.8.sp
@@ -1214,7 +1116,7 @@ fun TimerSetupScreen(
                             }
                             Text(
                                 text = AmbientSoundType.fromId(selectedSoundId).displayName,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = GamifiedPurple,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1230,8 +1132,8 @@ fun TimerSetupScreen(
                                 val isSelected = selectedSoundId == sound.id
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.surface)
                                         .clickable { viewModel.selectAmbientSound(sound, previewIfSessionActive = false) }
                                         .padding(horizontal = 12.dp, vertical = 7.dp)
                                         .testTag("ambient_chip_${sound.id}")
@@ -1243,7 +1145,7 @@ fun TimerSetupScreen(
                                         },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -1252,28 +1154,28 @@ fun TimerSetupScreen(
                 }
             }
 
-            // Medium Borderless Study Rooms Link Card
-            CinematicCardEntrance(index = 5) {
+            // 7. Borderless Co-op Study Rooms Link Card
+            CinematicCardEntrance(index = 6) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .clickable { onNavigateToRooms() }
                         .testTag("timer_to_rooms_link")
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Prefer studying with friends?",
+                            text = "Co-op focus with friends?",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -1281,7 +1183,7 @@ fun TimerSetupScreen(
                             text = "STUDY ROOMS →",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
+                            color = GamifiedPurple
                         )
                     }
                 }
@@ -1713,48 +1615,6 @@ fun ReadingAppSelectionScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("BACK TO TIMER", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
-        }
-    }
-}
-
-@Composable
-private fun TimerQuickStatPill(
-    label: String,
-    value: String,
-    onClick: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(14.dp),
-        border = null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = label,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.secondary,
-                letterSpacing = 0.8.sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                softWrap = false
-            )
         }
     }
 }

@@ -323,23 +323,27 @@ fun XpRewardChip(
     text: String,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val chipBg = if (isDark) Color(0xFF3A2D12) else Color(0xFFFFF5DB)
+    val chipContent = if (isDark) Color(0xFFFFC857) else Color(0xFF8A5A00)
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f))
+            .background(chipBg)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Bolt,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = Color(0xFFFFC857),
             modifier = Modifier.size(13.dp)
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
             text = text,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = chipContent,
             fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             maxLines = 1,
