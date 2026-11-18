@@ -22,7 +22,14 @@ import com.example.data.remote.SupabaseAuthService
 import com.example.data.remote.SupabaseGoogleSignInResult
 import com.example.data.remote.SupabaseUser
 import com.example.data.repository.FocusRepository
+import com.example.notifications.NotificationHelper
+import com.example.notifications.NotificationHistoryEntry
+import com.example.notifications.ReadingReminderItem
+import com.example.notifications.ReadingReminderStore
+import com.example.notifications.ReminderPreferences
+import com.example.notifications.ReminderRepeatMode
 import com.example.notifications.ReminderScheduler
+import com.example.notifications.ReminderSoundOption
 import com.example.service.FocusSessionManager
 import com.example.telemetry.TelemetryManager
 import com.example.ui.components.calculateTreeStage
@@ -158,6 +165,10 @@ class FocusViewModel(
     val reminderMinute: StateFlow<Int> = repository.getReminderMinute()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val readingReminders: StateFlow<List<ReadingReminderItem>> = ReadingReminderStore.reminders
+    val reminderPreferences: StateFlow<ReminderPreferences> = ReadingReminderStore.preferences
+    val notificationHistory: StateFlow<List<NotificationHistoryEntry>> = ReadingReminderStore.history
+
     // Accountability Partner
     val partnerName: StateFlow<String> = repository.getPartnerName()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
@@ -275,6 +286,7 @@ class FocusViewModel(
     init {
         appContext?.let { ctx ->
             SupabaseAuthService.initialize(ctx)
+            ReadingReminderStore.ensureLoaded(ctx)
             viewModelScope.launch {
                 SupabaseAuthService.refreshSessionIfNeeded(ctx)
             }
@@ -484,6 +496,104 @@ class FocusViewModel(
             ReminderScheduler.scheduleDailyReminder(context, enabled, hour, minute)
             TelemetryManager.trackEvent(context, "reminder_updated", "enabled=$enabled,$hour:$minute")
         }
+    }
+
+    fun createReadingReminder(
+        context: Context,
+        title: String,
+        note: String,
+        year: Int,
+        month: Int,
+        dayOfMonth: Int,
+        hour: Int,
+        minute: Int,
+        repeatMode: ReminderRepeatMode,
+        soundOption: ReminderSoundOption,
+        customSoundUri: String? = null,
+        customSoundLabel: String? = null
+    ) {
+        ReadingReminderStore.createReminder(
+            context = context,
+            title = title,
+            note = note,
+            year = year,
+            month = month,
+            dayOfMonth = dayOfMonth,
+            hour = hour,
+            minute = minute,
+            repeatMode = repeatMode,
+            soundOption = soundOption,
+            customSoundUri = customSoundUri,
+            customSoundLabel = customSoundLabel
+        )
+        TelemetryManager.trackEvent(context, "reading_reminder_created", "${repeatMode.id}:$hour:$minute")
+    }
+
+    fun updateReadingReminder(context: Context, item: ReadingReminderItem) {
+        ReadingReminderStore.updateReminder(context, item)
+        TelemetryManager.trackEvent(context, "reading_reminder_edited", item.id)
+    }
+
+    fun deleteReadingReminder(context: Context, reminderId: String) {
+        ReadingReminderStore.deleteReminder(context, reminderId)
+        TelemetryManager.trackEvent(context, "reading_reminder_deleted", reminderId)
+    }
+
+    fun toggleReadingReminder(context: Context, reminderId: String, enabled: Boolean) {
+        ReadingReminderStore.setReminderEnabled(context, reminderId, enabled)
+    }
+
+    fun snoozeReadingReminder(context: Context, reminderId: String, snoozeMinutes: Int? = null) {
+        ReadingReminderStore.snoozeReminder(context, reminderId, snoozeMinutes)
+        TelemetryManager.trackEvent(context, "reading_reminder_snoozed", reminderId)
+    }
+
+    fun completeReadingReminder(context: Context, reminderId: String) {
+        ReadingReminderStore.markReminderCompleted(context, reminderId)
+        TelemetryManager.trackEvent(context, "reading_reminder_completed", reminderId)
+    }
+
+    fun dismissReadingReminder(context: Context, reminderId: String) {
+        ReadingReminderStore.dismissReminder(context, reminderId)
+        TelemetryManager.trackEvent(context, "reading_reminder_dismissed", reminderId)
+    }
+
+    fun updateReminderPreferences(context: Context, prefs: ReminderPreferences) {
+        ReadingReminderStore.updatePreferences(context, prefs)
+        viewModelScope.launch {
+            repository.setReminderEnabled(prefs.globalEnabled)
+        }
+        TelemetryManager.trackEvent(context, "reading_reminder_prefs_updated", "quiet=${prefs.quietHoursEnabled}")
+    }
+
+    fun sendTestReminderNotification(context: Context) {
+        ReadingReminderStore.ensureLoaded(context)
+        val prefs = ReadingReminderStore.preferences.value
+        val sample = ReadingReminderStore.reminders.value.firstOrNull()
+            ?: ReadingReminderItem(
+                id = "test_preview",
+                title = "FocusLock Reading Time",
+                note = "Open your designated reader and earn focus XP!",
+                year = 2026,
+                month = 1,
+                dayOfMonth = 1,
+                hour = 20,
+                minute = 0,
+                repeatMode = ReminderRepeatMode.DAILY,
+                soundOption = prefs.defaultSoundOption,
+                customSoundUri = prefs.defaultCustomSoundUri,
+                customSoundLabel = prefs.defaultCustomSoundLabel
+            )
+        NotificationHelper.showCustomReminderNotification(
+            context = context,
+            reminder = sample,
+            prefs = prefs,
+            bypassQuietHours = false
+        )
+    }
+
+    fun clearReminderHistory(context: Context) {
+        ReadingReminderStore.clearHistory(context)
     }
 
     fun saveAccountabilityPartner(name: String, email: String, notifyOnQuit: Boolean) {

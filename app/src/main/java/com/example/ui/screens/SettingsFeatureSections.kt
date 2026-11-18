@@ -88,6 +88,7 @@ import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.PremiumUpgradeDialog
+import com.example.ui.components.ReadingRemindersCard
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
 import com.example.widget.ShortcutHelper
@@ -133,17 +134,6 @@ fun SettingsAdvancedSections(
 
     var partnerNameDraft by remember(partnerName) { mutableStateOf(partnerName) }
     var partnerEmailDraft by remember(partnerEmail) { mutableStateOf(partnerEmail) }
-
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            viewModel.updateReminderSettings(context, true, reminderHour, reminderMinute)
-            Toast.makeText(context, "Daily reminder scheduled!", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "Notification permission denied. Enable in Settings.", Toast.LENGTH_SHORT).show()
-        }
-    }
 
     val nm = remember { context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     var hasDndPolicyAccess by remember { mutableStateOf(nm.isNotificationPolicyAccessGranted) }
@@ -795,86 +785,10 @@ fun SettingsAdvancedSections(
         }
     }
 
-    // 6. Notifications & Daily Reading Reminders Card
+    // 6. Reading Reminders Card (Create/Edit/Delete, Custom Date/Time, Daily/Weekly/Monthly, Snooze/Dismiss/Complete, Custom Sounds, Quiet Hours & History)
     Spacer(modifier = Modifier.height(16.dp))
     CinematicCardEntrance(index = 5) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            containerSize = 32.dp,
-                            iconSize = 18.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "DAILY READING REMINDERS",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = "Get a daily nudge at ${String.format(Locale.getDefault(), "%02d:%02d", reminderHour, reminderMinute)}.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                    Switch(
-                        checked = isReminderEnabled,
-                        onCheckedChange = { enable ->
-                            if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                            ) {
-                                notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                viewModel.updateReminderSettings(context, enable, reminderHour, reminderMinute)
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                        ),
-                        modifier = Modifier.testTag("daily_reminder_switch")
-                    )
-                }
-                AnimatedVisibility(visible = isReminderEnabled) {
-                    Column(modifier = Modifier.padding(top = 12.dp)) {
-                        Text(
-                            text = "Reminder Hour: ${reminderHour}:00",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Slider(
-                            value = reminderHour.toFloat(),
-                            onValueChange = { viewModel.updateReminderSettings(context, true, it.toInt(), 0) },
-                            valueRange = 6f..22f,
-                            steps = 15,
-                            colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                            )
-                        )
-                    }
-                }
-            }
-        }
+        ReadingRemindersCard(viewModel = viewModel)
     }
 
     // 7. Widgets & Lock-Screen Shortcuts Card

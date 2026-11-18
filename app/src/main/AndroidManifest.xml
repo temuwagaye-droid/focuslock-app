@@ -88,9 +88,12 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Daily Reading Reminder Broadcast Receiver -->
+        <!-- Daily Reading Reminder Broadcast Receivers -->
         <receiver
             android:name=".notifications.ReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".notifications.ReminderActionReceiver"
             android:exported="false" />
 
         <!-- Home & Lock Screen Focus Quick Widget -->
