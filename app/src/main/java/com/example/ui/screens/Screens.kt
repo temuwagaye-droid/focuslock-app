@@ -560,8 +560,8 @@ fun TimerSetupScreen(
                     contentDescription = "FocusLock Logo",
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
+                        .clip(CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
                     contentScale = ContentScale.Crop
                 )
                 Spacer(modifier = Modifier.width(16.dp))

@@ -5,8 +5,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -46,9 +48,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -65,6 +69,8 @@ import kotlin.math.roundToInt
 
 /**
  * Concave Notch Bottom Navigation Bar supporting 5 tabs: Timer, Apps, Rooms, Stats, Settings.
+ * Every icon sits inside a circular shape, with clear air-gap separation between the floating
+ * circular badge and the concave notch curve, and zero blue/accent fill inside the notch.
  */
 @Composable
 fun ConcaveNotchBottomNavigationBar(
@@ -74,25 +80,28 @@ fun ConcaveNotchBottomNavigationBar(
 ) {
     val density = LocalDensity.current
 
-    val barTopYDp = 16.dp
-    val notchRadiusDp = 34.dp
-    val notchDepthDp = 30.dp
-    val circleSizeDp = 46.dp
-    val totalHeightDp = 72.dp
+    val barTopYDp = 28.dp
+    val notchRadiusDp = 38.dp
+    val notchDepthDp = 28.dp
+    val circleSizeDp = 40.dp
+    val circleCenterYDp = 22.dp
+    val totalHeightDp = 82.dp
 
     val barTopYPx = with(density) { barTopYDp.toPx() }
     val notchRadiusPx = with(density) { notchRadiusDp.toPx() }
     val notchDepthPx = with(density) { notchDepthDp.toPx() }
-    val circleCenterYPx = with(density) { 23.dp.toPx() }
+    val circleCenterYPx = with(density) { circleCenterYDp.toPx() }
     val circleSizePx = with(density) { circleSizeDp.toPx() }
 
     val isDark = LocalDarkTheme.current
     val barSurfaceColor = if (isDark) MaterialTheme.colorScheme.surface else BoldSurfaceWhite
-    val cradleAccentColor = if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
-    val hairlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-    val inactiveIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f)
-    val activeCircleBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
-    val activeIconTint = if (isDark) MaterialTheme.colorScheme.primary else BoldTextPrimary
+    val hairlineColor = if (isDark) Color(0xFF3E3A47) else Color(0xFFE0DCE6)
+    val activeCircleBg = if (isDark) Color(0xFF2C2A33) else Color.White
+    val activeCircleBorder = if (isDark) Color(0xFF565163) else Color(0xFFDAD6E0)
+    val activeIconTint = if (isDark) Color(0xFFF5F5F7) else BoldTextPrimary
+    val inactiveCircleBg = if (isDark) Color(0xFF282530) else Color(0xFFF2F0F5)
+    val inactiveCircleBorder = if (isDark) Color(0xFF3E3A47) else Color(0xFFE2DEE9)
+    val inactiveIconColor = if (isDark) Color(0xFFCAC4D0) else Color(0xFF5F5B66)
 
     var circleBounced by remember { mutableStateOf(false) }
     LaunchedEffect(currentTab) {
@@ -102,7 +111,7 @@ fun ConcaveNotchBottomNavigationBar(
     }
 
     val circleScale by animateFloatAsState(
-        targetValue = if (circleBounced) 1.14f else 1.0f,
+        targetValue = if (circleBounced) 1.10f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -146,9 +155,7 @@ fun ConcaveNotchBottomNavigationBar(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
@@ -163,24 +170,7 @@ fun ConcaveNotchBottomNavigationBar(
                     val x = animatedCenterX
                     val y0 = barTopYPx
 
-                    val cradlePath = Path().apply {
-                        moveTo(x - w, 0f)
-                        lineTo(x - w, y0)
-                        cubicTo(
-                            x1 = x - w * 0.52f, y1 = y0,
-                            x2 = x - w * 0.44f, y2 = y0 + d,
-                            x3 = x, y3 = y0 + d
-                        )
-                        cubicTo(
-                            x1 = x + w * 0.44f, y1 = y0 + d,
-                            x2 = x + w * 0.52f, y2 = y0,
-                            x3 = x + w, y3 = y0
-                        )
-                        lineTo(x + w, 0f)
-                        close()
-                    }
-                    drawPath(path = cradlePath, color = cradleAccentColor)
-
+                    // Pure transparent cutout above the concave curve (no blue cradle fill)
                     val barPath = Path().apply {
                         moveTo(0f, y0)
                         lineTo(x - w, y0)
@@ -201,22 +191,26 @@ fun ConcaveNotchBottomNavigationBar(
                     }
                     drawPath(path = barPath, color = barSurfaceColor)
 
-                    if (x - w > 0f) {
-                        drawLine(
-                            color = hairlineColor,
-                            start = Offset(0f, y0),
-                            end = Offset(x - w, y0),
-                            strokeWidth = 1f
+                    val topEdgePath = Path().apply {
+                        moveTo(0f, y0)
+                        lineTo(x - w, y0)
+                        cubicTo(
+                            x1 = x - w * 0.52f, y1 = y0,
+                            x2 = x - w * 0.44f, y2 = y0 + d,
+                            x3 = x, y3 = y0 + d
                         )
-                    }
-                    if (x + w < size.width) {
-                        drawLine(
-                            color = hairlineColor,
-                            start = Offset(x + w, y0),
-                            end = Offset(size.width, y0),
-                            strokeWidth = 1f
+                        cubicTo(
+                            x1 = x + w * 0.44f, y1 = y0 + d,
+                            x2 = x + w * 0.52f, y2 = y0,
+                            x3 = x + w, y3 = y0
                         )
+                        lineTo(size.width, y0)
                     }
+                    drawPath(
+                        path = topEdgePath,
+                        color = hairlineColor,
+                        style = Stroke(width = 1.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                    )
                 }
 
                 Row(
@@ -233,6 +227,8 @@ fun ConcaveNotchBottomNavigationBar(
                         testTag = "nav_tab_timer",
                         selected = currentTab == DashboardTab.TIMER,
                         onClick = { onTabSelected(DashboardTab.TIMER) },
+                        inactiveCircleBg = inactiveCircleBg,
+                        inactiveCircleBorder = inactiveCircleBorder,
                         inactiveColor = inactiveIconColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -242,6 +238,8 @@ fun ConcaveNotchBottomNavigationBar(
                         testTag = "nav_tab_blocklist",
                         selected = currentTab == DashboardTab.BLOCKLIST,
                         onClick = { onTabSelected(DashboardTab.BLOCKLIST) },
+                        inactiveCircleBg = inactiveCircleBg,
+                        inactiveCircleBorder = inactiveCircleBorder,
                         inactiveColor = inactiveIconColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -251,6 +249,8 @@ fun ConcaveNotchBottomNavigationBar(
                         testTag = "nav_tab_social",
                         selected = currentTab == DashboardTab.SOCIAL,
                         onClick = { onTabSelected(DashboardTab.SOCIAL) },
+                        inactiveCircleBg = inactiveCircleBg,
+                        inactiveCircleBorder = inactiveCircleBorder,
                         inactiveColor = inactiveIconColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -260,6 +260,8 @@ fun ConcaveNotchBottomNavigationBar(
                         testTag = "nav_tab_stats",
                         selected = currentTab == DashboardTab.STATS,
                         onClick = { onTabSelected(DashboardTab.STATS) },
+                        inactiveCircleBg = inactiveCircleBg,
+                        inactiveCircleBorder = inactiveCircleBorder,
                         inactiveColor = inactiveIconColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -269,6 +271,8 @@ fun ConcaveNotchBottomNavigationBar(
                         testTag = "nav_tab_settings",
                         selected = currentTab == DashboardTab.SETTINGS,
                         onClick = { onTabSelected(DashboardTab.SETTINGS) },
+                        inactiveCircleBg = inactiveCircleBg,
+                        inactiveCircleBorder = inactiveCircleBorder,
                         inactiveColor = inactiveIconColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -290,9 +294,10 @@ fun ConcaveNotchBottomNavigationBar(
                         .shadow(elevation = 6.dp, shape = CircleShape, clip = false)
                         .clip(CircleShape)
                         .background(activeCircleBg)
+                        .border(BorderStroke(1.dp, activeCircleBorder), CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = true, radius = 26.dp),
+                            indication = ripple(bounded = true, radius = 24.dp),
                             onClick = { onTabSelected(currentTab) }
                         ),
                     contentAlignment = Alignment.Center
@@ -313,11 +318,18 @@ fun ConcaveNotchBottomNavigationBar(
                             imageVector = activeIcon,
                             contentDescription = tab.name,
                             tint = activeIconTint,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
+
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(barSurfaceColor)
+                    .navigationBarsPadding()
+            )
         }
     }
 }
@@ -329,6 +341,8 @@ private fun ConcaveNavItem(
     testTag: String,
     selected: Boolean,
     onClick: () -> Unit,
+    inactiveCircleBg: Color,
+    inactiveCircleBorder: Color,
     inactiveColor: Color,
     modifier: Modifier = Modifier
 ) {
@@ -356,12 +370,21 @@ private fun ConcaveNavItem(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.alpha(itemAlpha)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = inactiveColor,
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(inactiveCircleBg)
+                    .border(BorderStroke(1.dp, inactiveCircleBorder), CircleShape)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = inactiveColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
