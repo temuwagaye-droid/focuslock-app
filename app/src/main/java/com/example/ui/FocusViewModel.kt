@@ -508,49 +508,62 @@ class FocusViewModel(
         viewModelScope.launch { repository.deleteTodoItem(id) }
     }
 
+    private var lastProcessedAuthCallbackUri: String? = null
+
     // --- Supabase Google Sign-In & Cloud Operations ---
     fun signInWithGoogle(activityContext: Context) {
+        if (_isAuthBusy.value) return
         viewModelScope.launch {
             _isAuthBusy.value = true
             _cloudStatusMessage.value = null
-            val res = SupabaseAuthService.signInWithGoogle(activityContext)
-            res.onSuccess { outcome ->
-                when (outcome) {
-                    is SupabaseGoogleSignInResult.SignedIn -> {
-                        val user = outcome.user
-                        _cloudStatusMessage.value = "Signed in with Supabase as ${user.displayName ?: user.email ?: "Reader"}"
-                        TelemetryManager.trackEvent(activityContext, "supabase_google_sign_in_success")
-                        if (firebaseAuth?.currentUser != null) {
-                            syncNowInternal(showStatus = false)
+            try {
+                val res = SupabaseAuthService.signInWithGoogle(activityContext)
+                res.onSuccess { outcome ->
+                    when (outcome) {
+                        is SupabaseGoogleSignInResult.SignedIn -> {
+                            val user = outcome.user
+                            _cloudStatusMessage.value = "Signed in as ${user.displayName ?: user.email ?: "Reader"}"
+                            TelemetryManager.trackEvent(activityContext, "supabase_google_sign_in_success")
+                            if (firebaseAuth?.currentUser != null) {
+                                syncNowInternal(showStatus = false)
+                            }
+                        }
+                        is SupabaseGoogleSignInResult.BrowserFlowLaunched -> {
+                            _cloudStatusMessage.value = "Complete Google Sign-In in your browser to finish connecting."
                         }
                     }
-                    is SupabaseGoogleSignInResult.BrowserFlowLaunched -> {
-                        _cloudStatusMessage.value = "Complete Google Sign-In in your browser to finish connecting."
-                    }
+                }.onFailure { err ->
+                    _cloudStatusMessage.value = err.message ?: "Sign-in failed."
                 }
-            }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Sign-in failed."
+            } finally {
+                _isAuthBusy.value = false
             }
-            _isAuthBusy.value = false
         }
     }
 
     fun handleAuthCallbackIntent(context: Context, intent: Intent?) {
         val dataUri = intent?.data ?: return
         if (dataUri.scheme != "readlock" || dataUri.host != "auth") return
+        val uriKey = dataUri.toString()
+        if (lastProcessedAuthCallbackUri == uriKey) return
+        lastProcessedAuthCallbackUri = uriKey
+
         viewModelScope.launch {
             _isAuthBusy.value = true
-            val res = SupabaseAuthService.handleOAuthCallback(context, dataUri)
-            res.onSuccess { user ->
-                _cloudStatusMessage.value = "Signed in with Supabase as ${user.displayName ?: user.email ?: "Reader"}"
-                TelemetryManager.trackEvent(context, "supabase_oauth_callback_success")
-                if (firebaseAuth?.currentUser != null) {
-                    syncNowInternal(showStatus = false)
+            try {
+                val res = SupabaseAuthService.handleOAuthCallback(context, dataUri)
+                res.onSuccess { user ->
+                    _cloudStatusMessage.value = "Signed in as ${user.displayName ?: user.email ?: "Reader"}"
+                    TelemetryManager.trackEvent(context, "supabase_oauth_callback_success")
+                    if (firebaseAuth?.currentUser != null) {
+                        syncNowInternal(showStatus = false)
+                    }
+                }.onFailure { err ->
+                    _cloudStatusMessage.value = err.message ?: "OAuth sign-in failed."
                 }
-            }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "OAuth sign-in failed."
+            } finally {
+                _isAuthBusy.value = false
             }
-            _isAuthBusy.value = false
         }
     }
 

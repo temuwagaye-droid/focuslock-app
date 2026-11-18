@@ -1,14 +1,19 @@
 package com.example.data.remote
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.util.Base64
+import androidx.annotation.VisibleForTesting
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.example.BuildConfig
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -23,6 +28,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -42,6 +48,11 @@ sealed class SupabaseGoogleSignInResult {
     data class SignedIn(val user: SupabaseUser) : SupabaseGoogleSignInResult()
     data object BrowserFlowLaunched : SupabaseGoogleSignInResult()
 }
+
+private class SupabaseHttpException(
+    val statusCode: Int,
+    message: String
+) : IllegalStateException(message)
 
 object SupabaseAuthService {
 
@@ -75,10 +86,13 @@ object SupabaseAuthService {
 
     fun initialize(context: Context) {
         if (initialized) return
-        initialized = true
-        val restored = loadPersistedUser(context)
-        if (restored != null) {
-            _currentUser.value = restored
+        synchronized(this) {
+            if (initialized) return
+            initialized = true
+            val restored = loadPersistedUser(context)
+            if (restored != null) {
+                _currentUser.value = restored
+            }
         }
     }
 
@@ -91,7 +105,7 @@ object SupabaseAuthService {
         val config = resolveSupabaseConfig() ?: return
 
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val payload = JSONObject().put("refresh_token", refreshToken)
                 val responseJson = executeAuthPost(
                     url = "${config.first}/auth/v1/token?grant_type=refresh_token",
@@ -101,6 +115,16 @@ object SupabaseAuthService {
                 val updated = parseSessionResponse(responseJson)
                 persistUser(context, updated)
                 _currentUser.value = updated
+            } catch (e: SupabaseHttpException) {
+                // Only clear persisted session if the refresh token was explicitly rejected/revoked
+                if (e.statusCode in setOf(400, 401, 403)) {
+                    _currentUser.value = null
+                    clearPersistedUser(context)
+                }
+            } catch (_: IOException) {
+                // Keep cached session while offline
+            } catch (_: Exception) {
+                // Non-fatal background refresh error
             }
         }
     }
@@ -114,13 +138,15 @@ object SupabaseAuthService {
                 )
             )
         val (supabaseUrl, anonKey) = config
-        val googleWebClientId = resolveGoogleWebClientId(context)
+        val activityContext = context.findActivity() ?: context
+        val googleWebClientId = resolveGoogleWebClientId(activityContext)
 
         if (!googleWebClientId.isNullOrBlank()) {
-            try {
+            // Phase 1: Acquire Google ID Token via Android Credential Manager (requires Activity context)
+            val idTokenPair: Pair<String, String>? = try {
                 val rawNonce = generateCodeVerifier()
                 val hashedNonce = sha256Hex(rawNonce)
-                val credentialManager = CredentialManager.create(context)
+                val credentialManager = CredentialManager.create(activityContext)
                 val googleIdOption = GetSignInWithGoogleOption.Builder(googleWebClientId)
                     .setNonce(hashedNonce)
                     .build()
@@ -129,7 +155,7 @@ object SupabaseAuthService {
                     .build()
 
                 val response = credentialManager.getCredential(
-                    context = context,
+                    context = activityContext,
                     request = request
                 )
                 val credential = response.credential
@@ -137,26 +163,43 @@ object SupabaseAuthService {
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                 ) {
                     val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                    val user = exchangeGoogleIdTokenWithSupabase(
-                        supabaseUrl = supabaseUrl,
-                        anonKey = anonKey,
-                        idToken = googleCredential.idToken,
-                        rawNonce = rawNonce
-                    )
-                    persistUser(context, user)
-                    _currentUser.value = user
-                    return Result.success(SupabaseGoogleSignInResult.SignedIn(user))
+                    googleCredential.idToken to rawNonce
+                } else {
+                    null
                 }
             } catch (_: GetCredentialCancellationException) {
                 return Result.failure(IllegalStateException("Google Sign-In cancelled."))
             } catch (_: NoCredentialException) {
-                // Fall back to Supabase Google OAuth PKCE browser flow
+                null // Fall back cleanly to Supabase Google OAuth PKCE browser flow
+            } catch (_: GetCredentialException) {
+                null // Fall back cleanly to Supabase Google OAuth PKCE browser flow
             } catch (_: Exception) {
-                // Fall back to Supabase Google OAuth PKCE browser flow
+                null // Fall back cleanly when Play Services / Credential Manager is unavailable
+            }
+
+            // Phase 2: Exchange acquired Google ID Token directly with Supabase Auth
+            if (idTokenPair != null) {
+                return try {
+                    val user = exchangeGoogleIdTokenWithSupabase(
+                        supabaseUrl = supabaseUrl,
+                        anonKey = anonKey,
+                        idToken = idTokenPair.first,
+                        rawNonce = idTokenPair.second
+                    )
+                    persistUser(context, user)
+                    _currentUser.value = user
+                    Result.success(SupabaseGoogleSignInResult.SignedIn(user))
+                } catch (e: Exception) {
+                    Result.failure(
+                        IllegalStateException(
+                            e.localizedMessage ?: "Failed to verify Google ID token with Supabase."
+                        )
+                    )
+                }
             }
         }
 
-        return launchBrowserOAuthFlow(context, supabaseUrl)
+        return launchBrowserOAuthFlow(activityContext, supabaseUrl)
     }
 
     private fun launchBrowserOAuthFlow(
@@ -171,18 +214,18 @@ object SupabaseAuthService {
                 .putString(KEY_PKCE_VERIFIER, verifier)
                 .apply()
 
-            val encodedRedirect = URLEncoder.encode(OAUTH_REDIRECT_URI, Charsets.UTF_8.name())
-            val authUrl = "$supabaseUrl/auth/v1/authorize" +
-                "?provider=google" +
-                "&redirect_to=$encodedRedirect" +
-                "&code_challenge=$challenge" +
-                "&code_challenge_method=s256"
-
+            val authUrl = buildBrowserAuthorizeUrl(supabaseUrl, challenge)
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (context !is Activity) {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
             }
             context.startActivity(intent)
             Result.success(SupabaseGoogleSignInResult.BrowserFlowLaunched)
+        } catch (_: ActivityNotFoundException) {
+            Result.failure(
+                IllegalStateException("No web browser found on this device to complete Google Sign-In.")
+            )
         } catch (e: Exception) {
             Result.failure(
                 IllegalStateException(
@@ -198,15 +241,17 @@ object SupabaseAuthService {
             return Result.failure(IllegalArgumentException("Unsupported callback URI."))
         }
 
-        val config = resolveSupabaseConfig()
-            ?: return Result.failure(IllegalStateException("Supabase configuration missing."))
-        val (supabaseUrl, anonKey) = config
-
         val errorDescription = uri.getQueryParameter("error_description")
             ?: extractFragmentParam(uri, "error_description")
+            ?: uri.getQueryParameter("error")
+            ?: extractFragmentParam(uri, "error")
         if (!errorDescription.isNullOrBlank()) {
             return Result.failure(IllegalStateException(errorDescription.replace("+", " ")))
         }
+
+        val config = resolveSupabaseConfig()
+            ?: return Result.failure(IllegalStateException("Supabase configuration missing."))
+        val (supabaseUrl, anonKey) = config
 
         val authCode = uri.getQueryParameter("code")
         if (!authCode.isNullOrBlank()) {
@@ -334,7 +379,7 @@ object SupabaseAuthService {
                     .ifBlank { json.optString("msg") }
                     .ifBlank { json.optString("message") }
                     .ifBlank { "Supabase Auth error (${response.code})." }
-                throw IllegalStateException(msg)
+                throw SupabaseHttpException(response.code, msg)
             }
             return json
         }
@@ -355,20 +400,22 @@ object SupabaseAuthService {
                 val msg = json.optString("msg")
                     .ifBlank { json.optString("message") }
                     .ifBlank { "Supabase user lookup error (${response.code})." }
-                throw IllegalStateException(msg)
+                throw SupabaseHttpException(response.code, msg)
             }
             return json
         }
     }
 
-    private fun parseSessionResponse(json: JSONObject): SupabaseUser {
+    @VisibleForTesting
+    internal fun parseSessionResponse(json: JSONObject): SupabaseUser {
         val accessToken = json.optString("access_token")
         if (accessToken.isBlank()) {
             throw IllegalStateException("Supabase did not return an access token.")
         }
         val refreshToken = json.optString("refresh_token").takeIf { it.isNotBlank() }
-        val expiresIn = json.optLong("expires_in", 3600L)
-        val expiresAt = json.optLong("expires_at", (System.currentTimeMillis() / 1000L) + expiresIn)
+        val expiresIn = json.optLong("expires_in", 3600L).let { if (it <= 0L) 3600L else it }
+        val rawExpiresAt = json.optLong("expires_at", 0L)
+        val expiresAt = if (rawExpiresAt > 0L) rawExpiresAt else (System.currentTimeMillis() / 1000L) + expiresIn
         val userObj = json.optJSONObject("user") ?: JSONObject()
         return parseUserObject(userObj, accessToken, refreshToken, expiresAt)
     }
@@ -399,27 +446,41 @@ object SupabaseAuthService {
         )
     }
 
-    private fun resolveSupabaseConfig(): Pair<String, String>? {
-        val url = listOf(BuildConfig.NEXT_PUBLIC_SUPABASE_URL, BuildConfig.SUPABASE_URL)
+    @VisibleForTesting
+    internal fun resolveSupabaseConfig(): Pair<String, String>? {
+        return resolveConfig(
+            urlCandidates = listOf(BuildConfig.NEXT_PUBLIC_SUPABASE_URL, BuildConfig.SUPABASE_URL),
+            keyCandidates = listOf(BuildConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, BuildConfig.SUPABASE_ANON_KEY)
+        )
+    }
+
+    @VisibleForTesting
+    internal fun resolveConfig(
+        urlCandidates: List<String>,
+        keyCandidates: List<String>
+    ): Pair<String, String>? {
+        val url = urlCandidates
             .map { it.trim().trimEnd('/') }
-            .firstOrNull { it.isNotBlank() && !it.contains("your-project.supabase.co", ignoreCase = true) }
+            .firstOrNull {
+                (it.startsWith("https://") || it.startsWith("http://")) &&
+                    !it.contains("your-project.supabase.co", ignoreCase = true)
+            }
             ?: return null
-        val candidates = listOf(
-            BuildConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-            BuildConfig.SUPABASE_ANON_KEY
-        ).map { it.trim() }
+        val validKeys = keyCandidates
+            .map { it.trim() }
             .filter {
                 it.isNotBlank() &&
                     it != "YOUR_SUPABASE_ANON_KEY" &&
                     it != "YOUR_SUPABASE_PUBLISHABLE_KEY"
             }
-        val key = candidates.firstOrNull {
+        val key = validKeys.firstOrNull {
             it.startsWith("sb_publishable_") || it.startsWith("eyJ")
-        } ?: candidates.firstOrNull() ?: return null
+        } ?: validKeys.firstOrNull() ?: return null
         return url to key
     }
 
-    private fun resolveGoogleWebClientId(context: Context): String? {
+    @VisibleForTesting
+    internal fun resolveGoogleWebClientId(context: Context): String? {
         val fromConfig = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
         if (fromConfig.isNotBlank() && fromConfig != "YOUR_GOOGLE_WEB_CLIENT_ID") {
             return fromConfig
@@ -432,6 +493,16 @@ object SupabaseAuthService {
             }
         }
         return null
+    }
+
+    @VisibleForTesting
+    internal fun buildBrowserAuthorizeUrl(supabaseUrl: String, codeChallenge: String): String {
+        val encodedRedirect = URLEncoder.encode(OAUTH_REDIRECT_URI, Charsets.UTF_8.name())
+        return "$supabaseUrl/auth/v1/authorize" +
+            "?provider=google" +
+            "&redirect_to=$encodedRedirect" +
+            "&code_challenge=$codeChallenge" +
+            "&code_challenge_method=s256"
     }
 
     private fun persistUser(context: Context, user: SupabaseUser) {
@@ -471,12 +542,14 @@ object SupabaseAuthService {
         return Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
-    private fun generateCodeChallenge(verifier: String): String {
+    @VisibleForTesting
+    internal fun generateCodeChallenge(verifier: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
         return Base64.encodeToString(digest, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
-    private fun sha256Hex(input: String): String {
+    @VisibleForTesting
+    internal fun sha256Hex(input: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
     }
@@ -491,5 +564,11 @@ object SupabaseAuthService {
             }
             .firstOrNull { it.first == key }
             ?.second
+    }
+
+    private tailrec fun Context.findActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 }

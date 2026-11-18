@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
         TelemetryManager.installCrashHandler(applicationContext)
         NotificationHelper.ensureChannels(this)
         launchActionState = intent?.getStringExtra("quick_action")
-        viewModel.handleAuthCallbackIntent(this, intent)
+        handleAuthIntentAndConsume(intent)
 
         setContent {
             val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
@@ -409,7 +409,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         launchActionState = intent.getStringExtra("quick_action")
-        viewModel.handleAuthCallbackIntent(this, intent)
+        handleAuthIntentAndConsume(intent)
+    }
+
+    private fun handleAuthIntentAndConsume(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme == "readlock" && data.host == "auth") {
+            viewModel.handleAuthCallbackIntent(this, intent)
+            intent.data = null
+        }
     }
 }
 
