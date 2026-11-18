@@ -7,6 +7,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
+import com.example.BuildConfig
 import com.example.R
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -41,10 +42,28 @@ object FirebaseService {
         return FirebaseFirestore.getInstance(dbId)
     }
 
+    private fun resolveGoogleWebClientId(context: Context): String? {
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resId != 0) {
+            val fromRes = runCatching { context.getString(resId) }.getOrNull()?.trim()
+            if (!fromRes.isNullOrBlank() && !fromRes.contains("placeholder", ignoreCase = true)) {
+                return fromRes
+            }
+        }
+        val fromConfig = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
+        if (fromConfig.isNotBlank() && fromConfig != "YOUR_GOOGLE_WEB_CLIENT_ID") {
+            return fromConfig
+        }
+        return null
+    }
+
     suspend fun signInWithGoogle(context: Context): Result<FirebaseUser> {
         return try {
             val credentialManager = CredentialManager.create(context)
-            val webClientId = context.getString(R.string.default_web_client_id)
+            val webClientId = resolveGoogleWebClientId(context)
+                ?: return Result.failure(
+                    IllegalStateException("Google Sign-In is not configured. Missing Google Web Client ID.")
+                )
             val googleIdOption = GetSignInWithGoogleOption.Builder(webClientId).build()
             val request = GetCredentialRequest.Builder()
                 .addCredentialOption(googleIdOption)
