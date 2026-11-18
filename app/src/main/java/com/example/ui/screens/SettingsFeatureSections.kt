@@ -299,31 +299,56 @@ fun SettingsAdvancedSections(
     CinematicCardEntrance(index = 1) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth()
+            shape = RoundedCornerShape(22.dp),
+            border = null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_account_profile_card")
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularIconBadge(
-                        imageVector = Icons.Default.CloudSync,
-                        contentDescription = null,
-                        containerSize = 32.dp,
-                        iconSize = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "PROFILE & CLOUD SYNC",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "ACCOUNT & PROFILE",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    if (currentUser != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFF3DDC97).copy(alpha = 0.2f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "CONNECTED",
+                                color = Color(0xFF0A6B43),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 val user = currentUser
                 if (user == null) {
                     Text(
-                        text = "Sign in with Google to sync stats, rooms & settings across devices.",
+                        text = "Sign in with Google to save your XP, streaks & sync study rooms.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -342,24 +367,54 @@ fun SettingsAdvancedSections(
                         modifier = Modifier.testTag("settings_google_sign_in_button")
                     )
                 } else {
-                    Text(
-                        text = "Supabase Account: ${user.displayName ?: user.email ?: user.uid.take(8)} • $lastSyncText",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    user.email?.let { mail ->
-                        Text(
-                            text = mail,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                    val initial = (user.displayName ?: user.email ?: "R")
+                        .trim()
+                        .firstOrNull()
+                        ?.uppercaseChar()
+                        ?: 'R'
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(12.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF6C4DFF))
+                        ) {
+                            Text(
+                                text = initial.toString(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = user.displayName ?: user.email?.substringBefore("@") ?: "Reader",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = user.email ?: lastSyncText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                     }
                     cloudMessage?.let {
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.padding(top = 6.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))

@@ -118,6 +118,7 @@ import com.example.ui.components.FitnessDurationRing
 import com.example.ui.components.FocusForestRewardCard
 import com.example.ui.components.GamifiedLevelHudCard
 import com.example.ui.components.PremiumUpgradeDialog
+import com.example.ui.components.ReaderAndShieldLoadoutRow
 import com.example.ui.components.ReadingAppRequiredDialog
 import com.example.ui.components.TimerBadgesStripCard
 import com.example.ui.components.TimerXpAndStreakCard
@@ -127,6 +128,7 @@ import com.example.ui.components.readerRankTitle
 import com.example.ui.components.treeStageTitle
 import com.example.ui.theme.GamifiedMint
 import com.example.ui.theme.GamifiedPurple
+import com.example.ui.theme.GamifiedYellow
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
@@ -899,177 +901,25 @@ fun TimerSetupScreen(
                 )
             }
 
-            // 4. Side-by-side Medium Borderless Setup Tiles: Reading App & App Shield
+            // 4. Modern Gamified Reader & Shield Loadout Tiles
             CinematicCardEntrance(index = 3) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Reading App tile
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (hasReadingApp) {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                            }
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        border = null,
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    CircularIconBadge(
-                                        imageVector = Icons.Default.Book,
-                                        contentDescription = null,
-                                        containerSize = 24.dp,
-                                        iconSize = 13.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "READER",
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 0.7.sp
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(if (hasReadingApp) GamifiedMint else MaterialTheme.colorScheme.error)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .clickable {
-                                        if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
-                                            showParentalPinForReader = true
-                                        } else {
-                                            openReadingAppChooser()
-                                        }
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 9.dp)
-                                    .testTag("open_reading_app_picker_row"),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    val pkg = designatedReadingApp
-                                    if (!pkg.isNullOrBlank()) {
-                                        AppLauncherIcon(
-                                            packageName = pkg,
-                                            contentDescription = selectedReadingAppLabel,
-                                            size = 22.dp
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                    }
-                                    Text(
-                                        text = if (hasReadingApp) selectedReadingAppLabel else "Pick app",
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.testTag("selected_reading_app_label")
-                                    )
-                                }
-                            }
+                ReaderAndShieldLoadoutRow(
+                    hasReadingApp = hasReadingApp,
+                    designatedReadingApp = designatedReadingApp,
+                    selectedReadingAppLabel = selectedReadingAppLabel,
+                    hasBlockedAppsConfig = hasBlockedAppsConfig,
+                    isProTier = isProTier,
+                    isWhitelistMode = isWhitelistMode,
+                    blockedAppsCount = blockedAppsCount,
+                    onReaderClick = {
+                        if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                            showParentalPinForReader = true
+                        } else {
+                            openReadingAppChooser()
                         }
-                    }
-
-                    // App Shield tile
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (hasBlockedAppsConfig) {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                            }
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        border = null,
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("blocked_apps_status_card")
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    CircularIconBadge(
-                                        imageVector = Icons.Default.Block,
-                                        contentDescription = null,
-                                        containerSize = 24.dp,
-                                        iconSize = 13.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "SHIELD",
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 0.7.sp
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(if (hasBlockedAppsConfig) GamifiedMint else MaterialTheme.colorScheme.error)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .clickable { onNavigateToBlocklist() }
-                                    .padding(horizontal = 10.dp, vertical = 9.dp)
-                                    .testTag("configure_blocked_apps_row"),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = when {
-                                        isProTier && isWhitelistMode -> "Whitelist"
-                                        blockedAppsCount > 0 -> "$blockedAppsCount Blocked"
-                                        else -> "Pick apps"
-                                    },
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
+                    },
+                    onShieldClick = onNavigateToBlocklist
+                )
             }
 
             // 5. Compact Gamified Badges Strip
@@ -2143,26 +1993,18 @@ data class Achievement(
 
 @Composable
 fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
+    val isDark = LocalDarkTheme.current
+    val mintBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
+    val mintText = if (isDark) GamifiedMint else Color(0xFF0A6B43)
+
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (achievement.isUnlocked) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            }
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (achievement.isUnlocked) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant
-            }
-        ),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        shape = RoundedCornerShape(20.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 3.dp)
             .testTag("achievement_card_${achievement.title.lowercase().replace(" ", "_").replace("-", "_")}")
     ) {
         Row(
@@ -2175,18 +2017,12 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (achievement.isUnlocked) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
-                        }
-                    )
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (achievement.isUnlocked) mintBg else MaterialTheme.colorScheme.surface)
             ) {
                 Text(
                     text = achievement.icon,
-                    fontSize = 22.sp,
+                    fontSize = 21.sp,
                     modifier = Modifier.alpha(if (achievement.isUnlocked) 1f else 0.4f)
                 )
                 if (!achievement.isUnlocked) {
@@ -2208,28 +2044,37 @@ fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = achievement.title,
                     color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = achievement.description,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.secondary,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = achievement.progressText,
-                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Spacer(modifier = Modifier.height(5.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (achievement.isUnlocked) mintBg else MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = achievement.progressText,
+                        color = if (achievement.isUnlocked) mintText else MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
         }
     }
@@ -2387,27 +2232,42 @@ fun HistoryStatsScreen(
             )
         }
 
-        // 1.25 Gamified Level & XP Progress HUD Card
+        // 1.25 Gamified Level, Streak & XP HUD Card (matching Timer screen)
         item {
             CinematicCardEntrance(index = 0) {
-                GamifiedLevelHudCard(stats = stats)
+                TimerXpAndStreakCard(
+                    stats = stats,
+                    onOpenStats = {}
+                )
+            }
+        }
+
+        // 1.4 Daily Quests Activity Rings Card (Apple Fitness x Duolingo)
+        item {
+            CinematicCardEntrance(index = 1) {
+                DailyQuestsRingsCard(
+                    sessionLogs = sessionLogs,
+                    stats = stats,
+                    onOpenStats = {}
+                )
             }
         }
 
         // 1.5 Virtual Focus Tree Reward Card
         item {
-            CinematicCardEntrance(index = 0) {
+            CinematicCardEntrance(index = 1) {
                 FocusForestRewardCard(stats = stats)
             }
         }
 
-        // 2. Weekly Reading Progress Dashboard Card (Custom 7-day bar chart)
+        // 2. Weekly Reading Progress Dashboard Card (Borderless + Soft Shadow)
         item {
-            CinematicCardEntrance(index = 1) {
+            CinematicCardEntrance(index = 2) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(22.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
@@ -2629,28 +2489,25 @@ fun HistoryStatsScreen(
             }
         }
 
-        // 3. Side-by-side Quick metrics
+        // 3. Side-by-side Medium Borderless Quick Metrics (Streak & Total Focus)
         item {
             val isDark = LocalDarkTheme.current
-            val streakCardBg = if (isDark) Color(0xFF2D2014) else Color(0xFFFFF3E0)
-            val streakCardBorder = if (isDark) Color(0xFFFFB74D).copy(alpha = 0.5f) else Color(0xFFFFB74D).copy(alpha = 0.4f)
-            val streakLabelColor = if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)
-            val streakValueColor = if (isDark) Color(0xFFFFE0B2) else Color(0xFFD84315)
-
-            val minutesCardBg = if (isDark) Color(0xFF102A27) else Color(0xFFE0F2F1)
-            val minutesCardBorder = if (isDark) Color(0xFF4DB6AC).copy(alpha = 0.5f) else Color(0xFF4DB6AC).copy(alpha = 0.4f)
-            val minutesLabelColor = if (isDark) Color(0xFF80CBC4) else Color(0xFF004D40)
-            val minutesValueColor = if (isDark) Color(0xFFB2DFDB) else Color(0xFF00695C)
+            val flameBg = if (isDark) Color(0xFF3A2D12) else Color(0xFFFFF5DB)
+            val flameText = if (isDark) GamifiedYellow else Color(0xFF8A5A00)
+            val mintBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
+            val mintText = if (isDark) GamifiedMint else Color(0xFF0A6B43)
+            val purpleTintBg = if (isDark) Color(0xFF28204B) else Color(0xFFEEEAFF)
 
             CinematicCardEntrance(index = 2) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = streakCardBg),
-                        border = BorderStroke(1.dp, streakCardBorder),
-                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        shape = RoundedCornerShape(22.dp),
                         modifier = Modifier
                             .weight(1f)
                             .defaultMinSize(minHeight = 100.dp)
@@ -2658,17 +2515,24 @@ fun HistoryStatsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 16.dp),
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(
-                                text = "STREAK",
-                                color = streakLabelColor,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelSmall,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(flameBg)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "STREAK",
+                                    color = flameText,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -2682,7 +2546,7 @@ fun HistoryStatsScreen(
                                 )
                                 Text(
                                     text = "${stats.currentStreak} Days",
-                                    color = streakValueColor,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 18.sp,
                                     maxLines = 1,
@@ -2695,9 +2559,10 @@ fun HistoryStatsScreen(
                     }
 
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = minutesCardBg),
-                        border = BorderStroke(1.dp, minutesCardBorder),
-                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        shape = RoundedCornerShape(22.dp),
                         modifier = Modifier
                             .weight(1f)
                             .defaultMinSize(minHeight = 100.dp)
@@ -2705,20 +2570,27 @@ fun HistoryStatsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 16.dp),
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(
-                                text = "TOTAL MINUTES",
-                                color = minutesLabelColor,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelSmall,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(mintBg)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "FOCUS TIME",
+                                    color = mintText,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "⏱️ ${stats.totalFocusMinutes} Min",
-                                color = minutesValueColor,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 18.sp,
                                 maxLines = 1,
@@ -2732,12 +2604,13 @@ fun HistoryStatsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Distraction Attempts Counter Metric Card
+            // Distraction Attempts Blocked Metric Card (Borderless + Soft Shadow)
             CinematicCardEntrance(index = 3) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                    shape = RoundedCornerShape(22.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("stats_distraction_attempts_card")
@@ -2749,40 +2622,48 @@ fun HistoryStatsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "DISTRACTION ATTEMPTS BLOCKED",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                fontWeight = FontWeight.Bold,
+                                text = "SHIELD INTERCEPTS",
+                                color = GamifiedPurple,
+                                fontWeight = FontWeight.Black,
                                 style = MaterialTheme.typography.labelSmall,
-                                letterSpacing = 1.sp
+                                letterSpacing = 0.8.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Times FocusLock intercepted blocked apps across your sessions.",
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                text = "Distractions blocked across your focus sessions.",
+                                color = MaterialTheme.colorScheme.secondary,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        Text(
-                            text = "🛡️ ${stats.totalBlockedAttempts}",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.headlineSmall
-                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(purpleTintBg)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "🛡️ ${stats.totalBlockedAttempts}",
+                                color = GamifiedPurple,
+                                fontWeight = FontWeight.Black,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // 4. Large clean gamified score level card
+        // 4. Clean gamified score & export card (Borderless + Soft Shadow)
         item {
             CinematicCardEntrance(index = 4) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
@@ -3169,9 +3050,10 @@ fun HistoryStatsScreen(
                 )
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(20.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
@@ -3192,18 +3074,18 @@ fun HistoryStatsScreen(
                                 text = "$completedTodoCount / $totalTodoCount tasks (${(todoProgress * 100).toInt()}%)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = GamifiedPurple
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { animatedTodoProgress },
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                            color = GamifiedPurple,
+                            trackColor = MaterialTheme.colorScheme.surface,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
+                                .height(7.dp)
+                                .clip(RoundedCornerShape(50))
                         )
                     }
                 }
@@ -3214,9 +3096,10 @@ fun HistoryStatsScreen(
         if (todoItems.isEmpty()) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(22.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
@@ -3240,7 +3123,7 @@ fun HistoryStatsScreen(
                             Text(
                                 text = "Add some tasks above to plan your next deep focus sessions.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
@@ -3249,22 +3132,10 @@ fun HistoryStatsScreen(
         } else {
             items(todoItems) { todo ->
                 Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (todo.isCompleted) {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        }
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (todo.isCompleted) {
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.05f)
-                        } else {
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(18.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 2.dp)
@@ -3285,7 +3156,7 @@ fun HistoryStatsScreen(
                                 checked = todo.isCompleted,
                                 onCheckedChange = { viewModel.toggleTodoItem(todo) },
                                 colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary,
+                                    checkedColor = GamifiedMint,
                                     uncheckedColor = MaterialTheme.colorScheme.outline
                                 ),
                                 modifier = Modifier.testTag("todo_checkbox_${todo.id}")
@@ -3336,22 +3207,24 @@ fun HistoryStatsScreen(
         // 6. Logs list or Empty card
         if (sessionLogs.isEmpty()) {
             item {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
-                        .padding(32.dp)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(22.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp)
+                    ) {
                         CircularIconBadge(
                             imageVector = Icons.Default.History,
                             contentDescription = null,
-                            containerSize = 72.dp,
-                            iconSize = 36.dp,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            containerSize = 64.dp,
+                            iconSize = 32.dp
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -3385,12 +3258,16 @@ fun HistoryStatsScreen(
         } else {
             items(sessionLogs) { log ->
                 val sessionXp = if (log.isCompleted) ((log.durationSeconds / 60).coerceAtLeast(1) * 2 + 50) else 0L
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(20.dp),
+                    border = null,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -3443,6 +3320,7 @@ fun HistoryStatsScreen(
                             border = BorderStroke(1.dp, statusColor.copy(alpha = 0.45f))
                         )
                     }
+                }
                 }
             }
         }

@@ -129,6 +129,9 @@ object SupabaseAuthService {
         }
     }
 
+    @Volatile
+    private var preferBrowserOAuthThisSession = false
+
     suspend fun signInWithGoogle(context: Context): Result<SupabaseGoogleSignInResult> {
         initialize(context)
         val config = resolveSupabaseConfig()
@@ -141,8 +144,8 @@ object SupabaseAuthService {
         val activityContext = context.findActivity() ?: context
         val googleWebClientId = resolveGoogleWebClientId(activityContext)
 
-        if (!googleWebClientId.isNullOrBlank()) {
-            // Phase 1: Acquire Google ID Token via Android Credential Manager (requires Activity context)
+        if (!googleWebClientId.isNullOrBlank() && !preferBrowserOAuthThisSession) {
+            // Phase 1: Try Android Credential Manager (requires matching Android OAuth SHA-1 in GCP)
             val idTokenPair: Pair<String, String>? = try {
                 val rawNonce = generateCodeVerifier()
                 val hashedNonce = sha256Hex(rawNonce)
@@ -168,13 +171,20 @@ object SupabaseAuthService {
                     null
                 }
             } catch (_: GetCredentialCancellationException) {
-                return Result.failure(IllegalStateException("Google Sign-In cancelled."))
+                // Play Services throws GetCredentialCancellationException after account selection when
+                // the GCP project for GOOGLE_WEB_CLIENT_ID lacks an Android OAuth SHA-1 client.
+                // Seamlessly fall back to Supabase Google OAuth PKCE browser flow (no SHA-1 needed).
+                preferBrowserOAuthThisSession = true
+                null
             } catch (_: NoCredentialException) {
-                null // Fall back cleanly to Supabase Google OAuth PKCE browser flow
+                preferBrowserOAuthThisSession = true
+                null
             } catch (_: GetCredentialException) {
-                null // Fall back cleanly to Supabase Google OAuth PKCE browser flow
+                preferBrowserOAuthThisSession = true
+                null
             } catch (_: Exception) {
-                null // Fall back cleanly when Play Services / Credential Manager is unavailable
+                preferBrowserOAuthThisSession = true
+                null
             }
 
             // Phase 2: Exchange acquired Google ID Token directly with Supabase Auth
@@ -215,7 +225,11 @@ object SupabaseAuthService {
                 .apply()
 
             val authUrl = buildBrowserAuthorizeUrl(supabaseUrl, challenge)
+            val customTabExtras = android.os.Bundle().apply {
+                putBinder("android.support.customtabs.extra.SESSION", null)
+            }
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)).apply {
+                putExtras(customTabExtras)
                 if (context !is Activity) {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

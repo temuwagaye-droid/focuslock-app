@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,11 +32,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -52,15 +61,20 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.data.model.SessionLogEntity
+import com.example.data.remote.SupabaseUser
 import com.example.ui.FocusStatsSummary
 import com.example.ui.theme.GamifiedMint
 import com.example.ui.theme.GamifiedPurple
 import com.example.ui.theme.GamifiedYellow
 import com.example.ui.theme.LocalDarkTheme
+import com.example.ui.theme.appBlackButtonBorder
+import com.example.ui.theme.appBlackButtonColors
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -585,3 +599,530 @@ fun TimerBadgesStripCard(
         }
     }
 }
+
+/**
+ * Modern gamified Duolingo x Apple Fitness side-by-side Loadout cards for Reader & Shield.
+ * Medium borderless rounded cards with soft shadow, status chips, and animated progress bars.
+ */
+@Composable
+fun ReaderAndShieldLoadoutRow(
+    hasReadingApp: Boolean,
+    designatedReadingApp: String?,
+    selectedReadingAppLabel: String,
+    hasBlockedAppsConfig: Boolean,
+    isProTier: Boolean,
+    isWhitelistMode: Boolean,
+    blockedAppsCount: Int,
+    onReaderClick: () -> Unit,
+    onShieldClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalDarkTheme.current
+    val readyBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
+    val readyText = if (isDark) GamifiedMint else Color(0xFF0A6B43)
+    val setupBg = if (isDark) Color(0xFF3A2D12) else Color(0xFFFFF5DB)
+    val setupText = if (isDark) GamifiedYellow else Color(0xFF8A5A00)
+    val purpleTintBg = if (isDark) Color(0xFF28204B) else Color(0xFFEEEAFF)
+
+    val readerMeter by animateFloatAsState(
+        targetValue = if (hasReadingApp) 1f else 0.18f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "reader_loadout_meter"
+    )
+    val shieldFraction = when {
+        isProTier && isWhitelistMode -> 1f
+        blockedAppsCount > 0 -> (blockedAppsCount / 5f).coerceIn(0.35f, 1f)
+        else -> 0.18f
+    }
+    val shieldMeter by animateFloatAsState(
+        targetValue = shieldFraction,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "shield_loadout_meter"
+    )
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Reader Selection Gamified Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(22.dp),
+            border = null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(22.dp))
+                .clickable(onClick = onReaderClick)
+                .testTag("open_reading_app_picker_row")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 132.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (hasReadingApp) purpleTintBg else MaterialTheme.colorScheme.surface)
+                    ) {
+                        val pkg = designatedReadingApp
+                        if (!pkg.isNullOrBlank()) {
+                            AppLauncherIcon(
+                                packageName = pkg,
+                                contentDescription = selectedReadingAppLabel,
+                                size = 24.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Book,
+                                contentDescription = "Select Reading App",
+                                tint = GamifiedPurple,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (hasReadingApp) readyBg else setupBg)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (hasReadingApp) "READY" else "PICK",
+                            color = if (hasReadingApp) readyText else setupText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Column {
+                    Text(
+                        text = "READER",
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (hasReadingApp) selectedReadingAppLabel else "Choose App",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("selected_reading_app_label")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(readerMeter)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (hasReadingApp) GamifiedPurple else GamifiedYellow)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        // Shield Selection Gamified Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(22.dp),
+            border = null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(22.dp))
+                .testTag("blocked_apps_status_card")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 132.dp)
+                    .clickable(onClick = onShieldClick)
+                    .padding(14.dp)
+                    .testTag("configure_blocked_apps_row"),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (hasBlockedAppsConfig) readyBg else MaterialTheme.colorScheme.surface)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = "App Shield",
+                            tint = if (hasBlockedAppsConfig) GamifiedMint else GamifiedYellow,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (hasBlockedAppsConfig) readyBg else setupBg)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (hasBlockedAppsConfig) "ARMED" else "SETUP",
+                            color = if (hasBlockedAppsConfig) readyText else setupText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Column {
+                    Text(
+                        text = "SHIELD",
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = when {
+                            isProTier && isWhitelistMode -> "Whitelist"
+                            blockedAppsCount > 0 -> "$blockedAppsCount Blocked"
+                            else -> "Block Apps"
+                        },
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(shieldMeter)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (hasBlockedAppsConfig) GamifiedMint else GamifiedYellow)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Clean minimal Account & Profile modal reachable from the top bar beside the theme toggle.
+ */
+@Composable
+fun AccountProfileDialog(
+    currentUser: SupabaseUser?,
+    stats: FocusStatsSummary,
+    isAuthBusy: Boolean,
+    statusMessage: String?,
+    onSignInWithGoogle: () -> Unit,
+    onSignOut: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDark = LocalDarkTheme.current
+    val mintBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
+    val mintText = if (isDark) GamifiedMint else Color(0xFF0A6B43)
+    val level = (stats.focusScore / 200) + 1
+    val rank = readerRankTitle(level)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(26.dp),
+            border = null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("account_profile_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (currentUser == null) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(62.dp)
+                            .clip(CircleShape)
+                            .background(GamifiedPurple)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudDone,
+                            contentDescription = "Account Sign-In",
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Your Focus Account",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Sign in with Google to save your XP, streaks & join study rooms.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    statusMessage?.let { msg ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    GoogleSignInButton(
+                        onClick = onSignInWithGoogle,
+                        isLoading = isAuthBusy,
+                        modifier = Modifier.testTag("dialog_google_sign_in_button")
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onOpenSettings,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ACCOUNT SETTINGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+                } else {
+                    val initial = (currentUser.displayName ?: currentUser.email ?: "R")
+                        .trim()
+                        .firstOrNull()
+                        ?.uppercaseChar()
+                        ?: 'R'
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(GamifiedPurple)
+                    ) {
+                        Text(
+                            text = initial.toString(),
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(mintBg)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "GOOGLE CONNECTED",
+                            color = mintText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.7.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "Reader",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    currentUser.email?.let { mail ->
+                        Text(
+                            text = mail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "LVL $level • $rank",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "🔥 ${stats.currentStreak}d streak • ${stats.totalFocusMinutes}m focus",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                        XpRewardChip(text = "${stats.focusScore} XP")
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onOpenSettings,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudSync,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SETTINGS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+
+                        Button(
+                            onClick = onSignOut,
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dialog_sign_out_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SIGN OUT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

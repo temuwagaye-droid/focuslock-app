@@ -204,12 +204,11 @@ fun FocusForestRewardCard(
     liveSessionProgress: Float? = null,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalDarkTheme.current
     val stage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
     val stageName = treeStageTitle(stage)
-    val cardBg = if (isDark) Color(0xFF132619) else Color(0xFFE8F5E9)
-    val cardBorder = if (isDark) Color(0xFF4CAF50).copy(alpha = 0.5f) else Color(0xFF81C784)
-    val accentText = if (isDark) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
+    val isDark = LocalDarkTheme.current
+    val mintBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
+    val mintAccent = if (isDark) Color(0xFF3DDC97) else Color(0xFF0A6B43)
 
     val xpScore = stats.totalFocusMinutes + (stats.completedSessionsCount * 15L)
     val nextMilestone = when (stage) {
@@ -222,9 +221,10 @@ fun FocusForestRewardCard(
     val growthFraction = liveSessionProgress ?: (xpScore.toFloat() / nextMilestone.toFloat()).coerceIn(0.15f, 1f)
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.5.dp, cardBorder),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(22.dp),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = modifier
             .fillMaxWidth()
             .testTag("virtual_focus_tree_card")
@@ -238,15 +238,14 @@ fun FocusForestRewardCard(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(94.dp)
+                    .size(92.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
-                    .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                    .background(mintBg)
             ) {
                 GrowingTreeCanvas(
                     stage = stage,
                     growthFraction = growthFraction,
-                    modifier = Modifier.size(86.dp)
+                    modifier = Modifier.size(84.dp)
                 )
             }
 
@@ -259,18 +258,25 @@ fun FocusForestRewardCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (liveSessionProgress != null) "GROWING NOW" else "VIRTUAL FOCUS TREE",
+                        text = if (liveSessionProgress != null) "GROWING NOW" else "FOCUS FOREST",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Black,
-                        color = accentText,
+                        color = MaterialTheme.colorScheme.secondary,
                         letterSpacing = 0.8.sp
                     )
-                    Text(
-                        text = "Stage $stage/5",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = accentText
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(mintBg)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Stage $stage/5",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = mintAccent
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -282,7 +288,7 @@ fun FocusForestRewardCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
                     text = if (liveSessionProgress != null) {
@@ -291,20 +297,26 @@ fun FocusForestRewardCard(
                         "${stats.completedSessionsCount} Trees Grown • ${stats.totalFocusMinutes}m Rooted"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.secondary
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                LinearProgressIndicator(
-                    progress = { growthFraction.coerceIn(0f, 1f) },
-                    color = accentText,
-                    trackColor = cardBorder.copy(alpha = 0.25f),
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(7.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                )
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(growthFraction.coerceIn(0.06f, 1f))
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF3DDC97))
+                    )
+                }
             }
         }
     }
@@ -358,15 +370,15 @@ fun GamifiedLevelHudCard(
     modifier: Modifier = Modifier
 ) {
     val level = (stats.focusScore / 200) + 1
-    val levelProgress = ((stats.focusScore % 200) / 200f).coerceIn(0.04f, 1f)
+    val levelProgress = ((stats.focusScore % 200) / 200f).coerceIn(0.05f, 1f)
     val pointsToNext = 200 - (stats.focusScore % 200)
     val rank = readerRankTitle(level)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -381,12 +393,12 @@ fun GamifiedLevelHudCard(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.Black)
+                            .background(Color(0xFF6C4DFF))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = "Reader Level",
-                            tint = Color(0xFFFFD54F),
+                            tint = Color(0xFFFFC857),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -396,7 +408,7 @@ fun GamifiedLevelHudCard(
                             text = "LVL $level • ${rank.uppercase()}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = Color(0xFF6C4DFF),
                             letterSpacing = 0.8.sp
                         )
                         Text(
@@ -412,15 +424,21 @@ fun GamifiedLevelHudCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            LinearProgressIndicator(
-                progress = { levelProgress },
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(4.dp))
-            )
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(levelProgress)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFF6C4DFF))
+                )
+            }
         }
     }
 }

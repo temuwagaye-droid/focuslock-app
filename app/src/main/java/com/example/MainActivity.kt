@@ -41,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,11 +77,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.data.local.AppDatabase
+import com.example.data.remote.SupabaseUser
 import com.example.data.repository.FocusRepository
 import com.example.notifications.NotificationHelper
 import com.example.telemetry.TelemetryManager
 import com.example.ui.FocusViewModel
 import com.example.ui.FocusViewModelFactory
+import com.example.ui.components.AccountProfileDialog
 import com.example.ui.components.AccountabilityQuitDialog
 import com.example.ui.components.ConcaveNotchBottomNavigationBar
 import com.example.ui.screens.AppSelectionScreen
@@ -92,6 +95,8 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SocialScreen
 import com.example.ui.screens.TimerSetupScreen
 import com.example.ui.theme.AppAccentTheme
+import com.example.ui.theme.GamifiedMint
+import com.example.ui.theme.GamifiedPurple
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -134,6 +139,10 @@ class MainActivity : ComponentActivity() {
                 val isSessionActive by viewModel.isSessionActive.collectAsState()
                 val isBreakActive by viewModel.isBreakActive.collectAsState()
                 val pendingQuitAlert by viewModel.pendingQuitAlert.collectAsState()
+                val currentUser by viewModel.currentUser.collectAsState()
+                val isAuthBusy by viewModel.isAuthBusy.collectAsState()
+                val cloudStatusMessage by viewModel.cloudStatusMessage.collectAsState()
+                val statsSummary by viewModel.statsSummary.collectAsState()
 
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -142,6 +151,7 @@ class MainActivity : ComponentActivity() {
                 var autoTriggerStart by remember { mutableStateOf(false) }
                 var barsVisible by remember { mutableStateOf(true) }
                 var showLauncherIntro by remember { mutableStateOf(true) }
+                var showAccountDialog by remember { mutableStateOf(false) }
 
                 // Smooth launcher entrance animation on app open
                 val appEntranceAlpha = remember { Animatable(0f) }
@@ -282,7 +292,9 @@ class MainActivity : ComponentActivity() {
                                 FocusLockTopAppBar(
                                     currentRoute = currentRoute,
                                     isDarkModeEnabled = isDarkModeEnabled,
+                                    currentUser = currentUser,
                                     onToggleDarkMode = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
+                                    onAccountClick = { showAccountDialog = true },
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }
@@ -400,6 +412,25 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { viewModel.clearPendingQuitAlert() }
                         )
                     }
+
+                    if (showAccountDialog) {
+                        AccountProfileDialog(
+                            currentUser = currentUser,
+                            stats = statsSummary,
+                            isAuthBusy = isAuthBusy,
+                            statusMessage = cloudStatusMessage,
+                            onSignInWithGoogle = { viewModel.signInWithGoogle(this@MainActivity) },
+                            onSignOut = {
+                                viewModel.signOut(this@MainActivity)
+                                showAccountDialog = false
+                            },
+                            onOpenSettings = {
+                                showAccountDialog = false
+                                navigateToTab(DashboardTab.SETTINGS)
+                            },
+                            onDismiss = { showAccountDialog = false }
+                        )
+                    }
                 }
             }
         }
@@ -425,7 +456,9 @@ class MainActivity : ComponentActivity() {
 private fun FocusLockTopAppBar(
     currentRoute: String,
     isDarkModeEnabled: Boolean,
+    currentUser: SupabaseUser?,
     onToggleDarkMode: () -> Unit,
+    onAccountClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val sectionLabel = when (currentRoute) {
@@ -461,7 +494,7 @@ private fun FocusLockTopAppBar(
                         IconButton(
                             onClick = onBackClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(Color.Black)
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
@@ -501,25 +534,92 @@ private fun FocusLockTopAppBar(
                     }
                 }
 
-                IconButton(
-                    onClick = onToggleDarkMode,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black)
-                        .border(
-                            1.dp,
-                            if (isDarkModeEnabled) Color.White.copy(alpha = 0.24f) else MaterialTheme.colorScheme.outlineVariant,
-                            CircleShape
-                        )
-                        .testTag("quick_theme_toggle")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                        contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp)
-                    )
+                    // Account / Profile button beside the theme toggle
+                    IconButton(
+                        onClick = onAccountClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("topbar_account_button")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (currentUser != null) {
+                                val initial = (currentUser.displayName ?: currentUser.email ?: "R")
+                                    .trim()
+                                    .firstOrNull()
+                                    ?.uppercaseChar()
+                                    ?: 'R'
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(GamifiedPurple)
+                                ) {
+                                    Text(
+                                        text = initial.toString(),
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(GamifiedMint)
+                                        .border(1.5.dp, MaterialTheme.colorScheme.background, CircleShape)
+                                        .align(Alignment.BottomEnd)
+                                )
+                            } else {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black)
+                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Account Sign-In",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onToggleDarkMode,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("quick_theme_toggle")
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                                .border(
+                                    1.dp,
+                                    if (isDarkModeEnabled) Color.White.copy(alpha = 0.24f) else MaterialTheme.colorScheme.outlineVariant,
+                                    CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
+                                tint = Color.White,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
