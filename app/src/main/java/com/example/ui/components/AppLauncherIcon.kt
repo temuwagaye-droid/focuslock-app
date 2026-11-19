@@ -1,35 +1,32 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.BorderStroke
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/**
- * Displays an installed app's actual Android launcher icon inside a crisp circular container,
- * falling back cleanly to a black circular Apps badge if unavailable.
- */
 @Composable
 fun AppLauncherIcon(
     packageName: String,
@@ -38,40 +35,52 @@ fun AppLauncherIcon(
     size: Dp = 40.dp
 ) {
     val context = LocalContext.current
-    val iconBitmap: ImageBitmap? = remember(packageName) {
-        runCatching {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            drawable.toBitmap(width = 96, height = 96).asImageBitmap()
-        }.getOrNull()
+    val bitmapState = produceState<ImageBitmap?>(initialValue = null, packageName) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val drawable = context.packageManager.getApplicationIcon(packageName)
+                drawableToBitmap(drawable).asImageBitmap()
+            }.getOrNull()
+        }
     }
 
-    if (iconBitmap != null) {
+    val bmp = bitmapState.value
+    if (bmp != null) {
+        Image(
+            bitmap = bmp,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(10.dp))
+        )
+    } else {
         Box(
             contentAlignment = Alignment.Center,
             modifier = modifier
                 .size(size)
-                .clip(CircleShape)
-                .background(Color.Black)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                .padding(2.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
         ) {
-            Image(
-                bitmap = iconBitmap,
+            Icon(
+                imageVector = Icons.Default.Apps,
                 contentDescription = contentDescription,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(size * 0.55f)
             )
         }
-    } else {
-        CircularIconBadge(
-            imageVector = Icons.Default.Apps,
-            contentDescription = contentDescription,
-            containerSize = size,
-            iconSize = size * 0.55f,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = modifier
-        )
     }
+}
+
+private fun drawableToBitmap(drawable: Drawable): Bitmap {
+    if (drawable is BitmapDrawable && drawable.bitmap != null) {
+        return drawable.bitmap
+    }
+    val w = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
+    val h = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+    return bitmap
 }

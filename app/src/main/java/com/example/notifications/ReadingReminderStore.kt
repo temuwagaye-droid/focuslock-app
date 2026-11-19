@@ -10,22 +10,16 @@ import org.json.JSONObject
 import java.util.Calendar
 import java.util.UUID
 
-/**
- * Persistent reactive store for Reading Reminders, Quiet Hours & Notification Preferences,
- * and Notification History. Shared by UI ViewModel and BroadcastReceivers.
- */
 object ReadingReminderStore {
-
     private const val PREFS_NAME = "focuslock_reading_reminders"
-    private const val KEY_REMINDERS_JSON = "reminders_json"
-    private const val KEY_PREFS_JSON = "reminder_prefs_json"
-    private const val KEY_HISTORY_JSON = "notification_history_json"
-    private const val MAX_HISTORY_ENTRIES = 60
+    private const val KEY_REMINDERS = "reminders_json"
+    private const val KEY_PREFS = "preferences_json"
+    private const val KEY_HISTORY = "history_json"
+    private const val MAX_HISTORY = 100
 
     private val lock = Any()
-
     @Volatile
-    private var loadedFromPrefs = false
+    private var loaded = false
 
     private val _reminders = MutableStateFlow<List<ReadingReminderItem>>(emptyList())
     val reminders: StateFlow<List<ReadingReminderItem>> = _reminders.asStateFlow()
@@ -37,45 +31,45 @@ object ReadingReminderStore {
     val history: StateFlow<List<NotificationHistoryEntry>> = _history.asStateFlow()
 
     fun ensureLoaded(context: Context) {
-        if (loadedFromPrefs) return
+        if (loaded) return
         synchronized(lock) {
-            if (loadedFromPrefs) return
-            val prefs = prefs(context)
-            loadRemindersLocked(prefs)
-            loadPreferencesLocked(prefs)
-            loadHistoryLocked(prefs)
-            loadedFromPrefs = true
+            if (loaded) return
+            val sp = prefs(context)
+            loadRemindersLocked(sp)
+            loadPreferencesLocked(sp)
+            loadHistoryLocked(sp)
+            loaded = true
         }
     }
 
     fun reloadFromPrefs(context: Context) {
         synchronized(lock) {
-            val prefs = prefs(context)
-            loadRemindersLocked(prefs)
-            loadPreferencesLocked(prefs)
-            loadHistoryLocked(prefs)
-            loadedFromPrefs = true
+            val sp = prefs(context)
+            loadRemindersLocked(sp)
+            loadPreferencesLocked(sp)
+            loadHistoryLocked(sp)
+            loaded = true
         }
     }
 
     fun createReminder(
         context: Context,
         title: String,
-        note: String,
+        note: String = "",
         year: Int,
         month: Int,
         dayOfMonth: Int,
         hour: Int,
         minute: Int,
-        repeatMode: ReminderRepeatMode,
-        soundOption: ReminderSoundOption,
+        repeatMode: ReminderRepeatMode = ReminderRepeatMode.DAILY,
+        soundOption: ReminderSoundOption = ReminderSoundOption.DEFAULT,
         customSoundUri: String? = null,
         customSoundLabel: String? = null
     ): ReadingReminderItem {
         ensureLoaded(context)
         val item = ReadingReminderItem(
-            id = "rem_${UUID.randomUUID().toString().replace("-", "").take(10)}",
-            title = title.trim().ifBlank { "Reading Session" },
+            id = UUID.randomUUID().toString(),
+            title = title.trim().ifBlank { "Reading Reminder" },
             note = note.trim(),
             year = year,
             month = month.coerceIn(1, 12),
@@ -84,35 +78,29 @@ object ReadingReminderStore {
             minute = minute.coerceIn(0, 59),
             repeatMode = repeatMode,
             enabled = true,
-            completedAtMs = null,
-            snoozedUntilMs = null,
             soundOption = soundOption,
             customSoundUri = customSoundUri,
             customSoundLabel = customSoundLabel,
             createdAtMs = System.currentTimeMillis()
         )
         synchronized(lock) {
-            _reminders.value = listOf(item) + _reminders.value
+            val updated = listOf(item) + _reminders.value
+            _reminders.value = updated
             persistRemindersLocked(prefs(context))
         }
         ReminderScheduler.syncAllAlarms(context)
         return item
     }
 
-    fun updateReminder(context: Context, updated: ReadingReminderItem) {
+    fun updateReminder(context: Context, item: ReadingReminderItem) {
         ensureLoaded(context)
         synchronized(lock) {
             val list = _reminders.value.toMutableList()
-            val idx = list.indexOfFirst { it.id == updated.id }
+            val idx = list.indexOfFirst { it.id == item.id }
             if (idx >= 0) {
-                list[idx] = updated.copy(
-                    title = updated.title.trim().ifBlank { "Reading Session" },
-                    note = updated.note.trim(),
-                    snoozedUntilMs = null,
-                    completedAtMs = null
-                )
+                list[idx] = item
             } else {
-                list.add(0, updated)
+                list.add(0, item)
             }
             _reminders.value = list
             persistRemindersLocked(prefs(context))
@@ -122,141 +110,144 @@ object ReadingReminderStore {
 
     fun deleteReminder(context: Context, reminderId: String) {
         ensureLoaded(context)
+        ReminderScheduler.cancelReminderAlarm(context, reminderId)
         synchronized(lock) {
             _reminders.value = _reminders.value.filterNot { it.id == reminderId }
             persistRemindersLocked(prefs(context))
         }
-        ReminderScheduler.cancelReminderAlarm(context, reminderId)
-        ReminderScheduler.syncAllAlarms(context)
     }
 
     fun setReminderEnabled(context: Context, reminderId: String, enabled: Boolean) {
         ensureLoaded(context)
         synchronized(lock) {
             _reminders.value = _reminders.value.map {
-                if (it.id == reminderId) {
-                    it.copy(
-                        enabled = enabled,
-                        completedAtMs = if (enabled && it.repeatMode == ReminderRepeatMode.ONCE) null else it.completedAtMs
-                    )
-                } else it
+                if (it.id == reminderId) it.copy(enabled = enabled, snoozedUntilMs = null) else it
             }
             persistRemindersLocked(prefs(context))
+        }
+        if (!enabled) {
+            ReminderScheduler.cancelReminderAlarm(context, reminderId)
         }
         ReminderScheduler.syncAllAlarms(context)
     }
 
-    fun snoozeReminder(context: Context, reminderId: String, snoozeMinutes: Int? = null): ReadingReminderItem? {
+    fun snoozeReminder(context: Context, reminderId: String, minutes: Int? = null): ReadingReminderItem? {
         ensureLoaded(context)
-        var target: ReadingReminderItem? = null
-        val mins = (snoozeMinutes ?: _preferences.value.defaultSnoozeMinutes).coerceIn(1, 180)
-        val snoozeUntil = System.currentTimeMillis() + mins * 60_000L
+        var updatedItem: ReadingReminderItem? = null
         synchronized(lock) {
-            _reminders.value = _reminders.value.map {
-                if (it.id == reminderId) {
-                    val upd = it.copy(
-                        enabled = true,
-                        snoozedUntilMs = snoozeUntil,
-                        completedAtMs = null
-                    )
-                    target = upd
-                    upd
-                } else it
+            val snoozeMins = (minutes ?: _preferences.value.defaultSnoozeMinutes).coerceIn(1, 180)
+            val until = System.currentTimeMillis() + snoozeMins * 60_000L
+            _reminders.value = _reminders.value.map { item ->
+                if (item.id == reminderId) {
+                    item.copy(snoozedUntilMs = until, enabled = true).also { updatedItem = it }
+                } else {
+                    item
+                }
             }
             persistRemindersLocked(prefs(context))
         }
-        target?.let {
+        updatedItem?.let {
             appendHistory(
                 context = context,
                 reminderId = it.id,
                 title = it.title,
-                message = "Snoozed for ${mins}m",
+                message = "Snoozed for ${(minutes ?: _preferences.value.defaultSnoozeMinutes).coerceIn(1, 180)}m",
                 status = NotificationHistoryStatus.SNOOZED
             )
             ReminderScheduler.syncAllAlarms(context)
         }
-        return target
+        return updatedItem
     }
 
     fun markReminderCompleted(context: Context, reminderId: String): ReadingReminderItem? {
         ensureLoaded(context)
+        var updatedItem: ReadingReminderItem? = null
         val now = System.currentTimeMillis()
-        var target: ReadingReminderItem? = null
         synchronized(lock) {
             _reminders.value = _reminders.value.map { item ->
                 if (item.id == reminderId) {
-                    val upd = if (item.repeatMode == ReminderRepeatMode.ONCE) {
-                        item.copy(completedAtMs = now, snoozedUntilMs = null, enabled = false)
-                    } else {
-                        val nextCal = ReminderScheduler.advanceCalendar(item, now)
+                    val next = if (item.repeatMode == ReminderRepeatMode.ONCE) {
                         item.copy(
-                            year = nextCal.get(Calendar.YEAR),
-                            month = nextCal.get(Calendar.MONTH) + 1,
-                            dayOfMonth = nextCal.get(Calendar.DAY_OF_MONTH),
+                            completedAtMs = now,
+                            snoozedUntilMs = null,
+                            enabled = false
+                        )
+                    } else {
+                        val cal = ReminderScheduler.advanceCalendar(item, now)
+                        item.copy(
+                            year = cal.get(Calendar.YEAR),
+                            month = cal.get(Calendar.MONTH) + 1,
+                            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
                             completedAtMs = now,
                             snoozedUntilMs = null
                         )
                     }
-                    target = upd
-                    upd
-                } else item
+                    next.also { updatedItem = it }
+                } else {
+                    item
+                }
             }
             persistRemindersLocked(prefs(context))
         }
-        target?.let {
+        updatedItem?.let {
             appendHistory(
                 context = context,
                 reminderId = it.id,
                 title = it.title,
-                message = if (it.repeatMode == ReminderRepeatMode.ONCE) "Marked completed" else "Completed (${it.repeatMode.label} rescheduled)",
+                message = if (it.repeatMode == ReminderRepeatMode.ONCE) {
+                    "Marked completed"
+                } else {
+                    "Completed • Next: ${it.formattedDate()} ${it.formattedTime()}"
+                },
                 status = NotificationHistoryStatus.COMPLETED
             )
             ReminderScheduler.syncAllAlarms(context)
         }
-        return target
+        return updatedItem
     }
 
     fun dismissReminder(context: Context, reminderId: String): ReadingReminderItem? {
         ensureLoaded(context)
+        var updatedItem: ReadingReminderItem? = null
         val now = System.currentTimeMillis()
-        var target: ReadingReminderItem? = null
         synchronized(lock) {
             _reminders.value = _reminders.value.map { item ->
                 if (item.id == reminderId) {
-                    val upd = if (item.repeatMode == ReminderRepeatMode.ONCE) {
+                    val next = if (item.repeatMode == ReminderRepeatMode.ONCE) {
                         item.copy(snoozedUntilMs = null, enabled = false)
                     } else {
-                        val nextCal = ReminderScheduler.advanceCalendar(item, now)
+                        val cal = ReminderScheduler.advanceCalendar(item, now)
                         item.copy(
-                            year = nextCal.get(Calendar.YEAR),
-                            month = nextCal.get(Calendar.MONTH) + 1,
-                            dayOfMonth = nextCal.get(Calendar.DAY_OF_MONTH),
+                            year = cal.get(Calendar.YEAR),
+                            month = cal.get(Calendar.MONTH) + 1,
+                            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
                             snoozedUntilMs = null
                         )
                     }
-                    target = upd
-                    upd
-                } else item
+                    next.also { updatedItem = it }
+                } else {
+                    item
+                }
             }
             persistRemindersLocked(prefs(context))
         }
-        target?.let {
+        updatedItem?.let {
             appendHistory(
                 context = context,
                 reminderId = it.id,
                 title = it.title,
-                message = "Dismissed notification",
+                message = "Dismissed",
                 status = NotificationHistoryStatus.DISMISSED
             )
             ReminderScheduler.syncAllAlarms(context)
         }
-        return target
+        return updatedItem
     }
 
-    fun updatePreferences(context: Context, updated: ReminderPreferences) {
+    fun updatePreferences(context: Context, prefsValue: ReminderPreferences) {
         ensureLoaded(context)
         synchronized(lock) {
-            _preferences.value = updated
+            _preferences.value = prefsValue
             persistPreferencesLocked(prefs(context))
         }
         ReminderScheduler.syncAllAlarms(context)
@@ -271,7 +262,7 @@ object ReadingReminderStore {
     ) {
         ensureLoaded(context)
         val entry = NotificationHistoryEntry(
-            id = "hist_${UUID.randomUUID().toString().replace("-", "").take(10)}",
+            id = UUID.randomUUID().toString(),
             reminderId = reminderId,
             title = title,
             message = message,
@@ -279,8 +270,7 @@ object ReadingReminderStore {
             timestampMs = System.currentTimeMillis()
         )
         synchronized(lock) {
-            val updated = (listOf(entry) + _history.value).take(MAX_HISTORY_ENTRIES)
-            _history.value = updated
+            _history.value = (listOf(entry) + _history.value).take(MAX_HISTORY)
             persistHistoryLocked(prefs(context))
         }
     }
@@ -304,7 +294,7 @@ object ReadingReminderStore {
             _preferences.value = ReminderPreferences()
             _history.value = emptyList()
             prefs(context).edit().clear().apply()
-            loadedFromPrefs = true
+            loaded = true
         }
     }
 
@@ -312,43 +302,46 @@ object ReadingReminderStore {
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun loadRemindersLocked(sp: SharedPreferences) {
-        val raw = sp.getString(KEY_REMINDERS_JSON, null) ?: run {
+        val raw = sp.getString(KEY_REMINDERS, null)
+        if (raw.isNullOrBlank()) {
             _reminders.value = emptyList()
             return
         }
-        runCatching {
-            val arr = JSONArray(raw)
-            val list = mutableListOf<ReadingReminderItem>()
+        val arr = runCatching { JSONArray(raw) }.getOrNull() ?: run {
+            _reminders.value = emptyList()
+            return
+        }
+        val list = buildList {
             for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                list.add(
+                val obj = arr.optJSONObject(i) ?: continue
+                add(
                     ReadingReminderItem(
-                        id = o.optString("id"),
-                        title = o.optString("title", "Reading Session"),
-                        note = o.optString("note", ""),
-                        year = o.optInt("year", 2026),
-                        month = o.optInt("month", 1),
-                        dayOfMonth = o.optInt("dayOfMonth", 1),
-                        hour = o.optInt("hour", 20),
-                        minute = o.optInt("minute", 0),
-                        repeatMode = ReminderRepeatMode.fromId(o.optString("repeatMode")),
-                        enabled = o.optBoolean("enabled", true),
-                        completedAtMs = if (o.has("completedAtMs") && !o.isNull("completedAtMs")) o.optLong("completedAtMs") else null,
-                        snoozedUntilMs = if (o.has("snoozedUntilMs") && !o.isNull("snoozedUntilMs")) o.optLong("snoozedUntilMs") else null,
-                        soundOption = ReminderSoundOption.fromId(o.optString("soundOption")),
-                        customSoundUri = o.optString("customSoundUri").takeIf { it.isNotBlank() },
-                        customSoundLabel = o.optString("customSoundLabel").takeIf { it.isNotBlank() },
-                        createdAtMs = o.optLong("createdAtMs", System.currentTimeMillis())
+                        id = obj.optString("id").ifBlank { UUID.randomUUID().toString() },
+                        title = obj.optString("title", "Reading Reminder"),
+                        note = obj.optString("note", ""),
+                        year = obj.optInt("year", 2026),
+                        month = obj.optInt("month", 1),
+                        dayOfMonth = obj.optInt("dayOfMonth", 1),
+                        hour = obj.optInt("hour", 20),
+                        minute = obj.optInt("minute", 0),
+                        repeatMode = ReminderRepeatMode.fromId(obj.optString("repeatMode", "daily")),
+                        enabled = obj.optBoolean("enabled", true),
+                        completedAtMs = if (obj.has("completedAtMs") && !obj.isNull("completedAtMs")) obj.optLong("completedAtMs") else null,
+                        snoozedUntilMs = if (obj.has("snoozedUntilMs") && !obj.isNull("snoozedUntilMs")) obj.optLong("snoozedUntilMs") else null,
+                        soundOption = ReminderSoundOption.fromId(obj.optString("soundOption", "default")),
+                        customSoundUri = obj.optString("customSoundUri", "").ifBlank { null },
+                        customSoundLabel = obj.optString("customSoundLabel", "").ifBlank { null },
+                        createdAtMs = obj.optLong("createdAtMs", System.currentTimeMillis())
                     )
                 )
             }
-            _reminders.value = list
         }
+        _reminders.value = list
     }
 
     private fun persistRemindersLocked(sp: SharedPreferences) {
         val arr = JSONArray()
-        for (item in _reminders.value) {
+        _reminders.value.forEach { item ->
             arr.put(
                 JSONObject().apply {
                     put("id", item.id)
@@ -361,8 +354,8 @@ object ReadingReminderStore {
                     put("minute", item.minute)
                     put("repeatMode", item.repeatMode.id)
                     put("enabled", item.enabled)
-                    if (item.completedAtMs != null) put("completedAtMs", item.completedAtMs) else put("completedAtMs", JSONObject.NULL)
-                    if (item.snoozedUntilMs != null) put("snoozedUntilMs", item.snoozedUntilMs) else put("snoozedUntilMs", JSONObject.NULL)
+                    put("completedAtMs", item.completedAtMs ?: JSONObject.NULL)
+                    put("snoozedUntilMs", item.snoozedUntilMs ?: JSONObject.NULL)
                     put("soundOption", item.soundOption.id)
                     put("customSoundUri", item.customSoundUri ?: "")
                     put("customSoundLabel", item.customSoundLabel ?: "")
@@ -370,33 +363,38 @@ object ReadingReminderStore {
                 }
             )
         }
-        sp.edit().putString(KEY_REMINDERS_JSON, arr.toString()).apply()
+        sp.edit().putString(KEY_REMINDERS, arr.toString()).apply()
     }
 
     private fun loadPreferencesLocked(sp: SharedPreferences) {
-        val raw = sp.getString(KEY_PREFS_JSON, null) ?: return
-        runCatching {
-            val o = JSONObject(raw)
-            _preferences.value = ReminderPreferences(
-                globalEnabled = o.optBoolean("globalEnabled", true),
-                quietHoursEnabled = o.optBoolean("quietHoursEnabled", false),
-                quietStartHour = o.optInt("quietStartHour", 22),
-                quietStartMinute = o.optInt("quietStartMinute", 0),
-                quietEndHour = o.optInt("quietEndHour", 7),
-                quietEndMinute = o.optInt("quietEndMinute", 0),
-                vibrateEnabled = o.optBoolean("vibrateEnabled", true),
-                showActionButtons = o.optBoolean("showActionButtons", true),
-                defaultSnoozeMinutes = o.optInt("defaultSnoozeMinutes", 10),
-                defaultSoundOption = ReminderSoundOption.fromId(o.optString("defaultSoundOption")),
-                defaultCustomSoundUri = o.optString("defaultCustomSoundUri").takeIf { it.isNotBlank() },
-                defaultCustomSoundLabel = o.optString("defaultCustomSoundLabel").takeIf { it.isNotBlank() }
-            )
+        val raw = sp.getString(KEY_PREFS, null)
+        if (raw.isNullOrBlank()) {
+            _preferences.value = ReminderPreferences()
+            return
         }
+        val obj = runCatching { JSONObject(raw) }.getOrNull() ?: run {
+            _preferences.value = ReminderPreferences()
+            return
+        }
+        _preferences.value = ReminderPreferences(
+            globalEnabled = obj.optBoolean("globalEnabled", true),
+            quietHoursEnabled = obj.optBoolean("quietHoursEnabled", false),
+            quietStartHour = obj.optInt("quietStartHour", 22),
+            quietStartMinute = obj.optInt("quietStartMinute", 0),
+            quietEndHour = obj.optInt("quietEndHour", 7),
+            quietEndMinute = obj.optInt("quietEndMinute", 0),
+            vibrateEnabled = obj.optBoolean("vibrateEnabled", true),
+            showActionButtons = obj.optBoolean("showActionButtons", true),
+            defaultSnoozeMinutes = obj.optInt("defaultSnoozeMinutes", 10),
+            defaultSoundOption = ReminderSoundOption.fromId(obj.optString("defaultSoundOption", "default")),
+            defaultCustomSoundUri = obj.optString("defaultCustomSoundUri", "").ifBlank { null },
+            defaultCustomSoundLabel = obj.optString("defaultCustomSoundLabel", "").ifBlank { null }
+        )
     }
 
     private fun persistPreferencesLocked(sp: SharedPreferences) {
         val p = _preferences.value
-        val o = JSONObject().apply {
+        val obj = JSONObject().apply {
             put("globalEnabled", p.globalEnabled)
             put("quietHoursEnabled", p.quietHoursEnabled)
             put("quietStartHour", p.quietStartHour)
@@ -410,37 +408,39 @@ object ReadingReminderStore {
             put("defaultCustomSoundUri", p.defaultCustomSoundUri ?: "")
             put("defaultCustomSoundLabel", p.defaultCustomSoundLabel ?: "")
         }
-        sp.edit().putString(KEY_PREFS_JSON, o.toString()).apply()
+        sp.edit().putString(KEY_PREFS, obj.toString()).apply()
     }
 
     private fun loadHistoryLocked(sp: SharedPreferences) {
-        val raw = sp.getString(KEY_HISTORY_JSON, null) ?: run {
+        val raw = sp.getString(KEY_HISTORY, null)
+        if (raw.isNullOrBlank()) {
             _history.value = emptyList()
             return
         }
-        runCatching {
-            val arr = JSONArray(raw)
-            val list = mutableListOf<NotificationHistoryEntry>()
+        val arr = runCatching { JSONArray(raw) }.getOrNull() ?: run {
+            _history.value = emptyList()
+            return
+        }
+        _history.value = buildList {
             for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                list.add(
+                val obj = arr.optJSONObject(i) ?: continue
+                add(
                     NotificationHistoryEntry(
-                        id = o.optString("id"),
-                        reminderId = o.optString("reminderId"),
-                        title = o.optString("title"),
-                        message = o.optString("message"),
-                        status = NotificationHistoryStatus.fromId(o.optString("status")),
-                        timestampMs = o.optLong("timestampMs", 0L)
+                        id = obj.optString("id").ifBlank { UUID.randomUUID().toString() },
+                        reminderId = obj.optString("reminderId"),
+                        title = obj.optString("title"),
+                        message = obj.optString("message"),
+                        status = NotificationHistoryStatus.fromId(obj.optString("status", "triggered")),
+                        timestampMs = obj.optLong("timestampMs", 0L)
                     )
                 )
             }
-            _history.value = list
         }
     }
 
     private fun persistHistoryLocked(sp: SharedPreferences) {
         val arr = JSONArray()
-        for (entry in _history.value) {
+        _history.value.forEach { entry ->
             arr.put(
                 JSONObject().apply {
                     put("id", entry.id)
@@ -452,6 +452,6 @@ object ReadingReminderStore {
                 }
             )
         }
-        sp.edit().putString(KEY_HISTORY_JSON, arr.toString()).apply()
+        sp.edit().putString(KEY_HISTORY, arr.toString()).apply()
     }
 }

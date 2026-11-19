@@ -137,7 +137,7 @@ object SupabaseAuthService {
         val config = resolveSupabaseConfig()
             ?: return Result.failure(
                 IllegalStateException(
-                    "Supabase key is not configured yet. Add SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in the AI Studio Secrets panel."
+                    "Supabase key is not configured in this build. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY) in Secrets and rebuild the APK."
                 )
             )
         val (supabaseUrl, anonKey) = config
@@ -420,6 +420,249 @@ object SupabaseAuthService {
         }
     }
 
+    private fun executePutUser(url: String, anonKey: String, accessToken: String, body: JSONObject): JSONObject {
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("Content-Type", "application/json")
+            .put(body.toString().toRequestBody(jsonMediaType))
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+            val rawBody = response.body?.string().orEmpty()
+            val json = runCatching { JSONObject(rawBody) }.getOrElse { JSONObject() }
+            if (!response.isSuccessful) {
+                val msg = json.optString("msg")
+                    .ifBlank { json.optString("message") }
+                    .ifBlank { "Supabase user update error (${response.code})." }
+                throw SupabaseHttpException(response.code, msg)
+            }
+            return json
+        }
+    }
+
+    suspend fun backupUserMetadata(
+        context: Context,
+        profile: CloudUserProfile,
+        bundle: CloudRestoreBundle
+    ): Result<Int> {
+        refreshSessionIfNeeded(context)
+        val user = _currentUser.value
+            ?: return Result.failure(IllegalStateException("Sign in with Google to back up to Supabase."))
+        val config = resolveSupabaseConfig()
+            ?: return Result.failure(IllegalStateException("Supabase configuration missing."))
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val settingsJson = bundle.settings?.let { s ->
+                    JSONObject().apply {
+                        put("isDarkMode", s.isDarkMode)
+                        put("accentTheme", s.accentTheme)
+                        put("isWhitelistMode", s.isWhitelistMode)
+                        put("designatedReadingApp", s.designatedReadingApp)
+                        put("sessionDurationMinutes", s.sessionDurationMinutes)
+                        put("autoDndEnabled", s.autoDndEnabled)
+                        put("ambientSound", s.ambientSound)
+                        put("reminderEnabled", s.reminderEnabled)
+                        put("reminderHour", s.reminderHour)
+                        put("reminderMinute", s.reminderMinute)
+                        put("partnerName", s.partnerName)
+                        put("partnerEmail", s.partnerEmail)
+                        put("notifyPartnerOnQuit", s.notifyPartnerOnQuit)
+                        put("parentalLockEnabled", s.parentalLockEnabled)
+                        put("parentalPinHash", s.parentalPinHash)
+                        put("analyticsOptIn", s.analyticsOptIn)
+                        put("crashReportingOptIn", s.crashReportingOptIn)
+                        put("cloudSyncEnabled", s.cloudSyncEnabled)
+                        put("isPro", s.isPro)
+                    }
+                }
+                val sessionsArr = org.json.JSONArray().apply {
+                    bundle.sessions.take(50).forEach { item ->
+                        put(
+                            JSONObject().apply {
+                                put("timestampMs", item.timestampMs)
+                                put("durationSeconds", item.durationSeconds)
+                                put("blockedAttempts", item.blockedAttempts)
+                                put("isCompleted", item.isCompleted)
+                                put("readingAppPackage", item.readingAppPackage)
+                            }
+                        )
+                    }
+                }
+                val appsArr = org.json.JSONArray().apply {
+                    bundle.blockedApps.take(80).forEach { app ->
+                        put(
+                            JSONObject().apply {
+                                put("packageName", app.packageName)
+                                put("appName", app.appName)
+                                put("isBlocked", app.isBlocked)
+                            }
+                        )
+                    }
+                }
+                val todosArr = org.json.JSONArray().apply {
+                    bundle.todos.take(50).forEach { todo ->
+                        put(
+                            JSONObject().apply {
+                                put("title", todo.title)
+                                put("isCompleted", todo.isCompleted)
+                                put("timestampMs", todo.timestampMs)
+                            }
+                        )
+                    }
+                }
+                val backupObj = JSONObject().apply {
+                    put("focusScore", profile.focusScore)
+                    put("totalFocusMinutes", profile.totalFocusMinutes)
+                    put("completedSessionsCount", profile.completedSessionsCount)
+                    put("currentStreak", profile.currentStreak)
+                    put("totalBlockedAttempts", profile.totalBlockedAttempts)
+                    put("treeStage", profile.treeStage)
+                    put("updatedAtMs", System.currentTimeMillis())
+                    if (settingsJson != null) put("settings", settingsJson)
+                    put("sessions", sessionsArr)
+                    put("blockedApps", appsArr)
+                    put("todos", todosArr)
+                }
+                val payload = JSONObject().put("data", JSONObject().put("focuslock_backup", backupObj))
+                executePutUser(
+                    url = "${config.first}/auth/v1/user",
+                    anonKey = config.second,
+                    accessToken = user.accessToken,
+                    body = payload
+                )
+                Result.success(bundle.sessions.size + bundle.blockedApps.size + bundle.todos.size)
+            } catch (e: Exception) {
+                Result.failure(IllegalStateException(e.localizedMessage ?: "Supabase cloud backup failed."))
+            }
+        }
+    }
+
+    suspend fun restoreUserMetadata(context: Context): Result<CloudRestoreBundle> {
+        refreshSessionIfNeeded(context)
+        val user = _currentUser.value
+            ?: return Result.failure(IllegalStateException("Sign in with Google to restore from Supabase."))
+        val config = resolveSupabaseConfig()
+            ?: return Result.failure(IllegalStateException("Supabase configuration missing."))
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val userJson = executeGetUser(
+                    url = "${config.first}/auth/v1/user",
+                    anonKey = config.second,
+                    accessToken = user.accessToken
+                )
+                val metadata = userJson.optJSONObject("user_metadata")
+                val backup = metadata?.optJSONObject("focuslock_backup")
+                    ?: return@withContext Result.failure(IllegalStateException("No Supabase cloud backup found yet. Tap Backup Now first."))
+
+                val settingsObj = backup.optJSONObject("settings")
+                val settings = settingsObj?.let { s ->
+                    CloudPrivateSettings(
+                        userId = user.uid,
+                        isDarkMode = s.optBoolean("isDarkMode", false),
+                        accentTheme = s.optString("accentTheme", "violet"),
+                        isWhitelistMode = s.optBoolean("isWhitelistMode", false),
+                        designatedReadingApp = s.optString("designatedReadingApp", ""),
+                        sessionDurationMinutes = s.optInt("sessionDurationMinutes", 15),
+                        autoDndEnabled = s.optBoolean("autoDndEnabled", false),
+                        ambientSound = s.optString("ambientSound", "none"),
+                        reminderEnabled = s.optBoolean("reminderEnabled", false),
+                        reminderHour = s.optInt("reminderHour", 20),
+                        reminderMinute = s.optInt("reminderMinute", 0),
+                        partnerName = s.optString("partnerName", ""),
+                        partnerEmail = s.optString("partnerEmail", ""),
+                        notifyPartnerOnQuit = s.optBoolean("notifyPartnerOnQuit", false),
+                        parentalLockEnabled = s.optBoolean("parentalLockEnabled", false),
+                        parentalPinHash = s.optString("parentalPinHash", ""),
+                        analyticsOptIn = s.optBoolean("analyticsOptIn", true),
+                        crashReportingOptIn = s.optBoolean("crashReportingOptIn", true),
+                        cloudSyncEnabled = s.optBoolean("cloudSyncEnabled", true),
+                        isPro = s.optBoolean("isPro", false)
+                    )
+                }
+
+                val sessionsArr = backup.optJSONArray("sessions") ?: org.json.JSONArray()
+                val sessions = buildList {
+                    for (i in 0 until sessionsArr.length()) {
+                        val obj = sessionsArr.optJSONObject(i) ?: continue
+                        add(
+                            CloudSessionBackup(
+                                userId = user.uid,
+                                sessionId = "sb_$i",
+                                timestampMs = obj.optLong("timestampMs", 0L),
+                                durationSeconds = obj.optLong("durationSeconds", 0L),
+                                blockedAttempts = obj.optInt("blockedAttempts", 0),
+                                isCompleted = obj.optBoolean("isCompleted", true),
+                                readingAppPackage = obj.optString("readingAppPackage", "")
+                            )
+                        )
+                    }
+                }
+
+                val appsArr = backup.optJSONArray("blockedApps") ?: org.json.JSONArray()
+                val blockedApps = buildList {
+                    for (i in 0 until appsArr.length()) {
+                        val obj = appsArr.optJSONObject(i) ?: continue
+                        add(
+                            CloudBlockedAppBackup(
+                                userId = user.uid,
+                                packageName = obj.optString("packageName"),
+                                appName = obj.optString("appName"),
+                                isBlocked = obj.optBoolean("isBlocked", true)
+                            )
+                        )
+                    }
+                }
+
+                val todosArr = backup.optJSONArray("todos") ?: org.json.JSONArray()
+                val todos = buildList {
+                    for (i in 0 until todosArr.length()) {
+                        val obj = todosArr.optJSONObject(i) ?: continue
+                        add(
+                            CloudTodoBackup(
+                                userId = user.uid,
+                                todoId = "sb_todo_$i",
+                                title = obj.optString("title"),
+                                isCompleted = obj.optBoolean("isCompleted", false),
+                                timestampMs = obj.optLong("timestampMs", 0L)
+                            )
+                        )
+                    }
+                }
+
+                Result.success(CloudRestoreBundle(settings, sessions, blockedApps, todos))
+            } catch (e: Exception) {
+                Result.failure(IllegalStateException(e.localizedMessage ?: "Failed to restore from Supabase."))
+            }
+        }
+    }
+
+    suspend fun deleteUserMetadataBackup(context: Context): Result<Unit> {
+        refreshSessionIfNeeded(context)
+        val user = _currentUser.value
+            ?: return Result.failure(IllegalStateException("Sign in with Google first."))
+        val config = resolveSupabaseConfig()
+            ?: return Result.failure(IllegalStateException("Supabase configuration missing."))
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val payload = JSONObject().put("data", JSONObject().put("focuslock_backup", JSONObject.NULL))
+                executePutUser(
+                    url = "${config.first}/auth/v1/user",
+                    anonKey = config.second,
+                    accessToken = user.accessToken,
+                    body = payload
+                )
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(IllegalStateException(e.localizedMessage ?: "Failed to delete Supabase cloud backup."))
+            }
+        }
+    }
+
     @VisibleForTesting
     internal fun parseSessionResponse(json: JSONObject): SupabaseUser {
         val accessToken = json.optString("access_token")
@@ -474,18 +717,26 @@ object SupabaseAuthService {
         keyCandidates: List<String>
     ): Pair<String, String>? {
         val url = urlCandidates
-            .map { it.trim().trimEnd('/') }
+            .map { raw ->
+                val cleaned = raw.trim().trim('"', '\'').trimEnd('/')
+                if (cleaned.isNotBlank() && !cleaned.startsWith("http://") && !cleaned.startsWith("https://") && cleaned.contains(".")) {
+                    "https://$cleaned"
+                } else {
+                    cleaned
+                }
+            }
             .firstOrNull {
                 (it.startsWith("https://") || it.startsWith("http://")) &&
                     !it.contains("your-project.supabase.co", ignoreCase = true)
             }
             ?: return null
         val validKeys = keyCandidates
-            .map { it.trim() }
+            .map { it.trim().trim('"', '\'') }
             .filter {
                 it.isNotBlank() &&
                     it != "YOUR_SUPABASE_ANON_KEY" &&
-                    it != "YOUR_SUPABASE_PUBLISHABLE_KEY"
+                    it != "YOUR_SUPABASE_PUBLISHABLE_KEY" &&
+                    !it.startsWith("YOUR_", ignoreCase = true)
             }
         val key = validKeys.firstOrNull {
             it.startsWith("sb_publishable_") || it.startsWith("eyJ")
@@ -495,8 +746,8 @@ object SupabaseAuthService {
 
     @VisibleForTesting
     internal fun resolveGoogleWebClientId(context: Context): String? {
-        val fromConfig = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
-        if (fromConfig.isNotBlank() && fromConfig != "YOUR_GOOGLE_WEB_CLIENT_ID") {
+        val fromConfig = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().trim('"', '\'')
+        if (fromConfig.isNotBlank() && fromConfig != "YOUR_GOOGLE_WEB_CLIENT_ID" && !fromConfig.startsWith("YOUR_", ignoreCase = true)) {
             return fromConfig
         }
         val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)

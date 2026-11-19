@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,9 +26,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,29 +45,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.filled.AllInclusive
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.example.notifications.NotificationHelper
 import com.example.service.EarlyQuitAlert
 import com.example.telemetry.TelemetryManager
 import com.example.ui.theme.AppAccentTheme
-import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
 
@@ -77,277 +68,119 @@ fun PremiumUpgradeDialog(
     onSelectTheme: (AppAccentTheme) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val proGold = Color(0xFFD4AF37)
-    val proGoldSoft = Color(0xFFF5E6B3)
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
+    Dialog(onDismissRequest = onDismiss) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(30.dp),
-            border = BorderStroke(1.5.dp, proGold.copy(alpha = 0.78f)),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.5.dp, Color(0xFFD4AF37).copy(alpha = 0.6f)),
             modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 460.dp)
+                .fillMaxWidth()
                 .testTag("premium_upgrade_dialog")
         ) {
             Column(
                 modifier = Modifier
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Luxury obsidian-gold Hero Header
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF0E0F14),
-                                    Color(0xFF1C1829),
-                                    Color(0xFF2B2113)
-                                )
+                            Brush.linearGradient(
+                                listOf(Color(0xFF121216), Color(0xFF1E1930), Color(0xFF2B2214))
                             )
                         )
+                        .padding(20.dp)
                 ) {
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    proGold.copy(alpha = 0.24f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(size.width * 0.85f, size.height * 0.15f),
-                                radius = size.width * 0.6f
-                            ),
-                            center = Offset(size.width * 0.85f, size.height * 0.15f),
-                            radius = size.width * 0.6f
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 22.dp, vertical = 22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(proGold.copy(alpha = 0.18f))
-                                .border(1.dp, proGold.copy(alpha = 0.6f), RoundedCornerShape(50))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (isProActive) "PRO PASS • ACTIVE" else "FOCUSLOCK PRO PASS",
-                                color = proGoldSoft,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(68.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                                .border(2.dp, proGold, CircleShape)
-                        ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.WorkspacePremium,
+                                imageVector = Icons.Default.Star,
                                 contentDescription = "FocusLock Pro",
-                                tint = proGoldSoft,
-                                modifier = Modifier.size(36.dp)
+                                tint = Color(0xFFF3E5AB),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "FocusLock Pro Pass",
+                                color = Color(0xFFF3E5AB),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = if (isProActive) "FocusLock Pro Active" else "Upgrade to FocusLock Pro",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            textAlign = TextAlign.Center
-                        )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Built for distraction-free deep reading with zero limits, strict whitelisting, and tailored themes.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.78f),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
+                            text = "Unlimited app blocking slots, Strict Whitelist Mode, premium soundscapes & custom accent themes.",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ProStatPillar(
-                                icon = Icons.Default.AllInclusive,
-                                value = "Unlimited",
-                                label = "App Locks",
-                                goldColor = proGoldSoft,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ProStatPillar(
-                                icon = Icons.Default.Shield,
-                                value = "Strict",
-                                label = "Whitelist",
-                                goldColor = proGoldSoft,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ProStatPillar(
-                                icon = Icons.Default.CloudDone,
-                                value = "Sync + Mix",
-                                label = "Cloud & Audio",
-                                goldColor = proGoldSoft,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(11.dp)
-                        ) {
-                            Text(
-                                text = "INCLUDED IN PRO",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 0.8.sp
-                            )
-                            ProFeatureRow(
-                                title = "Unlimited Blocked Apps & Whitelist Mode",
-                                subtitle = "Remove the 5-app cap or lock every app except your reader."
-                            )
-                            ProFeatureRow(
-                                title = "Cross-Device Cloud Sync & Backup",
-                                subtitle = "Keep sessions, blocklists, and settings backed up."
-                            )
-                            ProFeatureRow(
-                                title = "Full Ambient Soundscape Library",
-                                subtitle = "Unlock Rain, Warm Focus, and Zen Forest mixes."
-                            )
-                            ProFeatureRow(
-                                title = "Exclusive Pro Color Palettes & PDF Reports",
-                                subtitle = "Personalize your workspace and export reading insights."
-                            )
-                        }
-                    }
+                Column(modifier = Modifier.padding(20.dp)) {
+                    ProFeatureRow(
+                        "Unlimited Blocked Apps",
+                        "Remove the 5-app cap in Distraction Shield."
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ProFeatureRow(
+                        "Strict Whitelist Mode",
+                        "Lock out everything except your chosen reading app."
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ProFeatureRow(
+                        "Ambient Soundscapes",
+                        "Unlock Café Ambience & Binaural 40Hz Waves."
+                    )
 
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
-                        text = "THEME PALETTES",
+                        text = "ACCENT THEMES",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.secondary,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.align(Alignment.Start)
+                        color = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         AppAccentTheme.entries.forEach { theme ->
-                            val isSelected = selectedThemeId == theme.id
-                            val isDark = LocalDarkTheme.current
-                            val swatchColor = if (isDark) theme.darkPrimary else theme.lightPrimary
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                            val isSelected = theme.id == selectedThemeId
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                    )
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(theme.lightPrimary)
                                     .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                        shape = RoundedCornerShape(14.dp)
+                                        width = if (isSelected) 3.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.White.copy(alpha = 0.5f),
+                                        shape = CircleShape
                                     )
                                     .clickable { onSelectTheme(theme) }
-                                    .padding(vertical = 10.dp, horizontal = 4.dp)
                             ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(swatchColor)
-                                        .border(1.5.dp, Color.White.copy(alpha = 0.55f), CircleShape)
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected theme",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = theme.title.split(" ").last(),
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                if (theme.isProOnly && !isProActive) {
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(50))
-                                            .background(Color.Black)
-                                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            text = "PRO",
-                                            fontSize = 8.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.White
-                                        )
-                                    }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = theme.title,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
-                        onClick = {
-                            onTogglePro(!isProActive)
-                            onDismiss()
-                        },
-                        colors = appBlackButtonColors(),
-                        border = BorderStroke(1.5.dp, proGold.copy(alpha = 0.85f)),
+                        onClick = { onTogglePro(!isProActive) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isProActive) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFD4AF37),
+                            contentColor = if (isProActive) MaterialTheme.colorScheme.onSurface else Color.Black
+                        ),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -355,14 +188,13 @@ fun PremiumUpgradeDialog(
                             .testTag("toggle_pro_pass_btn")
                     ) {
                         Text(
-                            text = if (isProActive) "SWITCH TO FREE TIER" else "ACTIVATE PRO PASS (PREVIEW)",
-                            color = Color.White,
+                            text = if (isProActive) "REVERT TO FREE TIER" else "ACTIVATE PRO PASS (PREVIEW)",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Button(
                         onClick = onDismiss,
@@ -371,7 +203,7 @@ fun PremiumUpgradeDialog(
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(48.dp)
                     ) {
                         Text("CLOSE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
@@ -382,70 +214,34 @@ fun PremiumUpgradeDialog(
 }
 
 @Composable
-private fun ProStatPillar(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    goldColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(14.dp))
-            .padding(vertical = 8.dp, horizontal = 6.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = goldColor,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1
-        )
-        Text(
-            text = label,
-            color = Color.White.copy(alpha = 0.68f),
-            fontSize = 9.sp,
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun ProFeatureRow(
-    title: String,
-    subtitle: String
-) {
+private fun ProFeatureRow(title: String, subtitle: String) {
     Row(verticalAlignment = Alignment.Top) {
-        CircularIconBadge(
-            imageVector = Icons.Default.Check,
-            contentDescription = null,
-            containerSize = 24.dp,
-            iconSize = 14.dp,
-            modifier = Modifier.padding(top = 1.dp)
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(14.dp)
+            )
+        }
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 15.sp
+                color = MaterialTheme.colorScheme.secondary
             )
         }
     }
@@ -457,12 +253,13 @@ fun AccountabilityQuitDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val partnerLabel = alert.partnerName.ifBlank { alert.partnerEmail.ifBlank { "Accountability Partner" } }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
+            shape = RoundedCornerShape(26.dp),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("accountability_quit_dialog")
@@ -472,73 +269,67 @@ fun AccountabilityQuitDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularIconBadge(
-                    imageVector = Icons.Default.NotificationsActive,
+                    imageVector = Icons.Default.Security,
                     contentDescription = "Accountability Alert",
-                    containerSize = 64.dp,
-                    iconSize = 34.dp,
-                    containerColor = Color.Black,
-                    iconTint = Color.White,
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.error)
+                    containerSize = 56.dp,
+                    iconSize = 28.dp
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "Accountability Partner Alert",
+                    text = "Session Ended Early",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                val targetName = alert.partnerName.ifBlank { "your accountability partner" }
                 Text(
-                    text = "You ended this reading session early after ${alert.elapsedMinutes}m (${alert.blockedAttempts} distraction blocks). Send an honest check-in to $targetName!",
+                    text = "You stayed focused for ${alert.elapsedMinutes}m with ${alert.blockedAttempts} blocked distractions. Let $partnerLabel know about your check-in.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.secondary
                 )
                 Spacer(modifier = Modifier.height(18.dp))
 
-                Button(
-                    onClick = {
-                        val intent = NotificationHelper.buildAccountabilityShareIntent(
-                            partnerEmail = alert.partnerEmail,
-                            partnerName = alert.partnerName,
-                            elapsedMinutes = alert.elapsedMinutes,
-                            blockedAttempts = alert.blockedAttempts
+                if (alert.partnerEmail.isNotBlank()) {
+                    Button(
+                        onClick = {
+                            val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:${Uri.encode(alert.partnerEmail)}")
+                                putExtra(Intent.EXTRA_SUBJECT, "FocusLock Early Quit Check-In")
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "Hey $partnerLabel, I ended my FocusLock reading session early after ${alert.elapsedMinutes} minutes (${alert.blockedAttempts} blocked distractions)."
+                                )
+                            }
+                            runCatching { context.startActivity(mailIntent) }
+                            onDismiss()
+                        },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mail,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
-                        try {
-                            context.startActivity(Intent.createChooser(intent, "Notify Accountability Partner"))
-                        } catch (_: Exception) {
-                        }
-                        onDismiss()
-                    },
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("SEND PARTNER EMAIL", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                OutlinedButton(
+                    onClick = onDismiss,
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .testTag("send_accountability_alert_btn")
                 ) {
-                    Text(
-                        text = "NOTIFY PARTNER NOW",
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onDismiss,
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                ) {
-                    Text("DISMISS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("CLOSE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -550,143 +341,88 @@ fun DiagnosticsAndPrivacyDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var refreshTrigger by remember { mutableIntStateOf(0) }
-    val events = remember(refreshTrigger) { TelemetryManager.getAnalyticsEvents(context) }
-    val crashes = remember(refreshTrigger) { TelemetryManager.getCrashReports(context) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val events = remember(refreshKey) { TelemetryManager.getAnalyticsEvents(context) }
+    val crashes = remember(refreshKey) { TelemetryManager.getCrashReports(context) }
+    val combined = remember(events, crashes) {
+        (events + crashes).sortedByDescending { it.timestampMs }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(26.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("diagnostics_dialog")
+                .testTag("diagnostics_privacy_dialog")
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = null,
-                            containerSize = 34.dp,
-                            iconSize = 18.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = "Diagnostics",
+                        containerSize = 40.dp,
+                        iconSize = 20.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
                         Text(
-                            text = "Analytics & Crash Logs",
+                            text = "Diagnostics & Telemetry",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    }
-                    Button(
-                        onClick = {
-                            TelemetryManager.clearAllLogs(context)
-                            refreshTrigger++
-                        },
-                        colors = appBlackButtonColors(),
-                        border = appBlackButtonBorder(),
-                        shape = RoundedCornerShape(50),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .heightIn(min = 40.dp)
-                            .testTag("clear_diagnostics_logs_button")
-                    ) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Clear logs",
-                            containerSize = 22.dp,
-                            iconSize = 13.dp,
-                            containerColor = Color.Black,
-                            iconTint = Color.White,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "CLEAR",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
+                            text = "${events.size} events • ${crashes.size} crashes (100% local)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Analytics events: ${events.size} • Crash logs: ${crashes.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 280.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (crashes.isEmpty() && events.isEmpty()) {
-                        Text(
-                            text = "No crash logs or analytics events recorded yet.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        crashes.forEach { crash ->
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "CRASH: ${crash.name} (${crash.formattedTime()})",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    Text(
-                                        text = crash.detail.take(240),
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            }
-                        }
-                        events.take(20).forEach { evt ->
+                if (combined.isEmpty()) {
+                    Text(
+                        text = "No local telemetry or crash events recorded yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(vertical = 20.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 260.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(combined.take(40), key = { it.id }) { entry ->
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                shape = RoundedCornerShape(14.dp)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "${evt.name} • ${evt.formattedTime()}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (evt.detail.isNotBlank()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
                                         Text(
-                                            text = evt.detail,
+                                            text = "${entry.kind.uppercase()} • ${entry.name}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = if (entry.kind == "crash") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = entry.formattedTime(),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                    if (entry.detail.isNotBlank()) {
+                                        Text(
+                                            text = entry.detail,
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -698,16 +434,33 @@ fun DiagnosticsAndPrivacyDialog(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
-                Button(
-                    onClick = onDismiss,
-                    colors = appBlackButtonColors(),
-                    border = appBlackButtonBorder(),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("DONE", color = Color.White, fontWeight = FontWeight.Black)
+                    OutlinedButton(
+                        onClick = {
+                            TelemetryManager.clearAllLogs(context)
+                            refreshKey++
+                        },
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text("CLEAR LOGS", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text("CLOSE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
                 }
             }
         }

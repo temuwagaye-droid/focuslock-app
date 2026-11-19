@@ -10,6 +10,10 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+app/build/
+build/
+.aistudio/
+public/assets/aistudio/
 /captures
 .externalNativeBuild
 .cxx
@@ -18,3 +22,7 @@ local.properties
 debug.keystore
 *-debug.log
 node_modules/
+dist/
+!.build-outputs/
+!.build-outputs/app-debug.apk
+

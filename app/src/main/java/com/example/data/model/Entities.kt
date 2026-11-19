@@ -5,32 +5,35 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "blocked_apps")
 data class BlockedAppEntity(
-    @PrimaryKey val packageName: String,
+    @PrimaryKey
+    val packageName: String,
     val appName: String,
     val isBlocked: Boolean = true
 )
 
 @Entity(tableName = "session_logs")
 data class SessionLogEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val durationSeconds: Long,
-    val blockedAttempts: Int,
-    val isCompleted: Boolean,
+    val blockedAttempts: Int = 0,
+    val isCompleted: Boolean = true,
     val readingAppPackage: String? = null
 )
 
 @Entity(tableName = "settings")
 data class SettingEntity(
-    @PrimaryKey val key: String,
+    @PrimaryKey
+    val key: String,
     val value: String
 )
 
 @Entity(tableName = "todo_items")
 data class TodoEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val title: String,
     val isCompleted: Boolean = false,
     val timestamp: Long = System.currentTimeMillis()
 )
-

@@ -1,7 +1,5 @@
 package com.example.data.remote
 
-import com.google.firebase.Timestamp
-
 data class CloudUserProfile(
     val userId: String = "",
     val displayName: String = "Reader",
@@ -13,8 +11,8 @@ data class CloudUserProfile(
     val treeStage: Int = 1,
     val isLeaderboardVisible: Boolean = true,
     val isPro: Boolean = false,
-    val createdAt: Timestamp? = null,
-    val updatedAt: Timestamp? = null
+    val createdAtMs: Long? = null,
+    val updatedAtMs: Long? = null
 )
 
 data class CloudPrivateSettings(
@@ -38,7 +36,7 @@ data class CloudPrivateSettings(
     val crashReportingOptIn: Boolean = true,
     val cloudSyncEnabled: Boolean = true,
     val isPro: Boolean = false,
-    val updatedAt: Timestamp? = null
+    val updatedAtMs: Long? = null
 )
 
 data class CloudSessionBackup(
@@ -49,7 +47,7 @@ data class CloudSessionBackup(
     val blockedAttempts: Int = 0,
     val isCompleted: Boolean = true,
     val readingAppPackage: String = "",
-    val createdAt: Timestamp? = null
+    val createdAtMs: Long? = null
 )
 
 data class CloudBlockedAppBackup(
@@ -57,7 +55,7 @@ data class CloudBlockedAppBackup(
     val packageName: String = "",
     val appName: String = "",
     val isBlocked: Boolean = true,
-    val updatedAt: Timestamp? = null
+    val updatedAtMs: Long? = null
 )
 
 data class CloudTodoBackup(
@@ -66,7 +64,7 @@ data class CloudTodoBackup(
     val title: String = "",
     val isCompleted: Boolean = false,
     val timestampMs: Long = 0L,
-    val updatedAt: Timestamp? = null
+    val updatedAtMs: Long? = null
 )
 
 data class FocusRoomDto(
@@ -79,8 +77,8 @@ data class FocusRoomDto(
     val status: String = "waiting",
     val participantCount: Int = 1,
     val isPublic: Boolean = true,
-    val createdAt: Timestamp? = null,
-    val updatedAt: Timestamp? = null
+    val createdAtMs: Long? = null,
+    val updatedAtMs: Long? = null
 )
 
 data class RoomParticipantDto(
@@ -89,8 +87,8 @@ data class RoomParticipantDto(
     val status: String = "ready",
     val distractionAttempts: Int = 0,
     val treeStage: Int = 1,
-    val joinedAt: Timestamp? = null,
-    val updatedAt: Timestamp? = null
+    val joinedAtMs: Long? = null,
+    val updatedAtMs: Long? = null
 )
 
 data class CloudRestoreBundle(

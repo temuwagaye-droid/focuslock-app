@@ -17,6 +17,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,15 +53,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,6 +77,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import com.example.data.model.SessionLogEntity
 import com.example.data.remote.SupabaseUser
 import com.example.ui.FocusStatsSummary
@@ -248,30 +263,109 @@ fun TimerXpAndStreakCard(
 }
 
 /**
- * Apple-Fitness-style duration progress ring with smooth spring sweep.
+ * Interactive Apple-Fitness-style rotatable minute dial with real-time touch drag rotation,
+ * minute ticks, and smooth spring sweep.
  */
 @Composable
 fun FitnessDurationRing(
     sessionMinutes: Int,
+    onMinutesChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val fraction by animateFloatAsState(
-        targetValue = (sessionMinutes / 120f).coerceIn(0.06f, 1f),
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+    var isDragging by remember { mutableStateOf(false) }
+    val currentOnMinutesChange by rememberUpdatedState(onMinutesChange)
+
+    val targetFraction = (sessionMinutes / 120f).coerceIn(5f / 120f, 1f)
+    val animatedFraction by animateFloatAsState(
+        targetValue = targetFraction,
+        animationSpec = if (isDragging) {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+        },
         label = "duration_ring_sweep"
     )
+    val fraction = if (isDragging) targetFraction else animatedFraction
+
     val trackColor = MaterialTheme.colorScheme.surface
+    val tickColor = MaterialTheme.colorScheme.outlineVariant
     val isDark = LocalDarkTheme.current
     val ringColor = if (isDark) Color(0xFF8B73FF) else GamifiedPurple
 
+    fun updateFromPoint(offset: Offset, width: Float, height: Float) {
+        val cx = width / 2f
+        val cy = height / 2f
+        val dx = offset.x - cx
+        val dy = offset.y - cy
+        // Angle clockwise from 12 o'clock (0..2*PI)
+        var theta = atan2(dx.toDouble(), -dy.toDouble())
+        if (theta < 0.0) theta += 2.0 * PI
+        val rawMins = ((theta / (2.0 * PI)) * 120.0).roundToInt().coerceIn(5, 120)
+        currentOnMinutesChange?.invoke(rawMins)
+    }
+
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(104.dp)
+        modifier = modifier
+            .size(134.dp)
+            .then(
+                if (onMinutesChange != null) {
+                    Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures { pos ->
+                                updateFromPoint(pos, size.width.toFloat(), size.height.toFloat())
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { pos ->
+                                    isDragging = true
+                                    updateFromPoint(pos, size.width.toFloat(), size.height.toFloat())
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    updateFromPoint(change.position, size.width.toFloat(), size.height.toFloat())
+                                },
+                                onDragEnd = { isDragging = false },
+                                onDragCancel = { isDragging = false }
+                            )
+                        }
+                } else {
+                    Modifier
+                }
+            )
+            .testTag("duration_rotatable_dial")
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(5.dp)) {
-            val stroke = 9.dp.toPx()
+        Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+            val stroke = 10.dp.toPx()
+            val radius = (size.minDimension - stroke) / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
+
+            // Outer minute dial ticks (24 ticks = 5m intervals)
+            for (i in 0 until 24) {
+                val angleRad = (-90.0 + i * 15.0) * (PI / 180.0)
+                val isMajor = i % 3 == 0
+                val innerR = radius + stroke * 0.42f
+                val outerR = innerR + if (isMajor) 5.dp.toPx() else 2.5.dp.toPx()
+                drawLine(
+                    color = if (isMajor) ringColor.copy(alpha = 0.55f) else tickColor.copy(alpha = 0.55f),
+                    start = Offset(
+                        center.x + (innerR * cos(angleRad)).toFloat(),
+                        center.y + (innerR * sin(angleRad)).toFloat()
+                    ),
+                    end = Offset(
+                        center.x + (outerR * cos(angleRad)).toFloat(),
+                        center.y + (outerR * sin(angleRad)).toFloat()
+                    ),
+                    strokeWidth = if (isMajor) 2.dp.toPx() else 1.2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+
             drawCircle(
                 color = trackColor,
+                radius = radius,
+                center = center,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
             drawArc(
@@ -281,27 +375,147 @@ fun FitnessDurationRing(
                 useCenter = false,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
+
+            // Rotating dial knob at tip of progress arc
+            val tipAngleRad = (-90.0 + 360.0 * fraction) * (PI / 180.0)
+            val tipCenter = Offset(
+                center.x + (radius * cos(tipAngleRad)).toFloat(),
+                center.y + (radius * sin(tipAngleRad)).toFloat()
+            )
+            drawCircle(
+                color = Color.White,
+                radius = stroke * 0.62f,
+                center = tipCenter
+            )
+            drawCircle(
+                color = ringColor,
+                radius = stroke * 0.36f,
+                center = tipCenter
+            )
         }
-        AnimatedContent(
-            targetState = sessionMinutes,
-            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
-            label = "stepper_minutes_anim"
-        ) { mins ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "$mins",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.testTag("session_minutes_display")
-                )
-                Text(
-                    text = "min",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "$sessionMinutes",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.testTag("session_minutes_display")
+            )
+            Text(
+                text = if (onMinutesChange != null) "min • rotate" else "min",
+                color = MaterialTheme.colorScheme.secondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+/**
+ * 60fps real-time rotating focus countdown ring with continuous orbital second/minute sweep
+ * while the session timer is running.
+ */
+@Composable
+fun RealTimeFocusCountdownRing(
+    timeLeftSeconds: Int,
+    totalDurationSeconds: Int,
+    formattedTime: String,
+    potentialSessionXp: Int,
+    modifier: Modifier = Modifier
+) {
+    val primaryTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    val accentActiveColor = MaterialTheme.colorScheme.primary
+
+    var frameFraction by remember { mutableFloatStateOf(0f) }
+    var lastSecondsSnapshot by remember { mutableStateOf(timeLeftSeconds) }
+    var lastTickNano by remember { mutableStateOf(System.nanoTime()) }
+
+    LaunchedEffect(timeLeftSeconds) {
+        lastSecondsSnapshot = timeLeftSeconds
+        lastTickNano = System.nanoTime()
+    }
+
+    LaunchedEffect(totalDurationSeconds) {
+        while (true) {
+            withFrameNanos { now ->
+                val elapsedSinceTick = ((now - lastTickNano) / 1_000_000_000f).coerceIn(0f, 0.999f)
+                val smoothRemaining = (lastSecondsSnapshot - elapsedSinceTick).coerceAtLeast(0f)
+                frameFraction = if (totalDurationSeconds > 0) {
+                    (smoothRemaining / totalDurationSeconds.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    1f
+                }
             }
+        }
+    }
+
+    // Continuous 60-second real-time orbital rotation angle
+    val minuteSweepAngle = remember(timeLeftSeconds, frameFraction, totalDurationSeconds) {
+        val exactRemainingSeconds = if (totalDurationSeconds > 0) frameFraction * totalDurationSeconds else timeLeftSeconds.toFloat()
+        val subMinuteSeconds = exactRemainingSeconds % 60f
+        -90f + ((60f - subMinuteSeconds) / 60f) * 360f
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(242.dp)
+            .padding(8.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = 12.dp.toPx()
+            val radius = (size.minDimension - stroke) / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
+
+            drawCircle(
+                color = primaryTrackColor,
+                radius = radius,
+                center = center,
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
+            )
+            drawArc(
+                color = accentActiveColor,
+                startAngle = -90f,
+                sweepAngle = 360f * frameFraction,
+                useCenter = false,
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
+            )
+
+            // Real-time rotating orbital indicator moving every frame around the minute ring
+            val orbitRad = minuteSweepAngle * (PI / 180.0)
+            val orbitCenter = Offset(
+                center.x + (radius * cos(orbitRad)).toFloat(),
+                center.y + (radius * sin(orbitRad)).toFloat()
+            )
+            drawCircle(
+                color = GamifiedMint.copy(alpha = 0.35f),
+                radius = stroke * 0.95f,
+                center = orbitCenter
+            )
+            drawCircle(
+                color = GamifiedMint,
+                radius = stroke * 0.48f,
+                center = orbitCenter
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "STAY FOCUSED",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = formattedTime,
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.displayLarge,
+                modifier = Modifier.testTag("countdown_timer_text")
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            XpRewardChip(text = "+$potentialSessionXp XP")
         }
     }
 }

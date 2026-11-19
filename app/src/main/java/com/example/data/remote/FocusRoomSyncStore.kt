@@ -12,7 +12,7 @@ import java.util.UUID
 /**
  * Local-persistent & reactive Focus Room store used alongside Supabase Google Sign-In
  * so group focus rooms can be created, joined by code, started, and moderated reliably
- * even when optional Firestore sync is not configured.
+ * even when optional remote cloud sync is not configured.
  */
 class FocusRoomSyncStore(context: Context?) {
 

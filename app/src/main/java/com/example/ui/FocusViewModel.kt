@@ -10,12 +10,13 @@ import com.example.audio.AmbientSoundType
 import com.example.data.model.BlockedAppEntity
 import com.example.data.model.SessionLogEntity
 import com.example.data.model.TodoEntity
+import com.example.data.remote.CloudBlockedAppBackup
 import com.example.data.remote.CloudPrivateSettings
-import com.example.data.remote.CloudSyncRepository
+import com.example.data.remote.CloudRestoreBundle
+import com.example.data.remote.CloudSessionBackup
+import com.example.data.remote.CloudTodoBackup
 import com.example.data.remote.CloudUserProfile
-import com.example.data.remote.FirebaseService
 import com.example.data.remote.FocusRoomDto
-import com.example.data.remote.FocusRoomRepository
 import com.example.data.remote.FocusRoomSyncStore
 import com.example.data.remote.RoomParticipantDto
 import com.example.data.remote.SupabaseAuthService
@@ -34,8 +35,6 @@ import com.example.service.FocusSessionManager
 import com.example.telemetry.TelemetryManager
 import com.example.ui.components.calculateTreeStage
 import com.example.ui.theme.AppAccentTheme
-import com.google.firebase.FirebaseApp
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -76,26 +75,6 @@ class FocusViewModel(
     }
 
     private val prefs = appContext?.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE)
-
-    private val isFirebaseAvailable: Boolean = appContext?.let { ctx ->
-        runCatching { FirebaseApp.getApps(ctx).isNotEmpty() }.getOrDefault(false)
-    } ?: false
-
-    private val firebaseAuth: FirebaseAuth? = if (isFirebaseAvailable) runCatching { FirebaseService.auth() }.getOrNull() else null
-    private val cloudSyncRepo: CloudSyncRepository? = appContext?.let { ctx ->
-        firebaseAuth?.let { auth ->
-            if (isFirebaseAvailable) {
-                runCatching { CloudSyncRepository(FirebaseService.firestore(ctx), auth) }.getOrNull()
-            } else null
-        }
-    }
-    private val roomRepo: FocusRoomRepository? = appContext?.let { ctx ->
-        firebaseAuth?.let { auth ->
-            if (isFirebaseAvailable) {
-                runCatching { FocusRoomRepository(FirebaseService.firestore(ctx), auth) }.getOrNull()
-            } else null
-        }
-    }
     private val roomSyncStore = FocusRoomSyncStore(appContext)
 
     // Supabase Auth state stream
@@ -219,23 +198,37 @@ class FocusViewModel(
     private val _selectedRoomId = MutableStateFlow<String?>(null)
     val selectedRoomId: StateFlow<String?> = _selectedRoomId.asStateFlow()
 
-    val leaderboardEntries: StateFlow<List<CloudUserProfile>> = currentUser
-        .flatMapLatest { user ->
-            if (user == null || cloudSyncRepo == null) flowOf(emptyList())
-            else cloudSyncRepo.observeLeaderboard()
+    val leaderboardEntries: StateFlow<List<CloudUserProfile>> = combine(
+        currentUser,
+        statsSummary,
+        isLeaderboardVisible,
+        isProTier
+    ) { user, summary, visible, pro ->
+        if (user == null || !visible) {
+            emptyList()
+        } else {
+            val stage = calculateTreeStage(summary.totalFocusMinutes, summary.completedSessionsCount)
+            listOf(
+                CloudUserProfile(
+                    userId = user.uid,
+                    displayName = user.displayName ?: user.email?.substringBefore("@") ?: "Reader",
+                    focusScore = summary.focusScore,
+                    totalFocusMinutes = summary.totalFocusMinutes.toInt(),
+                    completedSessionsCount = summary.completedSessionsCount,
+                    currentStreak = summary.currentStreak,
+                    totalBlockedAttempts = summary.totalBlockedAttempts,
+                    treeStage = stage,
+                    isLeaderboardVisible = true,
+                    isPro = pro
+                )
+            )
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val publicRooms: StateFlow<List<FocusRoomDto>> = currentUser
         .flatMapLatest { user ->
             if (user == null) flowOf(emptyList())
-            else if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                combine(roomSyncStore.observePublicRooms(), roomRepo.observePublicRooms()) { local, remote ->
-                    (local + remote).distinctBy { it.roomId }
-                }
-            } else {
-                roomSyncStore.observePublicRooms()
-            }
+            else roomSyncStore.observePublicRooms()
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -246,26 +239,14 @@ class FocusViewModel(
         if (user == null || rid.isNullOrBlank()) null else rid
     }.flatMapLatest { rid ->
         if (rid == null) flowOf(null)
-        else if (firebaseAuth?.currentUser != null && roomRepo != null) {
-            combine(roomSyncStore.observeRoom(rid), roomRepo.observeRoom(rid)) { local, remote ->
-                local ?: remote
-            }
-        } else {
-            roomSyncStore.observeRoom(rid)
-        }
+        else roomSyncStore.observeRoom(rid)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val activeRoomParticipants: StateFlow<List<RoomParticipantDto>> = combine(currentUser, _selectedRoomId) { user, rid ->
         if (user == null || rid.isNullOrBlank()) null else rid
     }.flatMapLatest { rid ->
         if (rid == null) flowOf(emptyList())
-        else if (firebaseAuth?.currentUser != null && roomRepo != null) {
-            combine(roomSyncStore.observeParticipants(rid), roomRepo.observeParticipants(rid)) { local, remote ->
-                if (local.isNotEmpty()) local else remote
-            }
-        } else {
-            roomSyncStore.observeParticipants(rid)
-        }
+        else roomSyncStore.observeParticipants(rid)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _telemetryRefreshTick = MutableStateFlow(0)
@@ -403,9 +384,6 @@ class FocusViewModel(
             if (!rid.isNullOrBlank() && user != null) {
                 val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
                 roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
-                if (firebaseAuth?.currentUser != null) {
-                    roomRepo?.updateMyParticipantStatus(rid, "focusing", 0, stage)
-                }
             }
         }
     }
@@ -419,14 +397,6 @@ class FocusViewModel(
                 val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
                 val status = if (completed) "completed" else "ready"
                 roomSyncStore.updateParticipantStatus(user.uid, rid, status, blockedAttemptsCount.value, stage)
-                if (firebaseAuth?.currentUser != null) {
-                    roomRepo?.updateMyParticipantStatus(
-                        rid,
-                        status,
-                        blockedAttemptsCount.value,
-                        stage
-                    )
-                }
             }
         }
     }
@@ -667,7 +637,7 @@ class FocusViewModel(
                             val user = outcome.user
                             _cloudStatusMessage.value = "Signed in as ${user.displayName ?: user.email ?: "Reader"}"
                             TelemetryManager.trackEvent(activityContext, "supabase_google_sign_in_success")
-                            if (firebaseAuth?.currentUser != null) {
+                            if (isCloudSyncEnabled.value) {
                                 syncNowInternal(showStatus = false)
                             }
                         }
@@ -698,7 +668,7 @@ class FocusViewModel(
                 res.onSuccess { user ->
                     _cloudStatusMessage.value = "Signed in as ${user.displayName ?: user.email ?: "Reader"}"
                     TelemetryManager.trackEvent(context, "supabase_oauth_callback_success")
-                    if (firebaseAuth?.currentUser != null) {
+                    if (isCloudSyncEnabled.value) {
                         syncNowInternal(showStatus = false)
                     }
                 }.onFailure { err ->
@@ -714,7 +684,6 @@ class FocusViewModel(
         viewModelScope.launch {
             _selectedRoomId.value = null
             SupabaseAuthService.signOut(context)
-            runCatching { firebaseAuth?.signOut() }
             _cloudStatusMessage.value = "Signed out cleanly."
         }
     }
@@ -724,18 +693,7 @@ class FocusViewModel(
     }
 
     private suspend fun syncNowInternal(showStatus: Boolean) {
-        val repo = cloudSyncRepo ?: run {
-            if (showStatus) {
-                _cloudStatusMessage.value = "Signed in with Supabase. Configure Firebase Firestore to enable cloud room/score sync."
-            }
-            return
-        }
-        if (firebaseAuth?.currentUser == null) {
-            if (showStatus) {
-                _cloudStatusMessage.value = "Supabase session active (${currentUser.value?.email ?: "Google"})."
-            }
-            return
-        }
+        val ctx = appContext ?: return
         val user = currentUser.value ?: return
         _isSyncingCloud.value = true
         try {
@@ -743,6 +701,18 @@ class FocusViewModel(
             val summary = statsSummary.value
             val stage = calculateTreeStage(summary.totalFocusMinutes, summary.completedSessionsCount)
 
+            val profile = CloudUserProfile(
+                userId = user.uid,
+                displayName = user.displayName ?: user.email?.substringBefore("@") ?: "Reader",
+                focusScore = summary.focusScore,
+                totalFocusMinutes = summary.totalFocusMinutes.toInt(),
+                completedSessionsCount = summary.completedSessionsCount,
+                currentStreak = summary.currentStreak,
+                totalBlockedAttempts = summary.totalBlockedAttempts,
+                treeStage = stage,
+                isLeaderboardVisible = isLeaderboardVisible.value,
+                isPro = isProTier.value
+            )
             val settings = CloudPrivateSettings(
                 userId = user.uid,
                 isDarkMode = isDarkModeEnabled.value,
@@ -766,41 +736,48 @@ class FocusViewModel(
                 isPro = isProTier.value
             )
 
-            repo.syncProfileAndSettings(
-                displayName = user.displayName ?: user.email?.substringBefore("@") ?: "Reader",
-                focusScore = summary.focusScore,
-                totalFocusMinutes = summary.totalFocusMinutes.toInt(),
-                completedSessionsCount = summary.completedSessionsCount,
-                currentStreak = summary.currentStreak,
-                totalBlockedAttempts = summary.totalBlockedAttempts,
-                treeStage = stage,
-                isLeaderboardVisible = isLeaderboardVisible.value,
-                settings = settings
+            val sessions = repository.getSessionLogsSync().map {
+                CloudSessionBackup(
+                    userId = user.uid,
+                    sessionId = it.id.toString(),
+                    timestampMs = it.timestamp,
+                    durationSeconds = it.durationSeconds,
+                    blockedAttempts = it.blockedAttempts,
+                    isCompleted = it.isCompleted,
+                    readingAppPackage = it.readingAppPackage.orEmpty()
+                )
+            }
+            val blocked = repository.getBlockedAppsSync().map {
+                CloudBlockedAppBackup(
+                    userId = user.uid,
+                    packageName = it.packageName,
+                    appName = it.appName,
+                    isBlocked = it.isBlocked
+                )
+            }
+            val todos = repository.getTodoItemsSync().map {
+                CloudTodoBackup(
+                    userId = user.uid,
+                    todoId = it.id.toString(),
+                    title = it.title,
+                    isCompleted = it.isCompleted,
+                    timestampMs = it.timestamp
+                )
+            }
+
+            val count = SupabaseAuthService.backupUserMetadata(
+                context = ctx,
+                profile = profile,
+                bundle = CloudRestoreBundle(settings, sessions, blocked, todos)
             ).getOrThrow()
-
-            val sessions = repository.getSessionLogsSync()
-            val blocked = repository.getBlockedAppsSync()
-            val todos = repository.getTodoItemsSync()
-            val count = repo.backupUserData(sessions, blocked, todos).getOrThrow()
-
-            if (appContext != null && analyticsOptIn.value) {
-                TelemetryManager.getAnalyticsEvents(appContext).take(10).forEach { entry ->
-                    repo.uploadTelemetry(entry)
-                }
-            }
-            if (appContext != null && crashReportingOptIn.value) {
-                TelemetryManager.getCrashReports(appContext).take(5).forEach { entry ->
-                    repo.uploadTelemetry(entry)
-                }
-            }
 
             _lastCloudSyncText.value = "Synced ($count items) just now"
             if (showStatus) {
-                _cloudStatusMessage.value = "Cloud backup & profile sync complete ($count items)."
+                _cloudStatusMessage.value = "Supabase cloud backup & profile sync complete ($count items)."
             }
         } catch (e: Exception) {
             if (showStatus) {
-                _cloudStatusMessage.value = e.message ?: "Cloud sync failed."
+                _cloudStatusMessage.value = e.message ?: "Supabase cloud sync failed."
             }
         } finally {
             _isSyncingCloud.value = false
@@ -808,47 +785,33 @@ class FocusViewModel(
     }
 
     fun restoreFromCloud() {
-        val repo = cloudSyncRepo ?: run {
-            _cloudStatusMessage.value = "Cloud restore requires Firebase Firestore configuration."
-            return
-        }
+        val ctx = appContext ?: return
         if (currentUser.value == null) return
-        if (firebaseAuth?.currentUser == null) {
-            _cloudStatusMessage.value = "Supabase account connected (${currentUser.value?.email ?: "Google"}). Firestore backup is disabled without Firebase Auth."
-            return
-        }
         viewModelScope.launch {
             _isSyncingCloud.value = true
-            val res = repo.fetchCloudRestoreBundle()
+            val res = SupabaseAuthService.restoreUserMetadata(ctx)
             res.onSuccess { bundle ->
                 repository.restoreFromCloudBundle(bundle)
-                _lastCloudSyncText.value = "Restored from cloud"
+                _lastCloudSyncText.value = "Restored from Supabase"
                 _cloudStatusMessage.value = "Restored ${bundle.sessions.size} sessions, ${bundle.blockedApps.size} apps & ${bundle.todos.size} tasks."
             }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Cloud restore failed."
+                _cloudStatusMessage.value = err.message ?: "Supabase restore failed."
             }
             _isSyncingCloud.value = false
         }
     }
 
     fun deleteCloudData() {
-        val repo = cloudSyncRepo ?: run {
-            _cloudStatusMessage.value = "No Firebase cloud backup configured."
-            return
-        }
+        val ctx = appContext ?: return
         if (currentUser.value == null) return
-        if (firebaseAuth?.currentUser == null) {
-            _cloudStatusMessage.value = "Signed in with Supabase. No Firebase cloud records to delete."
-            return
-        }
         viewModelScope.launch {
             _isSyncingCloud.value = true
-            val res = repo.deleteAllCloudData()
+            val res = SupabaseAuthService.deleteUserMetadataBackup(ctx)
             res.onSuccess {
                 _lastCloudSyncText.value = "Cloud data cleared"
-                _cloudStatusMessage.value = "All your cloud backup and leaderboard records were deleted."
+                _cloudStatusMessage.value = "Your Supabase cloud backup data was deleted."
             }.onFailure { err ->
-                _cloudStatusMessage.value = err.message ?: "Failed to delete cloud data."
+                _cloudStatusMessage.value = err.message ?: "Failed to delete Supabase cloud data."
             }
             _isSyncingCloud.value = false
         }
@@ -872,10 +835,6 @@ class FocusViewModel(
             _selectedRoomId.value = createdRoom.roomId
             _cloudStatusMessage.value = "Room ${createdRoom.roomCode} created!"
             appContext?.let { TelemetryManager.trackEvent(it, "room_created", createdRoom.roomCode) }
-
-            if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.createRoom(name, durationMinutes, isPublic, stage)
-            }
         }
     }
 
@@ -887,13 +846,6 @@ class FocusViewModel(
             if (localRes.isSuccess) {
                 _selectedRoomId.value = roomId
                 appContext?.let { TelemetryManager.trackEvent(it, "room_joined", roomId) }
-            } else if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.joinRoom(roomId, stage).onSuccess {
-                    _selectedRoomId.value = roomId
-                    appContext?.let { TelemetryManager.trackEvent(it, "room_joined", roomId) }
-                }.onFailure { err ->
-                    _cloudStatusMessage.value = err.message ?: "Could not join room."
-                }
             } else {
                 _cloudStatusMessage.value = localRes.exceptionOrNull()?.message ?: "Could not join room."
             }
@@ -913,14 +865,6 @@ class FocusViewModel(
                 _selectedRoomId.value = room.roomId
                 _cloudStatusMessage.value = "Joined ${room.name}!"
                 appContext?.let { TelemetryManager.trackEvent(it, "room_joined_by_code", room.roomCode) }
-            } else if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.joinRoomByCode(code, stage).onSuccess { room ->
-                    _selectedRoomId.value = room.roomId
-                    _cloudStatusMessage.value = "Joined ${room.name}!"
-                    appContext?.let { TelemetryManager.trackEvent(it, "room_joined_by_code", room.roomCode) }
-                }.onFailure { err ->
-                    _cloudStatusMessage.value = err.message ?: "Room code not found."
-                }
             } else {
                 _cloudStatusMessage.value = localRes.exceptionOrNull()?.message ?: "Room code not found."
             }
@@ -933,9 +877,6 @@ class FocusViewModel(
             roomSyncStore.updateRoomStatus(roomId, status).onFailure { err ->
                 _cloudStatusMessage.value = err.message
             }
-            if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.updateRoomStatus(roomId, status)
-            }
             appContext?.let { TelemetryManager.trackEvent(it, "room_status_$status", "${user.uid}:$roomId") }
         }
     }
@@ -947,9 +888,6 @@ class FocusViewModel(
         viewModelScope.launch {
             if (user != null) {
                 roomSyncStore.leaveRoom(user.uid, rid)
-            }
-            if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.leaveRoom(rid)
             }
         }
     }
@@ -1038,9 +976,6 @@ class FocusViewModel(
     fun adminSetRoomStatus(roomId: String, status: String) {
         viewModelScope.launch {
             roomSyncStore.updateRoomStatus(roomId, status)
-            if (firebaseAuth?.currentUser != null && roomRepo != null) {
-                roomRepo.updateRoomStatus(roomId, status)
-            }
             appContext?.let { TelemetryManager.trackEvent(it, "admin_room_status", "$roomId->$status") }
             _telemetryRefreshTick.value += 1
         }

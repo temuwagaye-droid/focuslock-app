@@ -1,15 +1,7 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,306 +12,42 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.FocusStatsSummary
+import com.example.ui.theme.GamifiedMint
+import com.example.ui.theme.GamifiedPurple
+import com.example.ui.theme.GamifiedYellow
 import com.example.ui.theme.LocalDarkTheme
 
-fun calculateTreeStage(totalFocusMinutes: Long, completedSessions: Int): Int {
-    val score = totalFocusMinutes + (completedSessions * 15L)
-    return when {
-        score >= 300 -> 5
-        score >= 150 -> 4
-        score >= 60 -> 3
-        score >= 20 -> 2
-        else -> 1
-    }
+fun calculateTreeStage(totalMinutes: Long, completedSessions: Int): Int = when {
+    totalMinutes >= 300 || completedSessions >= 20 -> 5
+    totalMinutes >= 150 || completedSessions >= 10 -> 4
+    totalMinutes >= 60 || completedSessions >= 4 -> 3
+    totalMinutes >= 15 || completedSessions >= 1 -> 2
+    else -> 1
 }
 
-fun treeStageTitle(stage: Int): String = when (stage) {
-    1 -> "Tiny Seedling"
-    2 -> "Green Sprout"
-    3 -> "Young Sapling"
-    4 -> "Canopy Guardian"
-    else -> "Golden Ancient Oak"
-}
-
-/**
- * Animated Focus Tree reward visualization.
- * Grows from seedling to golden blooming oak with lifetime progress or live session completion.
- */
-@Composable
-fun GrowingTreeCanvas(
-    stage: Int,
-    growthFraction: Float,
-    modifier: Modifier = Modifier
-) {
-    val isDark = LocalDarkTheme.current
-    val infiniteTransition = rememberInfiniteTransition(label = "tree_sway")
-    val swayOffset by infiniteTransition.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "sway"
-    )
-
-    val clampedGrowth = growthFraction.coerceIn(0.1f, 1f)
-    val effectiveStage = if (growthFraction > 0.75f && stage < 5) stage + 1 else stage
-
-    val soilColor = if (isDark) Color(0xFF4E342E) else Color(0xFF6D4C41)
-    val trunkColor = if (isDark) Color(0xFF8D6E63) else Color(0xFF5D4037)
-    val leafPrimary = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
-    val leafSecondary = if (isDark) Color(0xFFA5D6A7) else Color(0xFF66BB6A)
-    val blossomColor = if (isDark) Color(0xFFFFD54F) else Color(0xFFFFB300)
-
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val baseY = h * 0.88f
-        val centerX = w / 2f
-
-        // Soil mound
-        drawOval(
-            color = soilColor,
-            topLeft = Offset(centerX - w * 0.28f, baseY - h * 0.05f),
-            size = Size(w * 0.56f, h * 0.13f)
-        )
-
-        val trunkHeight = h * (0.24f + 0.09f * effectiveStage) * clampedGrowth
-        val trunkTopY = (baseY - trunkHeight).coerceAtLeast(h * 0.22f)
-        val topX = centerX + swayOffset * (0.4f + effectiveStage * 0.12f)
-
-        // Trunk
-        val trunkPath = Path().apply {
-            moveTo(centerX - 6f - effectiveStage * 1.5f, baseY)
-            quadraticTo(centerX, (baseY + trunkTopY) / 2f, topX - 3f, trunkTopY)
-            lineTo(topX + 3f, trunkTopY)
-            quadraticTo(centerX + 4f, (baseY + trunkTopY) / 2f, centerX + 6f + effectiveStage * 1.5f, baseY)
-            close()
-        }
-        drawPath(trunkPath, color = trunkColor)
-
-        if (effectiveStage >= 2) {
-            // Left branch
-            drawLine(
-                color = trunkColor,
-                start = Offset((centerX + topX) / 2f, baseY - trunkHeight * 0.52f),
-                end = Offset(topX - w * 0.14f, trunkTopY + h * 0.08f),
-                strokeWidth = 4.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-            // Right branch
-            drawLine(
-                color = trunkColor,
-                start = Offset((centerX + topX) / 2f, baseY - trunkHeight * 0.62f),
-                end = Offset(topX + w * 0.14f, trunkTopY + h * 0.06f),
-                strokeWidth = 4.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-        }
-
-        // Canopy clusters scale with stage & growth
-        val baseCanopyRadius = w * (0.09f + effectiveStage * 0.032f) * (0.7f + 0.3f * clampedGrowth)
-        drawCircle(
-            color = leafPrimary,
-            radius = baseCanopyRadius,
-            center = Offset(topX, trunkTopY)
-        )
-
-        if (effectiveStage >= 2) {
-            drawCircle(
-                color = leafSecondary.copy(alpha = 0.9f),
-                radius = baseCanopyRadius * 0.72f,
-                center = Offset(topX - baseCanopyRadius * 0.85f, trunkTopY + baseCanopyRadius * 0.35f)
-            )
-            drawCircle(
-                color = leafSecondary.copy(alpha = 0.9f),
-                radius = baseCanopyRadius * 0.72f,
-                center = Offset(topX + baseCanopyRadius * 0.85f, trunkTopY + baseCanopyRadius * 0.35f)
-            )
-        }
-
-        if (effectiveStage >= 4) {
-            drawCircle(
-                color = leafPrimary.copy(alpha = 0.95f),
-                radius = baseCanopyRadius * 0.68f,
-                center = Offset(topX, trunkTopY - baseCanopyRadius * 0.65f)
-            )
-        }
-
-        // Blossoms / Golden fruits on higher stages or completed progress
-        if (effectiveStage >= 3 || clampedGrowth > 0.8f) {
-            val dots = listOf(
-                Offset(topX - baseCanopyRadius * 0.45f, trunkTopY - baseCanopyRadius * 0.25f),
-                Offset(topX + baseCanopyRadius * 0.5f, trunkTopY + baseCanopyRadius * 0.1f),
-                Offset(topX + baseCanopyRadius * 0.1f, trunkTopY - baseCanopyRadius * 0.65f)
-            )
-            dots.forEach { pt ->
-                drawCircle(color = blossomColor, radius = 4.dp.toPx(), center = pt)
-            }
-        }
-
-        // Subtle sparkle ring for Stage 5
-        if (effectiveStage == 5) {
-            drawCircle(
-                color = blossomColor.copy(alpha = 0.35f),
-                radius = baseCanopyRadius * 1.45f,
-                center = Offset(topX, trunkTopY),
-                style = Stroke(width = 1.5.dp.toPx())
-            )
-        }
-    }
-}
-
-@Composable
-fun FocusForestRewardCard(
-    stats: FocusStatsSummary,
-    liveSessionProgress: Float? = null,
-    modifier: Modifier = Modifier
-) {
-    val stage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
-    val stageName = treeStageTitle(stage)
-    val isDark = LocalDarkTheme.current
-    val mintBg = if (isDark) Color(0xFF143326) else Color(0xFFE6FBF1)
-    val mintAccent = if (isDark) Color(0xFF3DDC97) else Color(0xFF0A6B43)
-
-    val xpScore = stats.totalFocusMinutes + (stats.completedSessionsCount * 15L)
-    val nextMilestone = when (stage) {
-        1 -> 20L
-        2 -> 60L
-        3 -> 150L
-        4 -> 300L
-        else -> 500L
-    }
-    val growthFraction = liveSessionProgress ?: (xpScore.toFloat() / nextMilestone.toFloat()).coerceIn(0.15f, 1f)
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(22.dp),
-        border = null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("virtual_focus_tree_card")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(92.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(mintBg)
-            ) {
-                GrowingTreeCanvas(
-                    stage = stage,
-                    growthFraction = growthFraction,
-                    modifier = Modifier.size(84.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (liveSessionProgress != null) "GROWING NOW" else "FOCUS FOREST",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.secondary,
-                        letterSpacing = 0.8.sp
-                    )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(mintBg)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = "Stage $stage/5",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = mintAccent
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "🌳 $stageName",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(3.dp))
-
-                Text(
-                    text = if (liveSessionProgress != null) {
-                        "Your tree grows while you stay locked into reading!"
-                    } else {
-                        "${stats.completedSessionsCount} Trees Grown • ${stats.totalFocusMinutes}m Rooted"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.surface)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(growthFraction.coerceIn(0.06f, 1f))
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF3DDC97))
-                    )
-                }
-            }
-        }
-    }
+fun treeStageTitle(stage: Int): String = when (stage.coerceIn(1, 5)) {
+    1 -> "Sprouting Seed"
+    2 -> "Young Sapling"
+    3 -> "Steady Oak"
+    4 -> "Blossom Canopy"
+    else -> "Ancient Wisdom Tree"
 }
 
 fun readerRankTitle(level: Int): String = when {
@@ -336,31 +64,148 @@ fun XpRewardChip(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val chipBg = if (isDark) Color(0xFF3A2D12) else Color(0xFFFFF5DB)
-    val chipContent = if (isDark) Color(0xFFFFC857) else Color(0xFF8A5A00)
+    val bg = if (isDark) Color(0xFF3A2D12) else Color(0xFFFFF5DB)
+    val fg = if (isDark) GamifiedYellow else Color(0xFF8A5A00)
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(chipBg)
+            .background(bg)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Bolt,
-            contentDescription = null,
-            tint = Color(0xFFFFC857),
-            modifier = Modifier.size(13.dp)
-        )
-        Spacer(modifier = Modifier.width(3.dp))
         Text(
             text = text,
-            color = chipContent,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            softWrap = false
+            color = fg,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Black
         )
+    }
+}
+
+@Composable
+fun GrowingTreeCanvas(
+    stage: Int,
+    liveProgress: Float = 1f,
+    modifier: Modifier = Modifier.size(64.dp)
+) {
+    val clampedStage = stage.coerceIn(1, 5)
+    val scale = (0.55f + liveProgress.coerceIn(0f, 1f) * 0.45f)
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val groundY = h * 0.88f
+
+        // Ground mound
+        drawLine(
+            color = Color(0xFF6D4C41),
+            start = Offset(w * 0.25f, groundY),
+            end = Offset(w * 0.75f, groundY),
+            strokeWidth = 4.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+
+        // Trunk
+        val trunkHeight = h * (0.18f + clampedStage * 0.08f) * scale
+        drawLine(
+            color = Color(0xFF795548),
+            start = Offset(w * 0.5f, groundY),
+            end = Offset(w * 0.5f, groundY - trunkHeight),
+            strokeWidth = (3 + clampedStage).dp.toPx(),
+            cap = StrokeCap.Round
+        )
+
+        val topY = groundY - trunkHeight
+        val leafRadius = (w * (0.12f + clampedStage * 0.045f)) * scale
+        drawCircle(
+            color = GamifiedMint,
+            radius = leafRadius,
+            center = Offset(w * 0.5f, topY)
+        )
+        if (clampedStage >= 3) {
+            drawCircle(
+                color = Color(0xFF28B779),
+                radius = leafRadius * 0.72f,
+                center = Offset(w * 0.35f, topY + leafRadius * 0.25f)
+            )
+            drawCircle(
+                color = Color(0xFF28B779),
+                radius = leafRadius * 0.72f,
+                center = Offset(w * 0.65f, topY + leafRadius * 0.25f)
+            )
+        }
+        if (clampedStage >= 4) {
+            drawCircle(
+                color = GamifiedYellow,
+                radius = 3.dp.toPx(),
+                center = Offset(w * 0.44f, topY - leafRadius * 0.35f)
+            )
+            drawCircle(
+                color = GamifiedPurple,
+                radius = 3.dp.toPx(),
+                center = Offset(w * 0.58f, topY - leafRadius * 0.2f)
+            )
+        }
+    }
+}
+
+@Composable
+fun FocusForestRewardCard(
+    stats: FocusStatsSummary,
+    liveSessionProgress: Float? = null,
+    modifier: Modifier = Modifier
+) {
+    val stage = calculateTreeStage(stats.totalFocusMinutes, stats.completedSessionsCount)
+    val title = treeStageTitle(stage)
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(22.dp),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("focus_forest_card")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                GrowingTreeCanvas(
+                    stage = stage,
+                    liveProgress = liveSessionProgress ?: 1f,
+                    modifier = Modifier.size(56.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "FOCUS TREE • STAGE $stage/5",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = GamifiedMint
+                    )
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (liveSessionProgress != null) {
+                            "Growing live with your current focus session"
+                        } else {
+                            "${stats.totalFocusMinutes}m total focus • ${stats.completedSessionsCount} sessions"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+            XpRewardChip(text = "${stats.focusScore} XP")
+        }
     }
 }
 
@@ -370,15 +215,14 @@ fun GamifiedLevelHudCard(
     modifier: Modifier = Modifier
 ) {
     val level = (stats.focusScore / 200) + 1
-    val levelProgress = ((stats.focusScore % 200) / 200f).coerceIn(0.05f, 1f)
-    val pointsToNext = 200 - (stats.focusScore % 200)
+    val xpInLevel = stats.focusScore % 200
     val rank = readerRankTitle(level)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(22.dp),
         border = null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -387,43 +231,22 @@ fun GamifiedLevelHudCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF6C4DFF))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Reader Level",
-                            tint = Color(0xFFFFC857),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "LVL $level • ${rank.uppercase()}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF6C4DFF),
-                            letterSpacing = 0.8.sp
-                        )
-                        Text(
-                            text = "${stats.focusScore} XP Total",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                Column {
+                    Text(
+                        text = "LEVEL $level • $rank",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${200 - xpInLevel} XP to Level ${level + 1}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
-                XpRewardChip(text = "$pointsToNext XP to Lvl ${level + 1}")
+                XpRewardChip(text = "${stats.focusScore} XP")
             }
-
             Spacer(modifier = Modifier.height(10.dp))
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -433,13 +256,12 @@ fun GamifiedLevelHudCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(levelProgress)
+                        .fillMaxWidth((xpInLevel / 200f).coerceIn(0.05f, 1f))
                         .height(8.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF6C4DFF))
+                        .background(GamifiedPurple)
                 )
             }
         }
     }
 }
-

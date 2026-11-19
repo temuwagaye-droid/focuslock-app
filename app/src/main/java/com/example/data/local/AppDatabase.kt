@@ -10,7 +10,12 @@ import com.example.data.model.SettingEntity
 import com.example.data.model.TodoEntity
 
 @Database(
-    entities = [BlockedAppEntity::class, SessionLogEntity::class, SettingEntity::class, TodoEntity::class],
+    entities = [
+        BlockedAppEntity::class,
+        SessionLogEntity::class,
+        SettingEntity::class,
+        TodoEntity::class
+    ],
     version = 2,
     exportSchema = false
 )
@@ -28,8 +33,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "readlock_database"
                 )
-                .fallbackToDestructiveMigration()
-                .build()
+                    .fallbackToDestructiveMigration(true)
+                    .build()
                 INSTANCE = instance
                 instance
             }

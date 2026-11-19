@@ -7,6 +7,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 data class TelemetryLogEntry(
     val id: String,
@@ -16,20 +17,16 @@ data class TelemetryLogEntry(
     val timestampMs: Long
 ) {
     fun formattedTime(): String {
-        return SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault()).format(Date(timestampMs))
+        val sdf = SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date(timestampMs))
     }
 }
 
-/**
- * Local-first, privacy-respecting Analytics & Uncaught Crash Reporting manager.
- * Stores bounded diagnostic buffers locally and honors user opt-in settings.
- */
 object TelemetryManager {
-
-    private const val ANALYTICS_FILE = "analytics_events.json"
-    private const val CRASH_FILE = "crash_reports.json"
+    private const val ANALYTICS_FILE = "focuslock_analytics.json"
+    private const val CRASH_FILE = "focuslock_crashes.json"
     private const val MAX_EVENTS = 100
-    private const val MAX_CRASHES = 20
+    private const val MAX_CRASHES = 50
 
     @Volatile
     private var crashHandlerInstalled = false
@@ -43,101 +40,92 @@ object TelemetryManager {
     fun installCrashHandler(context: Context) {
         if (crashHandlerInstalled) return
         crashHandlerInstalled = true
-
-        val appContext = context.applicationContext
-        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
-
+        val appCtx = context.applicationContext
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             if (isCrashReportingOptIn) {
-                try {
-                    val stack = throwable.stackTraceToString().take(1200)
+                runCatching {
                     val entry = TelemetryLogEntry(
-                        id = "crash_${System.currentTimeMillis()}",
+                        id = UUID.randomUUID().toString(),
                         kind = "crash",
                         name = throwable::class.java.simpleName.ifBlank { "Exception" },
-                        detail = "Thread=${thread.name}: ${throwable.message ?: "No message"}\n$stack",
+                        detail = "${throwable.message ?: "No message"} (${thread.name})",
                         timestampMs = System.currentTimeMillis()
                     )
-                    appendEntry(File(appContext.filesDir, CRASH_FILE), entry, MAX_CRASHES)
-                } catch (_: Throwable) {
+                    appendEntry(File(appCtx.filesDir, CRASH_FILE), entry, MAX_CRASHES)
                 }
             }
-            defaultHandler?.uncaughtException(thread, throwable)
+            previous?.uncaughtException(thread, throwable)
         }
     }
 
     fun trackEvent(context: Context, name: String, detail: String = "") {
         if (!isAnalyticsOptIn) return
-        try {
-            val entry = TelemetryLogEntry(
-                id = "evt_${System.currentTimeMillis()}_${name.hashCode()}",
-                kind = "analytics",
-                name = name,
-                detail = detail.take(300),
-                timestampMs = System.currentTimeMillis()
-            )
-            appendEntry(File(context.applicationContext.filesDir, ANALYTICS_FILE), entry, MAX_EVENTS)
-        } catch (_: Throwable) {
+        val appCtx = context.applicationContext
+        val entry = TelemetryLogEntry(
+            id = UUID.randomUUID().toString(),
+            kind = "event",
+            name = name,
+            detail = detail,
+            timestampMs = System.currentTimeMillis()
+        )
+        runCatching {
+            appendEntry(File(appCtx.filesDir, ANALYTICS_FILE), entry, MAX_EVENTS)
         }
     }
 
-    fun getAnalyticsEvents(context: Context): List<TelemetryLogEntry> {
-        return readEntries(File(context.applicationContext.filesDir, ANALYTICS_FILE)).reversed()
-    }
+    fun getAnalyticsEvents(context: Context): List<TelemetryLogEntry> =
+        readEntries(File(context.applicationContext.filesDir, ANALYTICS_FILE))
 
-    fun getCrashReports(context: Context): List<TelemetryLogEntry> {
-        return readEntries(File(context.applicationContext.filesDir, CRASH_FILE)).reversed()
-    }
+    fun getCrashReports(context: Context): List<TelemetryLogEntry> =
+        readEntries(File(context.applicationContext.filesDir, CRASH_FILE))
 
     fun clearAllLogs(context: Context) {
         val dir = context.applicationContext.filesDir
-        File(dir, ANALYTICS_FILE).delete()
-        File(dir, CRASH_FILE).delete()
+        runCatching { File(dir, ANALYTICS_FILE).delete() }
+        runCatching { File(dir, CRASH_FILE).delete() }
     }
 
+    @Synchronized
     private fun appendEntry(file: File, entry: TelemetryLogEntry, maxCount: Int) {
-        synchronized(this) {
-            val current = readEntries(file).toMutableList()
-            current.add(entry)
-            val trimmed = if (current.size > maxCount) current.takeLast(maxCount) else current
-            val array = JSONArray()
-            for (item in trimmed) {
-                array.put(
-                    JSONObject().apply {
-                        put("id", item.id)
-                        put("kind", item.kind)
-                        put("name", item.name)
-                        put("detail", item.detail)
-                        put("timestampMs", item.timestampMs)
-                    }
-                )
-            }
-            file.writeText(array.toString())
+        val existing = readEntries(file).toMutableList()
+        existing.add(0, entry)
+        val trimmed = existing.take(maxCount)
+        val arr = JSONArray()
+        trimmed.forEach { item ->
+            arr.put(
+                JSONObject().apply {
+                    put("id", item.id)
+                    put("kind", item.kind)
+                    put("name", item.name)
+                    put("detail", item.detail)
+                    put("timestampMs", item.timestampMs)
+                }
+            )
         }
+        file.writeText(arr.toString())
     }
 
     private fun readEntries(file: File): List<TelemetryLogEntry> {
         if (!file.exists()) return emptyList()
-        return try {
-            val text = file.readText()
-            if (text.isBlank()) return emptyList()
-            val array = JSONArray(text)
-            val list = ArrayList<TelemetryLogEntry>(array.length())
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                list.add(
-                    TelemetryLogEntry(
-                        id = obj.optString("id"),
-                        kind = obj.optString("kind"),
-                        name = obj.optString("name"),
-                        detail = obj.optString("detail"),
-                        timestampMs = obj.optLong("timestampMs")
+        return runCatching {
+            val raw = file.readText()
+            if (raw.isBlank()) return emptyList()
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    add(
+                        TelemetryLogEntry(
+                            id = obj.optString("id"),
+                            kind = obj.optString("kind", "event"),
+                            name = obj.optString("name"),
+                            detail = obj.optString("detail"),
+                            timestampMs = obj.optLong("timestampMs", 0L)
+                        )
                     )
-                )
+                }
             }
-            list
-        } catch (_: Throwable) {
-            emptyList()
-        }
+        }.getOrDefault(emptyList())
     }
 }

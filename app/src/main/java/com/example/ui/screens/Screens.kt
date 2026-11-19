@@ -120,6 +120,8 @@ import com.example.ui.components.GamifiedLevelHudCard
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReaderAndShieldLoadoutRow
 import com.example.ui.components.ReadingAppRequiredDialog
+import com.example.ui.components.ReadingSelectedGoToBlockAppsDialog
+import com.example.ui.components.RealTimeFocusCountdownRing
 import com.example.ui.components.TimerBadgesStripCard
 import com.example.ui.components.TimerXpAndStreakCard
 import com.example.ui.components.XpRewardChip
@@ -176,6 +178,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.SessionLogEntity
 import com.example.service.FocusSessionManager
 import com.example.service.ReadLockAccessibilityService
+import com.example.ui.AppInfoModel
 import com.example.ui.FocusViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -260,6 +263,7 @@ fun AppSelectionScreen(
     val parentalPinHash by viewModel.parentalPinHash.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
+    var showSelectedOnly by remember { mutableStateOf(false) }
     var pendingParentalAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     fun runWithParentalCheck(action: () -> Unit) {
@@ -278,11 +282,21 @@ fun AppSelectionScreen(
         blockedApps.filter { it.isBlocked }.map { it.packageName }.toSet()
     }
 
-    val filteredApps = remember(installedApps, searchQuery) {
+    val selectedAppModels = remember(installedApps, blockedApps, blockedPackagesSet) {
+        val installedByPkg = installedApps.associateBy { it.packageName }
+        val fromInstalled = installedApps.filter { blockedPackagesSet.contains(it.packageName) }
+        val extraBlocked = blockedApps
+            .filter { it.isBlocked && !installedByPkg.containsKey(it.packageName) }
+            .map { AppInfoModel(packageName = it.packageName, label = it.appName) }
+        (fromInstalled + extraBlocked).sortedBy { it.label.lowercase(Locale.getDefault()) }
+    }
+
+    val filteredApps = remember(installedApps, selectedAppModels, showSelectedOnly, searchQuery) {
+        val baseList = if (showSelectedOnly) selectedAppModels else installedApps
         if (searchQuery.isBlank()) {
-            installedApps
+            baseList
         } else {
-            installedApps.filter {
+            baseList.filter {
                 it.label.contains(searchQuery, ignoreCase = true) ||
                     it.packageName.contains(searchQuery, ignoreCase = true)
             }
@@ -308,26 +322,48 @@ fun AppSelectionScreen(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "Choose apps to block during reading sessions.",
+                    text = if (showSelectedOnly) {
+                        "Showing selected blocked apps only (${blockedPackagesSet.size})."
+                    } else {
+                        "Choose apps to block during reading sessions."
+                    },
                     color = MaterialTheme.colorScheme.secondary,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            if (!isProTier) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${blockedPackagesSet.size}/${FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS} SLOTS",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 36.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        if (showSelectedOnly) GamifiedPurple
+                        else MaterialTheme.colorScheme.primaryContainer
                     )
-                }
+                    .border(
+                        width = 1.dp,
+                        color = if (showSelectedOnly) GamifiedPurple
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(50)
+                    )
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = if (showSelectedOnly) "Show all installed apps" else "Show selected apps only"
+                    ) { showSelectedOnly = !showSelectedOnly }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .testTag("shield_slots_filter_button")
+            ) {
+                Text(
+                    text = when {
+                        showSelectedOnly -> "SELECTED (${blockedPackagesSet.size})"
+                        !isProTier -> "${blockedPackagesSet.size}/${FocusViewModel.FREE_TIER_MAX_BLOCKED_APPS} SLOTS"
+                        else -> "${blockedPackagesSet.size} SLOTS"
+                    },
+                    color = if (showSelectedOnly) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
 
@@ -462,79 +498,175 @@ fun AppSelectionScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Apps list styled with Launcher Icon + App Label
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                itemsIndexed(filteredApps, key = { _, app -> app.packageName }) { index, app ->
-                    val isChecked = blockedPackagesSet.contains(app.packageName)
-                    CinematicCardEntrance(index = index.coerceAtMost(5)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    if (isChecked) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
-                                .border(
-                                    width = if (isChecked) 1.5.dp else 1.dp,
-                                    color = if (isChecked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                                .clickable {
-                                    runWithParentalCheck {
-                                        viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            AppLauncherIcon(
-                                packageName = app.packageName,
-                                contentDescription = "${app.label} launcher icon",
-                                size = 40.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+            if (showSelectedOnly) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(GamifiedPurple.copy(alpha = 0.14f))
+                        .border(1.dp, GamifiedPurple.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .testTag("shield_selected_filter_banner"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Showing ${filteredApps.size} selected app${if (filteredApps.size == 1) "" else "s"} only",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "SHOW ALL",
+                        color = GamifiedPurple,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .clickable { showSelectedOnly = false }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .testTag("shield_show_all_apps_btn")
+                    )
+                }
+            }
+
+            if (filteredApps.isEmpty()) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp))
+                        .padding(24.dp)
+                        .testTag("shield_empty_list_state")
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = null,
+                            containerSize = 56.dp,
+                            iconSize = 28.dp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (showSelectedOnly && blockedPackagesSet.isEmpty()) {
+                                "No Selected Apps Yet"
+                            } else {
+                                "No Matching Apps"
+                            },
+                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (showSelectedOnly && blockedPackagesSet.isEmpty()) {
+                                "Tap Show All to select distracting apps you want blocked during reading sessions."
+                            } else {
+                                "No apps match your current filter."
+                            },
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center
+                        )
+                        if (showSelectedOnly) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = { showSelectedOnly = false },
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.testTag("shield_empty_show_all_btn")
+                            ) {
                                 Text(
-                                    text = app.label,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = if (isChecked) "Shielded during focus" else app.packageName,
-                                    color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                                    fontSize = 11.sp,
-                                    fontFamily = if (isChecked) FontFamily.SansSerif else FontFamily.Monospace,
-                                    fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    text = "SHOW ALL APPS",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
                                 )
                             }
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { want ->
-                                    runWithParentalCheck {
-                                        viewModel.toggleAppBlock(app.packageName, app.label, want)
+                        }
+                    }
+                }
+            } else {
+                // Apps list styled with Launcher Icon + App Label
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    itemsIndexed(filteredApps, key = { _, app -> app.packageName }) { index, app ->
+                        val isChecked = blockedPackagesSet.contains(app.packageName)
+                        CinematicCardEntrance(index = index.coerceAtMost(5)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(
+                                        if (isChecked) {
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
+                                    .border(
+                                        width = if (isChecked) 1.5.dp else 1.dp,
+                                        color = if (isChecked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
+                                    .clickable {
+                                        runWithParentalCheck {
+                                            viewModel.toggleAppBlock(app.packageName, app.label, !isChecked)
+                                        }
                                     }
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary,
-                                    checkmarkColor = MaterialTheme.colorScheme.background
-                                ),
-                                modifier = Modifier.testTag("app_checkbox_${app.packageName}")
-                            )
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                AppLauncherIcon(
+                                    packageName = app.packageName,
+                                    contentDescription = "${app.label} launcher icon",
+                                    size = 40.dp
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = app.label,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (isChecked) "Shielded during focus" else app.packageName,
+                                        color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                        fontSize = 11.sp,
+                                        fontFamily = if (isChecked) FontFamily.SansSerif else FontFamily.Monospace,
+                                        fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { want ->
+                                        runWithParentalCheck {
+                                            viewModel.toggleAppBlock(app.packageName, app.label, want)
+                                        }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary,
+                                        checkmarkColor = MaterialTheme.colorScheme.background
+                                    ),
+                                    modifier = Modifier.testTag("app_checkbox_${app.packageName}")
+                                )
+                            }
                         }
                     }
                 }
@@ -666,6 +798,7 @@ fun TimerSetupScreen(
         mutableIntStateOf(prefs.getInt("saved_session_minutes", 15))
     }
     var showAppPicker by remember { mutableStateOf(false) }
+    var pendingRedirectAppLabel by remember { mutableStateOf<String?>(null) }
     var showAccessibilityRequiredDialog by remember { mutableStateOf(false) }
     var showReadingAppRequiredDialog by remember { mutableStateOf(false) }
     var showBlockedAppsRequiredDialog by remember { mutableStateOf(false) }
@@ -824,7 +957,10 @@ fun TimerSetupScreen(
                                 )
                             }
 
-                            FitnessDurationRing(sessionMinutes = sessionMinutes)
+                            FitnessDurationRing(
+                                sessionMinutes = sessionMinutes,
+                                onMinutesChange = { updateSessionMinutes(it) }
+                            )
 
                             val canIncrement = sessionMinutes < 120
                             IconButton(
@@ -1138,7 +1274,7 @@ fun TimerSetupScreen(
                                     .clickable {
                                         viewModel.selectReadingApp(app.packageName)
                                         showAppPicker = false
-                                        onNavigateToBlocklist()
+                                        pendingRedirectAppLabel = app.label
                                     }
                                     .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1236,6 +1372,19 @@ fun TimerSetupScreen(
         )
     }
 
+    pendingRedirectAppLabel?.let { selectedLabel ->
+        ReadingSelectedGoToBlockAppsDialog(
+            selectedAppLabel = selectedLabel,
+            onGoToBlocklist = {
+                pendingRedirectAppLabel = null
+                onNavigateToBlocklist()
+            },
+            onDismiss = {
+                pendingRedirectAppLabel = null
+            }
+        )
+    }
+
     if (showProLimitPrompt) {
         PremiumUpgradeDialog(
             isProActive = isProTier,
@@ -1263,6 +1412,7 @@ fun ReadingAppSelectionScreen(
     val installedApps by viewModel.installedApps.collectAsState()
     val designatedReadingApp by viewModel.designatedReadingApp.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var pendingRedirectAppLabel by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
@@ -1400,7 +1550,7 @@ fun ReadingAppSelectionScreen(
                             )
                             .clickable {
                                 viewModel.selectReadingApp(app.packageName)
-                                onReadingAppSelected()
+                                pendingRedirectAppLabel = app.label
                             }
                             .padding(horizontal = 14.dp, vertical = 12.dp)
                             .testTag("reading_app_option_${app.packageName}"),
@@ -1468,6 +1618,19 @@ fun ReadingAppSelectionScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Text("BACK TO TIMER", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
         }
+    }
+
+    pendingRedirectAppLabel?.let { selectedLabel ->
+        ReadingSelectedGoToBlockAppsDialog(
+            selectedAppLabel = selectedLabel,
+            onGoToBlocklist = {
+                pendingRedirectAppLabel = null
+                onReadingAppSelected()
+            },
+            onDismiss = {
+                pendingRedirectAppLabel = null
+            }
+        )
     }
 }
 
@@ -1597,50 +1760,14 @@ fun FocusSessionScreen(
             }
         }
 
-        // Central Countdown Arc
-        val potentialSessionXp = ((totalDuration / 60).coerceAtLeast(1) * 2 + 50)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(236.dp)
-                .padding(8.dp)
-        ) {
-            val primaryTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-            val accentActiveColor = MaterialTheme.colorScheme.primary
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawCircle(
-                    color = primaryTrackColor,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
-                )
-                drawArc(
-                    color = accentActiveColor,
-                    startAngle = -90f,
-                    sweepAngle = 360f * progress,
-                    useCenter = false,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "STAY FOCUSED",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formattedTime,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.displayLarge,
-                    modifier = Modifier.testTag("countdown_timer_text")
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                XpRewardChip(text = "+$potentialSessionXp XP")
-            }
-        }
+        // Central Real-Time Rotating Countdown Arc
+        val potentialSessionXp = ((totalDuration / 60).coerceAtLeast(1) * 2 + 50).toInt()
+        RealTimeFocusCountdownRing(
+            timeLeftSeconds = timeLeftSeconds.toInt(),
+            totalDurationSeconds = totalDuration.toInt(),
+            formattedTime = formattedTime,
+            potentialSessionXp = potentialSessionXp
+        )
 
         // Virtual Focus Tree growing live with session progress
         FocusForestRewardCard(

@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FocusDao {
-    // Blocked Apps Queries
     @Query("SELECT * FROM blocked_apps ORDER BY appName ASC")
     fun getAllBlockedAppsFlow(): Flow<List<BlockedAppEntity>>
 
@@ -28,7 +27,6 @@ interface FocusDao {
     @Query("DELETE FROM blocked_apps")
     suspend fun clearAllBlockedApps()
 
-    // Session Logs Queries
     @Query("SELECT * FROM session_logs ORDER BY timestamp DESC")
     fun getAllSessionLogsFlow(): Flow<List<SessionLogEntity>>
 
@@ -38,7 +36,6 @@ interface FocusDao {
     @Query("DELETE FROM session_logs")
     suspend fun clearAllSessionLogs()
 
-    // Settings Queries
     @Query("SELECT * FROM settings WHERE `key` = :key")
     fun getSettingFlow(key: String): Flow<SettingEntity?>
 
@@ -48,7 +45,6 @@ interface FocusDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSetting(setting: SettingEntity)
 
-    // Todo Queries
     @Query("SELECT * FROM todo_items ORDER BY timestamp DESC")
     fun getAllTodoItemsFlow(): Flow<List<TodoEntity>>
 

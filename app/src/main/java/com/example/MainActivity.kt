@@ -6,78 +6,52 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.data.local.AppDatabase
-import com.example.data.remote.SupabaseUser
 import com.example.data.repository.FocusRepository
 import com.example.notifications.NotificationHelper
 import com.example.telemetry.TelemetryManager
@@ -96,11 +70,8 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SocialScreen
 import com.example.ui.screens.TimerSetupScreen
 import com.example.ui.theme.AppAccentTheme
-import com.example.ui.theme.GamifiedMint
 import com.example.ui.theme.GamifiedPurple
 import com.example.ui.theme.MyApplicationTheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 object AppRoutes {
     const val TIMER = "timer"
@@ -112,6 +83,14 @@ object AppRoutes {
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val FOCUS_SESSION = "focus_session"
     const val COFFEE_BREAK = "coffee_break"
+}
+
+enum class DashboardTab(val route: String) {
+    TIMER(AppRoutes.TIMER),
+    BLOCKLIST(AppRoutes.BLOCKLIST),
+    SOCIAL(AppRoutes.SOCIAL),
+    STATS(AppRoutes.STATS),
+    SETTINGS(AppRoutes.SETTINGS)
 }
 
 class MainActivity : ComponentActivity() {
@@ -127,347 +106,349 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        TelemetryManager.installCrashHandler(applicationContext)
         NotificationHelper.ensureChannels(this)
-        launchActionState = intent?.getStringExtra("quick_action")
-        handleAuthIntentAndConsume(intent)
+        TelemetryManager.installCrashHandler(this)
+
+        handleIncomingIntent(intent)
 
         setContent {
-            val isDarkModeEnabled by viewModel.isDarkModeEnabled.collectAsState()
+            val isDarkMode by viewModel.isDarkModeEnabled.collectAsState()
             val accentThemeId by viewModel.accentThemeId.collectAsState()
             val accentTheme = AppAccentTheme.fromId(accentThemeId)
 
-            MyApplicationTheme(darkTheme = isDarkModeEnabled, accentTheme = accentTheme) {
-                val isSessionActive by viewModel.isSessionActive.collectAsState()
-                val isBreakActive by viewModel.isBreakActive.collectAsState()
-                val pendingQuitAlert by viewModel.pendingQuitAlert.collectAsState()
-                val currentUser by viewModel.currentUser.collectAsState()
-                val isAuthBusy by viewModel.isAuthBusy.collectAsState()
-                val cloudStatusMessage by viewModel.cloudStatusMessage.collectAsState()
-                val statsSummary by viewModel.statsSummary.collectAsState()
+            val navController = rememberNavController()
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: AppRoutes.TIMER
 
-                val navController = rememberNavController()
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route ?: AppRoutes.TIMER
+            val isSessionActive by viewModel.isSessionActive.collectAsState()
+            val isBreakActive by viewModel.isBreakActive.collectAsState()
+            val currentUser by viewModel.currentUser.collectAsState()
+            val stats by viewModel.statsSummary.collectAsState()
+            val isAuthBusy by viewModel.isAuthBusy.collectAsState()
+            val cloudStatusMessage by viewModel.cloudStatusMessage.collectAsState()
+            val pendingQuitAlert by viewModel.pendingQuitAlert.collectAsState()
 
-                var autoTriggerStart by remember { mutableStateOf(false) }
-                var barsVisible by remember { mutableStateOf(true) }
-                var showLauncherIntro by remember { mutableStateOf(true) }
-                var showAccountDialog by remember { mutableStateOf(false) }
+            var showProfileDialog by remember { mutableStateOf(false) }
+            var autoStartFromShortcut by remember { mutableStateOf(false) }
+            var suggestedDurationMinutes by remember { mutableIntStateOf(0) }
 
-                // Smooth launcher entrance animation on app open
-                val appEntranceAlpha = remember { Animatable(0f) }
-                val appEntranceScale = remember { Animatable(0.95f) }
-                LaunchedEffect(Unit) {
-                    launch {
-                        appEntranceAlpha.animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
-                        )
-                    }
-                    launch {
-                        appEntranceScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
-                        )
-                    }
-                    delay(380)
-                    showLauncherIntro = false
-                }
-
-                // Always reveal bars when switching destinations
-                LaunchedEffect(currentRoute) {
-                    barsVisible = true
-                }
-
-                fun navigateToTab(tab: DashboardTab) {
-                    val targetRoute = when (tab) {
-                        DashboardTab.TIMER -> AppRoutes.TIMER
-                        DashboardTab.BLOCKLIST -> AppRoutes.BLOCKLIST
-                        DashboardTab.SOCIAL -> AppRoutes.SOCIAL
-                        DashboardTab.STATS -> AppRoutes.STATS
-                        DashboardTab.SETTINGS -> AppRoutes.SETTINGS
-                    }
-                    if (currentRoute != targetRoute) {
-                        navController.navigate(targetRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+            LaunchedEffect(launchActionState) {
+                when (launchActionState) {
+                    "start_focus" -> {
+                        autoStartFromShortcut = true
+                        launchActionState = null
+                        if (currentRoute != AppRoutes.TIMER) {
+                            navController.navigate(AppRoutes.TIMER) {
+                                launchSingleTop = true
                             }
+                        }
+                    }
+                    "open_rooms" -> {
+                        launchActionState = null
+                        navController.navigate(AppRoutes.SOCIAL) {
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 }
+            }
 
-                // Handle launcher/widget quick actions
-                LaunchedEffect(launchActionState) {
-                    when (launchActionState) {
-                        "open_rooms" -> {
-                            navigateToTab(DashboardTab.SOCIAL)
-                            launchActionState = null
-                        }
-                        "start_focus" -> {
-                            navigateToTab(DashboardTab.TIMER)
-                            autoTriggerStart = true
-                            launchActionState = null
-                        }
+            LaunchedEffect(isSessionActive, isBreakActive) {
+                if (isSessionActive && currentRoute != AppRoutes.FOCUS_SESSION) {
+                    navController.navigate(AppRoutes.FOCUS_SESSION) {
+                        launchSingleTop = true
                     }
-                }
-
-                // Sync active session / break screens into NavHost hierarchy
-                LaunchedEffect(isSessionActive, isBreakActive) {
-                    when {
-                        isSessionActive -> {
-                            if (currentRoute != AppRoutes.FOCUS_SESSION) {
-                                navController.navigate(AppRoutes.FOCUS_SESSION) {
-                                    launchSingleTop = true
-                                }
-                            }
-                        }
-                        isBreakActive -> {
-                            if (currentRoute != AppRoutes.COFFEE_BREAK) {
-                                navController.navigate(AppRoutes.COFFEE_BREAK) {
-                                    popUpTo(AppRoutes.FOCUS_SESSION) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            }
-                        }
-                        else -> {
-                            if (currentRoute == AppRoutes.FOCUS_SESSION || currentRoute == AppRoutes.COFFEE_BREAK) {
-                                navController.navigate(AppRoutes.TIMER) {
-                                    popUpTo(AppRoutes.TIMER) { inclusive = false }
-                                    launchSingleTop = true
-                                }
-                            }
-                        }
+                } else if (isBreakActive && currentRoute != AppRoutes.COFFEE_BREAK) {
+                    navController.navigate(AppRoutes.COFFEE_BREAK) {
+                        launchSingleTop = true
                     }
-                }
-
-                // Hide bars when scrolling up (reading down); show bars when scrolling down
-                val nestedScrollConnection = remember {
-                    object : NestedScrollConnection {
-                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                            if (available.y < -10f) {
-                                barsVisible = false
-                            } else if (available.y > 10f) {
-                                barsVisible = true
-                            }
-                            return Offset.Zero
-                        }
-                    }
-                }
-
-                val currentTab = when (currentRoute) {
-                    AppRoutes.BLOCKLIST -> DashboardTab.BLOCKLIST
-                    AppRoutes.SOCIAL -> DashboardTab.SOCIAL
-                    AppRoutes.STATS -> DashboardTab.STATS
-                    AppRoutes.SETTINGS -> DashboardTab.SETTINGS
-                    else -> DashboardTab.TIMER
-                }
-
-                val isImmersiveRoute = isSessionActive || isBreakActive ||
-                    currentRoute == AppRoutes.FOCUS_SESSION || currentRoute == AppRoutes.COFFEE_BREAK
-                val isChildRoute = currentRoute == AppRoutes.READING_APP_PICKER ||
-                    currentRoute == AppRoutes.ADMIN_DASHBOARD
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .graphicsLayer {
-                            alpha = appEntranceAlpha.value
-                            scaleX = appEntranceScale.value
-                            scaleY = appEntranceScale.value
-                        }
+                } else if (!isSessionActive && !isBreakActive &&
+                    (currentRoute == AppRoutes.FOCUS_SESSION || currentRoute == AppRoutes.COFFEE_BREAK)
                 ) {
-                    Scaffold(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        contentColor = MaterialTheme.colorScheme.onBackground,
+                    navController.navigate(AppRoutes.TIMER) {
+                        popUpTo(AppRoutes.TIMER) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
+
+            fun navigateToTab(tab: DashboardTab) {
+                if (currentRoute == tab.route) return
+                navController.navigate(tab.route) {
+                    popUpTo(AppRoutes.TIMER) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+
+            val showDashboardChrome = currentRoute in setOf(
+                AppRoutes.TIMER,
+                AppRoutes.BLOCKLIST,
+                AppRoutes.SOCIAL,
+                AppRoutes.STATS,
+                AppRoutes.SETTINGS
+            )
+
+            val selectedTab = when (currentRoute) {
+                AppRoutes.BLOCKLIST -> DashboardTab.BLOCKLIST
+                AppRoutes.SOCIAL -> DashboardTab.SOCIAL
+                AppRoutes.STATS -> DashboardTab.STATS
+                AppRoutes.SETTINGS -> DashboardTab.SETTINGS
+                else -> DashboardTab.TIMER
+            }
+
+            MyApplicationTheme(darkTheme = isDarkMode, accentTheme = accentTheme) {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    topBar = {
+                        if (showDashboardChrome) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "FocusLock",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Profile Avatar Button beside dark-mode toggle
+                                    val initial = (currentUser?.displayName ?: currentUser?.email ?: "")
+                                        .trim()
+                                        .firstOrNull()
+                                        ?.uppercase()
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (currentUser != null) GamifiedPurple
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outlineVariant,
+                                                CircleShape
+                                            )
+                                            .clickable { showProfileDialog = true }
+                                            .testTag("top_bar_profile_button")
+                                    ) {
+                                        if (initial != null) {
+                                            Text(
+                                                text = initial,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 16.sp
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.AccountCircle,
+                                                contentDescription = "Account Profile",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Dark / Light mode toggle
+                                    IconButton(
+                                        onClick = { viewModel.toggleDarkMode(!isDarkMode) },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .testTag("theme_toggle_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                            contentDescription = if (isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    bottomBar = {
+                        if (showDashboardChrome) {
+                            ConcaveNotchBottomNavigationBar(
+                                selectedTab = selectedTab,
+                                onSelectTab = { navigateToTab(it) }
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = AppRoutes.TIMER,
                         modifier = Modifier
                             .fillMaxSize()
-                            .nestedScroll(nestedScrollConnection),
-                        topBar = {
-                            AnimatedVisibility(
-                                visible = !isImmersiveRoute && (barsVisible || isChildRoute),
-                                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(tween(220)),
-                                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(tween(180))
-                            ) {
-                                FocusLockTopAppBar(
-                                    currentRoute = currentRoute,
-                                    isDarkModeEnabled = isDarkModeEnabled,
-                                    currentUser = currentUser,
-                                    onToggleDarkMode = { viewModel.toggleDarkMode(!isDarkModeEnabled) },
-                                    onAccountClick = { showAccountDialog = true },
-                                    onBackClick = { navController.popBackStack() }
-                                )
-                            }
-                        },
-                        bottomBar = {
-                            AnimatedVisibility(
-                                visible = !isImmersiveRoute && !isChildRoute && barsVisible,
-                                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(220)),
-                                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(180))
-                            ) {
-                                ConcaveNotchBottomNavigationBar(
-                                    currentTab = currentTab,
-                                    onTabSelected = { navigateToTab(it) }
-                                )
-                            }
-                        },
-                        contentWindowInsets = WindowInsets.systemBars
-                    ) { innerPadding ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background)
-                                .padding(innerPadding)
-                        ) {
-                            NavHost(
-                                navController = navController,
-                                startDestination = AppRoutes.TIMER,
-                                enterTransition = { fadeIn(tween(240)) },
-                                exitTransition = { fadeOut(tween(200)) },
-                                popEnterTransition = { fadeIn(tween(240)) },
-                                popExitTransition = { fadeOut(tween(200)) }
-                            ) {
-                                composable(AppRoutes.TIMER) {
-                                    TimerSetupScreen(
-                                        viewModel = viewModel,
-                                        onStartSession = {},
-                                        onNavigateToBlocklist = { navigateToTab(DashboardTab.BLOCKLIST) },
-                                        onNavigateToReadingAppPicker = {
-                                            navController.navigate(AppRoutes.READING_APP_PICKER) {
-                                                launchSingleTop = true
-                                            }
-                                        },
-                                        onNavigateToStats = { navigateToTab(DashboardTab.STATS) },
-                                        onNavigateToRooms = { navigateToTab(DashboardTab.SOCIAL) },
-                                        autoStartFromShortcut = autoTriggerStart,
-                                        onAutoStartConsumed = { autoTriggerStart = false }
-                                    )
-                                }
-                                composable(AppRoutes.BLOCKLIST) {
-                                    AppSelectionScreen(
-                                        viewModel = viewModel,
-                                        onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) }
-                                    )
-                                }
-                                composable(AppRoutes.SOCIAL) {
-                                    SocialScreen(
-                                        viewModel = viewModel,
-                                        onStartGroupSession = { mins ->
-                                            getSharedPreferences("focuslock_prefs", MODE_PRIVATE)
-                                                .edit()
-                                                .putInt("saved_session_minutes", mins)
-                                                .apply()
-                                            viewModel.startFocusSession(this@MainActivity, mins)
-                                        },
-                                        onNavigateToStats = { navigateToTab(DashboardTab.STATS) },
-                                        onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) }
-                                    )
-                                }
-                                composable(AppRoutes.STATS) {
-                                    HistoryStatsScreen(
-                                        viewModel = viewModel,
-                                        onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) }
-                                    )
-                                }
-                                composable(AppRoutes.SETTINGS) {
-                                    SettingsScreen(
-                                        viewModel = viewModel,
-                                        onOpenAdminDashboard = {
-                                            navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
-                                                launchSingleTop = true
-                                            }
-                                        }
-                                    )
-                                }
-                                composable(
-                                    route = AppRoutes.READING_APP_PICKER,
-                                    enterTransition = { slideInHorizontally(initialOffsetX = { it / 3 }) + fadeIn(tween(260)) },
-                                    popExitTransition = { slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut(tween(200)) }
-                                ) {
-                                    ReadingAppSelectionScreen(
-                                        viewModel = viewModel,
-                                        onBack = { navController.popBackStack() },
-                                        onReadingAppSelected = {
-                                            navController.popBackStack()
-                                            navigateToTab(DashboardTab.BLOCKLIST)
-                                        }
-                                    )
-                                }
-                                composable(
-                                    route = AppRoutes.ADMIN_DASHBOARD,
-                                    enterTransition = { slideInHorizontally(initialOffsetX = { it / 3 }) + fadeIn(tween(260)) },
-                                    popExitTransition = { slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut(tween(200)) }
-                                ) {
-                                    AdminDashboardScreen(
-                                        viewModel = viewModel,
-                                        onBack = { navController.popBackStack() },
-                                        onOpenReadingAppPicker = {
-                                            navController.navigate(AppRoutes.READING_APP_PICKER) {
-                                                launchSingleTop = true
-                                            }
-                                        },
-                                        onOpenBlocklist = { navigateToTab(DashboardTab.BLOCKLIST) },
-                                        onOpenRooms = { navigateToTab(DashboardTab.SOCIAL) }
-                                    )
-                                }
-                                composable(AppRoutes.FOCUS_SESSION) {
-                                    FocusSessionScreen(
-                                        viewModel = viewModel,
-                                        onStopSession = { viewModel.stopFocusSession(this@MainActivity, completed = false) }
-                                    )
-                                }
-                                composable(AppRoutes.COFFEE_BREAK) {
-                                    CoffeeBreakScreen(
-                                        viewModel = viewModel,
-                                        onSkipBreak = { viewModel.stopBreakSession(this@MainActivity) }
-                                    )
+                            .padding(innerPadding)
+                    ) {
+                        composable(AppRoutes.TIMER) {
+                            LaunchedEffect(suggestedDurationMinutes) {
+                                if (suggestedDurationMinutes > 0) {
+                                    getSharedPreferences("focuslock_prefs", MODE_PRIVATE)
+                                        .edit()
+                                        .putInt("saved_session_minutes", suggestedDurationMinutes)
+                                        .apply()
+                                    suggestedDurationMinutes = 0
                                 }
                             }
+                            TimerSetupScreen(
+                                viewModel = viewModel,
+                                onStartSession = {
+                                    navController.navigate(AppRoutes.FOCUS_SESSION) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onNavigateToBlocklist = { navigateToTab(DashboardTab.BLOCKLIST) },
+                                onNavigateToReadingAppPicker = {
+                                    navController.navigate(AppRoutes.READING_APP_PICKER) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onNavigateToStats = { navigateToTab(DashboardTab.STATS) },
+                                onNavigateToRooms = { navigateToTab(DashboardTab.SOCIAL) },
+                                autoStartFromShortcut = autoStartFromShortcut,
+                                onAutoStartConsumed = { autoStartFromShortcut = false }
+                            )
+                        }
+
+                        composable(AppRoutes.BLOCKLIST) {
+                            AppSelectionScreen(
+                                viewModel = viewModel,
+                                onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) }
+                            )
+                        }
+
+                        composable(AppRoutes.SOCIAL) {
+                            SocialScreen(
+                                viewModel = viewModel,
+                                onApplySuggestedDuration = { mins ->
+                                    suggestedDurationMinutes = mins
+                                    getSharedPreferences("focuslock_prefs", MODE_PRIVATE)
+                                        .edit()
+                                        .putInt("saved_session_minutes", mins)
+                                        .apply()
+                                },
+                                onNavigateToSettings = { navigateToTab(DashboardTab.SETTINGS) },
+                                onStartFocusSession = {
+                                    val duration = getSharedPreferences("focuslock_prefs", MODE_PRIVATE)
+                                        .getInt("saved_session_minutes", 25)
+                                    viewModel.startFocusSession(this@MainActivity, duration)
+                                    navController.navigate(AppRoutes.TIMER) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(AppRoutes.STATS) {
+                            HistoryStatsScreen(
+                                viewModel = viewModel,
+                                onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) }
+                            )
+                        }
+
+                        composable(AppRoutes.SETTINGS) {
+                            SettingsScreen(
+                                viewModel = viewModel,
+                                onOpenAdminDashboard = {
+                                    navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(AppRoutes.READING_APP_PICKER) {
+                            ReadingAppSelectionScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                onReadingAppSelected = {
+                                    navigateToTab(DashboardTab.BLOCKLIST)
+                                }
+                            )
+                        }
+
+                        composable(AppRoutes.ADMIN_DASHBOARD) {
+                            AdminDashboardScreen(
+                                viewModel = viewModel,
+                                onNavigateToTimer = { navigateToTab(DashboardTab.TIMER) },
+                                onNavigateToBlocklist = { navigateToTab(DashboardTab.BLOCKLIST) },
+                                onNavigateToRooms = { navigateToTab(DashboardTab.SOCIAL) },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable(AppRoutes.FOCUS_SESSION) {
+                            FocusSessionScreen(
+                                viewModel = viewModel,
+                                onStopSession = {
+                                    navController.navigate(AppRoutes.TIMER) {
+                                        popUpTo(AppRoutes.TIMER) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(AppRoutes.COFFEE_BREAK) {
+                            CoffeeBreakScreen(
+                                viewModel = viewModel,
+                                onSkipBreak = {
+                                    viewModel.stopBreakSession(this@MainActivity)
+                                    navController.navigate(AppRoutes.TIMER) {
+                                        popUpTo(AppRoutes.TIMER) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
                         }
                     }
+                }
 
-                    // Brief smooth launcher brand reveal overlay
-                    AnimatedVisibility(
-                        visible = showLauncherIntro,
-                        exit = fadeOut(animationSpec = tween(260, easing = FastOutSlowInEasing))
-                    ) {
-                        LauncherSplashIntroOverlay()
-                    }
+                if (showProfileDialog) {
+                    AccountProfileDialog(
+                        currentUser = currentUser,
+                        stats = stats,
+                        isAuthBusy = isAuthBusy,
+                        statusMessage = cloudStatusMessage,
+                        onSignInWithGoogle = { viewModel.signInWithGoogle(this@MainActivity) },
+                        onSignOut = {
+                            viewModel.signOut(this@MainActivity)
+                            showProfileDialog = false
+                        },
+                        onOpenSettings = {
+                            showProfileDialog = false
+                            navigateToTab(DashboardTab.SETTINGS)
+                        },
+                        onOpenAdminDashboard = {
+                            showProfileDialog = false
+                            navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onDismiss = { showProfileDialog = false }
+                    )
+                }
 
-                    pendingQuitAlert?.let { alert ->
-                        AccountabilityQuitDialog(
-                            alert = alert,
-                            onDismiss = { viewModel.clearPendingQuitAlert() }
-                        )
-                    }
-
-                    if (showAccountDialog) {
-                        AccountProfileDialog(
-                            currentUser = currentUser,
-                            stats = statsSummary,
-                            isAuthBusy = isAuthBusy,
-                            statusMessage = cloudStatusMessage,
-                            onSignInWithGoogle = { viewModel.signInWithGoogle(this@MainActivity) },
-                            onSignOut = {
-                                viewModel.signOut(this@MainActivity)
-                                showAccountDialog = false
-                            },
-                            onOpenSettings = {
-                                showAccountDialog = false
-                                navigateToTab(DashboardTab.SETTINGS)
-                            },
-                            onOpenAdminDashboard = {
-                                showAccountDialog = false
-                                navController.navigate(AppRoutes.ADMIN_DASHBOARD) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onDismiss = { showAccountDialog = false }
-                        )
-                    }
+                pendingQuitAlert?.let { alert ->
+                    AccountabilityQuitDialog(
+                        alert = alert,
+                        onDismiss = { viewModel.clearPendingQuitAlert() }
+                    )
                 }
             }
         }
@@ -476,248 +457,21 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        launchActionState = intent.getStringExtra("quick_action")
-        handleAuthIntentAndConsume(intent)
+        handleIncomingIntent(intent)
     }
 
-    private fun handleAuthIntentAndConsume(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == "readlock" && data.host == "auth") {
-            viewModel.handleAuthCallbackIntent(this, intent)
-            intent.data = null
+    private fun handleIncomingIntent(incoming: Intent?) {
+        val data = incoming?.data
+        if (data != null && data.scheme == "readlock" && data.host == "auth") {
+            viewModel.handleAuthCallbackIntent(this, incoming)
+            // Clear consumed auth URI so configuration changes never replay it
+            incoming.data = null
+            setIntent(incoming)
+        }
+        val quickAction = incoming?.getStringExtra("quick_action")
+        if (!quickAction.isNullOrBlank()) {
+            launchActionState = quickAction
+            incoming.removeExtra("quick_action")
         }
     }
-}
-
-@Composable
-private fun FocusLockTopAppBar(
-    currentRoute: String,
-    isDarkModeEnabled: Boolean,
-    currentUser: SupabaseUser?,
-    onToggleDarkMode: () -> Unit,
-    onAccountClick: () -> Unit,
-    onBackClick: () -> Unit
-) {
-    val sectionLabel = when (currentRoute) {
-        AppRoutes.TIMER -> "Timer"
-        AppRoutes.BLOCKLIST -> "Apps"
-        AppRoutes.SOCIAL -> "Rooms"
-        AppRoutes.STATS -> "Stats"
-        AppRoutes.SETTINGS -> "Settings"
-        AppRoutes.READING_APP_PICKER -> "Select Reading App"
-        AppRoutes.ADMIN_DASHBOARD -> "Admin Control Center"
-        else -> "FocusLock"
-    }
-
-    Surface(
-        color = MaterialTheme.colorScheme.background,
-        tonalElevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("main_top_app_bar")
-    ) {
-        Column(modifier = Modifier.statusBarsPadding()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (currentRoute == AppRoutes.READING_APP_PICKER || currentRoute == AppRoutes.ADMIN_DASHBOARD) {
-                        IconButton(
-                            onClick = onBackClick,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                .testTag("topbar_back_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back to Timer",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = sectionLabel,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black
-                        )
-                    } else {
-                        Image(
-                            painter = painterResource(id = R.drawable.img_app_icon),
-                            contentDescription = "FocusLock Logo",
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "FocusLock",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Account / Profile button beside the theme toggle
-                    IconButton(
-                        onClick = onAccountClick,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("topbar_account_button")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (currentUser != null) {
-                                val initial = (currentUser.displayName ?: currentUser.email ?: "R")
-                                    .trim()
-                                    .firstOrNull()
-                                    ?.uppercaseChar()
-                                    ?: 'R'
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(GamifiedPurple)
-                                ) {
-                                    Text(
-                                        text = initial.toString(),
-                                        color = Color.White,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(GamifiedMint)
-                                        .border(1.5.dp, MaterialTheme.colorScheme.background, CircleShape)
-                                        .align(Alignment.BottomEnd)
-                                )
-                            } else {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black)
-                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Account Sign-In",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    IconButton(
-                        onClick = onToggleDarkMode,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("quick_theme_toggle")
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                                .border(
-                                    1.dp,
-                                    if (isDarkModeEnabled) Color.White.copy(alpha = 0.24f) else MaterialTheme.colorScheme.outlineVariant,
-                                    CircleShape
-                                )
-                        ) {
-                            Icon(
-                                imageVector = if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                contentDescription = if (isDarkModeEnabled) "Switch to light mode" else "Switch to dark mode",
-                                tint = Color.White,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-                    }
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-        }
-    }
-}
-
-@Composable
-private fun LauncherSplashIntroOverlay() {
-    val logoScale = remember { Animatable(0.84f) }
-    LaunchedEffect(Unit) {
-        logoScale.animateTo(
-            targetValue = 1.0f,
-            animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
-        )
-    }
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.graphicsLayer {
-                scaleX = logoScale.value
-                scaleY = logoScale.value
-            }
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.img_app_icon),
-                contentDescription = "FocusLock Launcher Icon",
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(
-                text = "FocusLock",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Deep Reading & Focus",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
-    }
-}
-
-enum class DashboardTab {
-    TIMER,
-    BLOCKLIST,
-    SOCIAL,
-    STATS,
-    SETTINGS
 }

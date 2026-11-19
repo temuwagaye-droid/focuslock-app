@@ -1,6 +1,10 @@
 package com.example.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -9,7 +13,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -17,59 +20,41 @@ import androidx.core.view.WindowCompat
 val LocalDarkTheme = compositionLocalOf { false }
 val LocalAccentTheme = compositionLocalOf { AppAccentTheme.VIOLET }
 
-private fun buildLightColorScheme(accent: AppAccentTheme) = lightColorScheme(
+private fun buildLightColorScheme(accent: AppAccentTheme): ColorScheme = lightColorScheme(
     primary = accent.lightPrimary,
-    onPrimary = BoldBackground,
+    onPrimary = Color.White,
     primaryContainer = accent.lightPrimaryContainer,
     onPrimaryContainer = accent.lightOnPrimaryContainer,
-    secondary = BoldTextMuted,
-    onSecondary = BoldBackground,
-    secondaryContainer = accent.lightPrimaryContainer.copy(alpha = 0.72f),
-    onSecondaryContainer = accent.lightOnPrimaryContainer,
-    tertiary = BlockRed,
-    onTertiary = Color.White,
+    secondary = BoldTextSecondary,
+    onSecondary = Color.White,
     background = BoldBackground,
-    surface = BoldSurface,
     onBackground = BoldTextPrimary,
+    surface = BoldSurfaceWhite,
     onSurface = BoldTextPrimary,
-    surfaceVariant = BoldSurfaceWhite,
-    onSurfaceVariant = BoldTextPrimary,
-    surfaceContainerLowest = BoldSurfaceWhite,
-    surfaceContainerLow = BoldBackground,
-    surfaceContainer = BoldSurface,
-    surfaceContainerHigh = BoldSurface,
-    surfaceContainerHighest = BoldBorder,
-    outline = BoldTextPrimary,
+    surfaceVariant = BoldSurface,
+    onSurfaceVariant = BoldTextSecondary,
+    outline = BoldBorder,
     outlineVariant = BoldBorder,
     error = BlockRed,
     onError = Color.White,
-    errorContainer = OverrideBg,
-    onErrorContainer = OverrideText
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002)
 )
 
-private fun buildDarkColorScheme(accent: AppAccentTheme) = darkColorScheme(
+private fun buildDarkColorScheme(accent: AppAccentTheme): ColorScheme = darkColorScheme(
     primary = accent.darkPrimary,
-    onPrimary = Color(0xFF1A1625),
+    onPrimary = Color(0xFF190C4C),
     primaryContainer = accent.darkPrimaryContainer,
     onPrimaryContainer = accent.darkOnPrimaryContainer,
-    secondary = Color(0xFFCCC2DC),
-    onSecondary = Color(0xFF332D41),
-    secondaryContainer = Color(0xFF332D41),
-    onSecondaryContainer = Color(0xFFE8DEF8),
-    tertiary = Color(0xFFEFB8C8),
-    onTertiary = Color(0xFF492532),
+    secondary = Color(0xFFCAC4D0),
+    onSecondary = Color(0xFF1D1B22),
     background = Color(0xFF0F0E13),
-    surface = Color(0xFF1D1B22),
     onBackground = Color(0xFFE6E1E5),
+    surface = Color(0xFF1D1B22),
     onSurface = Color(0xFFE6E1E5),
-    surfaceVariant = Color(0xFF2C2A33),
+    surfaceVariant = Color(0xFF24212B),
     onSurfaceVariant = Color(0xFFCAC4D0),
-    surfaceContainerLowest = Color(0xFF0A090D),
-    surfaceContainerLow = Color(0xFF17151C),
-    surfaceContainer = Color(0xFF1D1B22),
-    surfaceContainerHigh = Color(0xFF26232D),
-    surfaceContainerHighest = Color(0xFF34303D),
-    outline = Color(0xFF938F99),
+    outline = Color(0xFF3E3A47),
     outlineVariant = Color(0xFF3E3A47),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
@@ -89,14 +74,10 @@ fun MyApplicationTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.decorView.setBackgroundColor(colorScheme.background.toArgb())
-                val insetsController = WindowCompat.getInsetsController(window, view)
-                insetsController.isAppearanceLightStatusBars = !darkTheme
-                insetsController.isAppearanceLightNavigationBars = !darkTheme
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
             }
         }
     }
-
     CompositionLocalProvider(
         LocalDarkTheme provides darkTheme,
         LocalAccentTheme provides accentTheme
@@ -110,18 +91,13 @@ fun MyApplicationTheme(
 }
 
 @Composable
-fun appBlackButtonColors() = androidx.compose.material3.ButtonDefaults.buttonColors(
+fun appBlackButtonColors(): ButtonColors = ButtonDefaults.buttonColors(
     containerColor = Color.Black,
     contentColor = Color.White,
-    disabledContainerColor = Color.Black.copy(alpha = 0.45f),
-    disabledContentColor = Color.White.copy(alpha = 0.72f)
+    disabledContainerColor = Color.Black.copy(alpha = 0.4f),
+    disabledContentColor = Color.White.copy(alpha = 0.65f)
 )
 
 @Composable
-fun appBlackButtonBorder(): androidx.compose.foundation.BorderStroke? =
-    if (LocalDarkTheme.current) {
-        androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    } else {
-        null
-    }
-
+fun appBlackButtonBorder(): BorderStroke? =
+    if (LocalDarkTheme.current) BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)) else null

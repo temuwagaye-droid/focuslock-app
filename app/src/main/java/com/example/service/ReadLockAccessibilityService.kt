@@ -2,18 +2,18 @@ package com.example.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
-import com.example.MainActivity
 import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.ui.BlockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class ReadLockAccessibilityService : AccessibilityService() {
@@ -23,110 +23,70 @@ class ReadLockAccessibilityService : AccessibilityService() {
         val isServiceConnected: StateFlow<Boolean> = _isServiceConnected.asStateFlow()
     }
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var repository: FocusRepository
-
-    // Cached configurations for fast lookups
-    private var isWhitelistMode = false
-    private var blockedPkgsList = emptyList<String>()
+    private var isWhitelistMode: Boolean = false
+    private var blockedPkgsList: List<String> = emptyList()
     private var designatedReadingApp: String? = null
     private var lastForegroundPackage: String? = null
 
-    // System/Emergency packages that are ALWAYS allowed
     private val standardAllowedPackages = setOf(
         "com.android.systemui",
-        "com.android.phone",
-        "com.android.server.telecom",
-        "com.google.android.dialer",
-        "com.android.contacts",
-        "android",
-        "com.google.android.packageinstaller",
-        "com.android.packageinstaller",
+        "com.android.settings",
         "com.google.android.inputmethod.latin",
-        "com.sec.android.inputmethod",
-        "com.swiftkey.swiftkeykeyboard"
+        "com.android.inputmethod.latin",
+        "com.android.packageinstaller",
+        "com.google.android.packageinstaller"
     )
 
     override fun onCreate() {
         super.onCreate()
-        val db = AppDatabase.getDatabase(applicationContext)
-        repository = FocusRepository(db.focusDao())
-
-        // Reactively observe changes to configurations
+        repository = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
         serviceScope.launch {
-            repository.isWhitelistModeEnabled().collectLatest {
-                isWhitelistMode = it
-            }
+            repository.isWhitelistModeEnabled().collect { isWhitelistMode = it }
         }
         serviceScope.launch {
-            repository.allBlockedApps.collectLatest { apps ->
-                blockedPkgsList = apps.filter { it.isBlocked }.map { it.packageName }
-            }
+            repository.getReadingAppPackage().collect { designatedReadingApp = it }
         }
         serviceScope.launch {
-            repository.getReadingAppPackage().collectLatest {
-                designatedReadingApp = if (it.isNullOrEmpty()) null else it
+            repository.allBlockedApps.collect { list ->
+                blockedPkgsList = list.filter { it.isBlocked }.map { it.packageName }
             }
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent) {
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (!FocusSessionManager.isSessionActive.value || FocusSessionManager.isBreakActive.value) return
 
-        val foregroundPackage = event.packageName?.toString() ?: return
+        val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
+        if (pkg == packageName || pkg == lastForegroundPackage) return
+        lastForegroundPackage = pkg
 
-        // 1. Don't block our own app or common system tasks
-        if (foregroundPackage == packageName || standardAllowedPackages.contains(foregroundPackage)) {
+        val readerApp = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
+        if (pkg == readerApp || standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg)) {
             return
         }
 
-        val sessionActive = FocusSessionManager.isSessionActive.value
-        val breakActive = FocusSessionManager.isBreakActive.value
+        val whitelistActive = FocusSessionManager.isWhitelistMode || isWhitelistMode
+        val blockedSet = (FocusSessionManager.blockedPackages + blockedPkgsList).toSet()
+        val shouldBlock = if (whitelistActive) true else blockedSet.contains(pkg)
 
-        if (sessionActive) {
-            val isWhitelist = FocusSessionManager.isWhitelistMode
-            val readingApp = FocusSessionManager.designatedReadingApp
-            val blockedPkgs = FocusSessionManager.blockedPackages
-
-            val shouldBlock = if (isWhitelist) {
-                // In Whitelist Mode, block everything EXCEPT ReadLock and the designated reading app
-                foregroundPackage != readingApp
-            } else {
-                // In Blacklist Mode, block apps in the blocked list
-                blockedPkgs.contains(foregroundPackage)
+        if (shouldBlock) {
+            FocusSessionManager.incrementBlockedAttempts(applicationContext, pkg)
+            val blockIntent = Intent(this, BlockActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("blocked_package", pkg)
             }
-
-            if (shouldBlock) {
-                // Prevent infinite redirect loops if the launcher tries to open
-                if (isLauncherPackage(foregroundPackage)) {
-                    return
-                }
-
-                FocusSessionManager.incrementBlockedAttempts(applicationContext, foregroundPackage)
-
-                // Boot the user back out and open our Block screen
-                val intent = Intent(this, BlockActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    putExtra(BlockActivity.EXTRA_BLOCKED_PACKAGE, foregroundPackage)
-                }
-                startActivity(intent)
-            }
+            runCatching { startActivity(blockIntent) }
         }
-
-        lastForegroundPackage = foregroundPackage
     }
 
     private fun isLauncherPackage(pkg: String): Boolean {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-        }
-        val resolveInfos = packageManager.queryIntentActivities(intent, 0)
-        for (info in resolveInfos) {
-            if (info.activityInfo?.packageName == pkg) {
-                return true
-            }
-        }
-        return false
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo?.activityInfo?.packageName == pkg
     }
 
     override fun onServiceConnected() {
@@ -139,9 +99,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
-    override fun onInterrupt() {
-        // Required method implementation
-    }
+    override fun onInterrupt() = Unit
 
     override fun onDestroy() {
         _isServiceConnected.value = false

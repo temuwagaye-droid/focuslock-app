@@ -2,6 +2,7 @@ package com.example.notifications
 
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
 enum class ReminderRepeatMode(val id: String, val label: String) {
     ONCE("once", "Once"),
@@ -10,46 +11,46 @@ enum class ReminderRepeatMode(val id: String, val label: String) {
     MONTHLY("monthly", "Monthly");
 
     companion object {
-        fun fromId(id: String?): ReminderRepeatMode =
+        fun fromId(id: String): ReminderRepeatMode =
             entries.firstOrNull { it.id == id } ?: DAILY
     }
 }
 
 enum class ReminderSoundOption(val id: String, val label: String) {
-    DEFAULT("default", "FocusLock Chime"),
-    ALARM("alarm", "Gentle Wake"),
+    DEFAULT("default", "Default Chime"),
+    ALARM("alarm", "Gentle Alarm"),
     BELL("bell", "Soft Bell"),
     SILENT("silent", "Silent"),
-    CUSTOM("custom", "Device Tone");
+    CUSTOM("custom", "Custom Sound");
 
     companion object {
-        fun fromId(id: String?): ReminderSoundOption =
+        fun fromId(id: String): ReminderSoundOption =
             entries.firstOrNull { it.id == id } ?: DEFAULT
     }
 }
 
 enum class NotificationHistoryStatus(val id: String, val label: String) {
-    TRIGGERED("triggered", "Delivered"),
+    TRIGGERED("triggered", "Triggered"),
     SNOOZED("snoozed", "Snoozed"),
     COMPLETED("completed", "Completed"),
     DISMISSED("dismissed", "Dismissed"),
-    QUIET_SUPPRESSED("quiet_suppressed", "Muted (Quiet Hours)");
+    QUIET_SUPPRESSED("quiet_suppressed", "Quiet Hours");
 
     companion object {
-        fun fromId(id: String?): NotificationHistoryStatus =
+        fun fromId(id: String): NotificationHistoryStatus =
             entries.firstOrNull { it.id == id } ?: TRIGGERED
     }
 }
 
 data class ReadingReminderItem(
-    val id: String,
+    val id: String = UUID.randomUUID().toString(),
     val title: String,
     val note: String = "",
     val year: Int,
-    val month: Int, // 1..12
-    val dayOfMonth: Int, // 1..31
-    val hour: Int, // 0..23
-    val minute: Int, // 0..59
+    val month: Int,
+    val dayOfMonth: Int,
+    val hour: Int,
+    val minute: Int,
     val repeatMode: ReminderRepeatMode = ReminderRepeatMode.DAILY,
     val enabled: Boolean = true,
     val completedAtMs: Long? = null,
@@ -62,22 +63,25 @@ data class ReadingReminderItem(
     fun formattedTime(): String =
         String.format(Locale.getDefault(), "%02d:%02d", hour.coerceIn(0, 23), minute.coerceIn(0, 59))
 
-    fun formattedDate(): String {
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, year)
-            set(Calendar.MONTH, (month - 1).coerceIn(0, 11))
-            val maxDay = getActualMaximum(Calendar.DAY_OF_MONTH)
-            set(Calendar.DAY_OF_MONTH, dayOfMonth.coerceIn(1, maxDay))
-        }
-        val monthName = cal.getDisplayName(Calendar.MONTH, Calendar.SHORT, Locale.getDefault()) ?: "M$month"
-        return "$monthName ${cal.get(Calendar.DAY_OF_MONTH)}, $year"
-    }
+    fun formattedDate(): String =
+        String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month.coerceIn(1, 12), dayOfMonth.coerceIn(1, 31))
 
-    fun effectiveSoundLabel(): String = when (soundOption) {
-        ReminderSoundOption.CUSTOM -> customSoundLabel?.takeIf { it.isNotBlank() } ?: soundOption.label
-        else -> soundOption.label
-    }
+    fun effectiveSoundLabel(): String =
+        if (soundOption == ReminderSoundOption.CUSTOM && !customSoundLabel.isNullOrBlank()) {
+            customSoundLabel
+        } else {
+            soundOption.label
+        }
 }
+
+data class NotificationHistoryEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val reminderId: String,
+    val title: String,
+    val message: String,
+    val status: NotificationHistoryStatus,
+    val timestampMs: Long = System.currentTimeMillis()
+)
 
 data class ReminderPreferences(
     val globalEnabled: Boolean = true,
@@ -93,37 +97,32 @@ data class ReminderPreferences(
     val defaultCustomSoundUri: String? = null,
     val defaultCustomSoundLabel: String? = null
 ) {
-    fun isWithinQuietHours(timeMillis: Long = System.currentTimeMillis()): Boolean {
+    fun isWithinQuietHours(nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (!quietHoursEnabled) return false
-        val cal = Calendar.getInstance().apply { timeInMillis = timeMillis }
-        val nowMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-        return isMinuteWithinWindow(nowMinutes)
+        val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+        val minuteOfDay = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        return isMinuteWithinWindow(minuteOfDay)
     }
 
-    fun isMinuteWithinWindow(totalMinutesOfDay: Int): Boolean {
+    fun isMinuteWithinWindow(minuteOfDay: Int): Boolean {
         if (!quietHoursEnabled) return false
         val start = quietStartHour.coerceIn(0, 23) * 60 + quietStartMinute.coerceIn(0, 59)
         val end = quietEndHour.coerceIn(0, 23) * 60 + quietEndMinute.coerceIn(0, 59)
-        if (start == end) return false
-        return if (start < end) {
-            totalMinutesOfDay in start until end
+        return if (start == end) {
+            true
+        } else if (start < end) {
+            minuteOfDay in start until end
         } else {
-            totalMinutesOfDay >= start || totalMinutesOfDay < end
+            minuteOfDay >= start || minuteOfDay < end
         }
     }
 
-    fun formattedQuietWindow(): String {
-        val s = String.format(Locale.getDefault(), "%02d:%02d", quietStartHour, quietStartMinute)
-        val e = String.format(Locale.getDefault(), "%02d:%02d", quietEndHour, quietEndMinute)
-        return "$s – $e"
-    }
+    fun formattedQuietWindow(): String = String.format(
+        Locale.getDefault(),
+        "%02d:%02d – %02d:%02d",
+        quietStartHour.coerceIn(0, 23),
+        quietStartMinute.coerceIn(0, 59),
+        quietEndHour.coerceIn(0, 23),
+        quietEndMinute.coerceIn(0, 59)
+    )
 }
-
-data class NotificationHistoryEntry(
-    val id: String,
-    val reminderId: String,
-    val title: String,
-    val message: String,
-    val status: NotificationHistoryStatus,
-    val timestampMs: Long = System.currentTimeMillis()
-)

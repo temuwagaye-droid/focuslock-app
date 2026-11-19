@@ -57,6 +57,12 @@ class SupabaseAuthServiceTest {
             keyCandidates = listOf("legacy_non_jwt", "sb_publishable_real_key_123")
         )
         assertEquals("https://demo.supabase.co" to "sb_publishable_real_key_123", preferred)
+
+        val quotedAndBareHost = SupabaseAuthService.resolveConfig(
+            urlCandidates = listOf("  \"demo.supabase.co/\"  "),
+            keyCandidates = listOf("  'YOUR_SUPABASE_ANON_KEY'  ", "  \"sb_publishable_quoted_999\" ")
+        )
+        assertEquals("https://demo.supabase.co" to "sb_publishable_quoted_999", quotedAndBareHost)
     }
 
     @Test

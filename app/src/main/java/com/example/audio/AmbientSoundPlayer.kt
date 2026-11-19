@@ -6,6 +6,7 @@ import android.media.AudioTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,29 +20,22 @@ enum class AmbientSoundType(
     val id: String,
     val displayName: String,
     val emoji: String,
-    val isProOnly: Boolean
+    val isProOnly: Boolean = false
 ) {
     NONE("none", "Silent", "🔇", false),
-    WHITE_NOISE("white", "White Noise", "🌊", false),
-    RAIN("rain", "Gentle Rain", "🌧️", true),
-    BROWN_NOISE("brown", "Warm Focus", "🪵", true),
-    FOREST_HUM("forest", "Zen Drone", "🍃", true);
+    WHITE_NOISE("white_noise", "White Noise", "🌬️", false),
+    RAIN("rain", "Rain", "🌧️", true),
+    BROWN_NOISE("brown_noise", "Brown Noise", "🌊", true),
+    FOREST_HUM("forest_hum", "Zen Drone", "🌿", true);
 
     companion object {
-        fun fromId(id: String?): AmbientSoundType {
-            return entries.firstOrNull { it.id == id } ?: NONE
-        }
+        fun fromId(id: String): AmbientSoundType =
+            entries.firstOrNull { it.id == id } ?: NONE
     }
 }
 
-/**
- * Procedural real-time DSP ambient sound synthesizer using Android AudioTrack.
- * Works 100% offline with zero external audio files.
- */
 object AmbientSoundPlayer {
-    private const val SAMPLE_RATE = 22050
-
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val playerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var playJob: Job? = null
     private var audioTrack: AudioTrack? = null
 
@@ -51,32 +45,28 @@ object AmbientSoundPlayer {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
-    private val _volume = MutableStateFlow(0.45f)
+    private val _volume = MutableStateFlow(0.65f)
     val volume: StateFlow<Float> = _volume.asStateFlow()
 
-    fun play(sound: AmbientSoundType, targetVolume: Float = _volume.value) {
+    fun play(sound: AmbientSoundType, initialVolume: Float = _volume.value) {
+        _volume.value = initialVolume.coerceIn(0f, 1f)
         if (sound == AmbientSoundType.NONE) {
             stop()
             return
         }
-        if (_isPlaying.value && _currentSound.value == sound) {
-            setVolume(targetVolume)
-            return
-        }
-
         stopInternal()
         _currentSound.value = sound
-        _volume.value = targetVolume.coerceIn(0f, 1f)
         _isPlaying.value = true
 
-        playJob = scope.launch {
-            val minBuf = AudioTrack.getMinBufferSize(
-                SAMPLE_RATE,
+        playJob = playerScope.launch {
+            val sampleRate = 22050
+            val minBufBytes = AudioTrack.getMinBufferSize(
+                sampleRate,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT
-            ).coerceAtLeast(2048)
+            ).coerceAtLeast(4096)
 
-            val track = try {
+            val track = runCatching {
                 AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
@@ -87,102 +77,87 @@ object AmbientSoundPlayer {
                     .setAudioFormat(
                         AudioFormat.Builder()
                             .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(SAMPLE_RATE)
+                            .setSampleRate(sampleRate)
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(minBuf * 2)
+                    .setBufferSizeInBytes(minBufBytes)
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
-            } catch (_: Throwable) {
-                null
-            }
+            }.getOrNull()
 
             if (track == null || track.state != AudioTrack.STATE_INITIALIZED) {
-                track?.release()
                 _isPlaying.value = false
                 return@launch
             }
 
             audioTrack = track
-            try {
+            runCatching {
+                track.setVolume(_volume.value)
                 track.play()
-                val buffer = ShortArray(minBuf / 2)
-                var brownLast = 0f
-                var rainLP = 0f
-                var phase1 = 0.0
-                var phase2 = 0.0
-                var dropletEnv = 0f
+            }
 
-                while (isActive && _isPlaying.value) {
-                    val vol = _volume.value
-                    for (i in buffer.indices) {
-                        val raw = when (sound) {
-                            AmbientSoundType.WHITE_NOISE -> {
-                                (Random.nextFloat() * 2f - 1f) * 0.28f
-                            }
-                            AmbientSoundType.BROWN_NOISE -> {
-                                val white = Random.nextFloat() * 2f - 1f
-                                brownLast = (brownLast + (0.04f * white)) / 1.04f
-                                (brownLast * 2.2f).coerceIn(-0.6f, 0.6f)
-                            }
-                            AmbientSoundType.RAIN -> {
-                                val white = Random.nextFloat() * 2f - 1f
-                                rainLP = rainLP * 0.86f + white * 0.14f
-                                if (Random.nextInt(900) == 0) dropletEnv = 0.35f
-                                dropletEnv *= 0.992f
-                                val drop = dropletEnv * (Random.nextFloat() * 2f - 1f) * 0.4f
-                                (rainLP * 1.4f + drop).coerceIn(-0.6f, 0.6f)
-                            }
-                            AmbientSoundType.FOREST_HUM -> {
-                                phase1 += 2.0 * PI * 110.0 / SAMPLE_RATE
-                                phase2 += 2.0 * PI * 164.81 / SAMPLE_RATE
-                                val wind = (Random.nextFloat() * 2f - 1f)
-                                rainLP = rainLP * 0.95f + wind * 0.05f
-                                val chord = (sin(phase1) * 0.14 + sin(phase2) * 0.09).toFloat()
-                                (chord + rainLP * 0.7f).coerceIn(-0.6f, 0.6f)
-                            }
-                            AmbientSoundType.NONE -> 0f
+            val samples = ShortArray(2048)
+            var lastBrown = 0.0
+            var lastRain = 0.0
+            var phase = 0.0
+            while (isActive && _isPlaying.value) {
+                for (i in samples.indices) {
+                    val v = when (sound) {
+                        AmbientSoundType.WHITE_NOISE -> (Random.nextDouble() * 2.0 - 1.0) * 0.14
+                        AmbientSoundType.BROWN_NOISE -> {
+                            val w = Random.nextDouble() * 2.0 - 1.0
+                            lastBrown = (lastBrown + 0.02 * w) / 1.02
+                            (lastBrown * 1.9).coerceIn(-1.0, 1.0) * 0.4
                         }
-                        buffer[i] = (raw * vol * Short.MAX_VALUE).toInt()
-                            .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                            .toShort()
+                        AmbientSoundType.RAIN -> {
+                            val w = Random.nextDouble() * 2.0 - 1.0
+                            lastRain = lastRain * 0.86 + w * 0.14
+                            val drop = if (Random.nextDouble() < 0.002) (Random.nextDouble() * 0.35) else 0.0
+                            (lastRain + drop).coerceIn(-1.0, 1.0) * 0.35
+                        }
+                        AmbientSoundType.FOREST_HUM -> {
+                            phase += (2.0 * PI * 110.0) / sampleRate
+                            if (phase > 2.0 * PI) phase -= 2.0 * PI
+                            val drone = sin(phase) * 0.14 + sin(phase * 1.5) * 0.07
+                            val breeze = (Random.nextDouble() * 2.0 - 1.0) * 0.03
+                            drone + breeze
+                        }
+                        AmbientSoundType.NONE -> 0.0
                     }
-                    track.write(buffer, 0, buffer.size)
+                    samples[i] = (v * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
                 }
-            } catch (_: Throwable) {
-                // Gracefully stop if audio focus/hardware disconnects
-            } finally {
-                try {
-                    track.stop()
-                    track.release()
-                } catch (_: Throwable) {
-                }
-                if (audioTrack === track) audioTrack = null
+                val written = runCatching { track.write(samples, 0, samples.size) }.getOrDefault(-1)
+                if (written < 0) break
             }
         }
     }
 
     fun setVolume(volume: Float) {
-        _volume.value = volume.coerceIn(0f, 1f)
+        val clamped = volume.coerceIn(0f, 1f)
+        _volume.value = clamped
+        runCatching { audioTrack?.setVolume(clamped) }
     }
 
     fun stop() {
         stopInternal()
         _currentSound.value = AmbientSoundType.NONE
+        _isPlaying.value = false
     }
 
     private fun stopInternal() {
         _isPlaying.value = false
         playJob?.cancel()
         playJob = null
-        try {
-            audioTrack?.pause()
-            audioTrack?.flush()
-            audioTrack?.stop()
-            audioTrack?.release()
-        } catch (_: Throwable) {
-        }
+        val t = audioTrack
         audioTrack = null
+        if (t != null) {
+            runCatching {
+                t.pause()
+                t.flush()
+                t.stop()
+                t.release()
+            }
+        }
     }
 }

@@ -450,3 +450,136 @@ fun BlockedAppsRequiredDialog(
         }
     }
 }
+
+/**
+ * Informative popup shown right after the user selects a Reading App, guiding them
+ * to App Shield to choose which distracting apps to block before starting a session.
+ */
+@Composable
+fun ReadingSelectedGoToBlockAppsDialog(
+    selectedAppLabel: String,
+    onGoToBlocklist: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "redirect_shield_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "redirect_shield_pulse_scale"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag("reading_selected_redirect_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(Color.Black)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "Select Apps to Block",
+                        tint = Color.White,
+                        modifier = Modifier.size(38.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Next: Select Apps to Block",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "\"$selectedAppLabel\" is now your Reading App.\n\nWe're taking you to App Shield next so you can choose which distracting apps to block during focus sessions.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Button(
+                    onClick = onGoToBlocklist,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("confirm_go_to_blocklist_btn")
+                ) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = null,
+                        containerSize = 26.dp,
+                        iconSize = 15.dp,
+                        containerColor = Color.Black,
+                        iconTint = Color.White,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SELECT APPS TO BLOCK",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("dismiss_go_to_blocklist_btn")
+                ) {
+                    Text(
+                        text = "STAY HERE",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}

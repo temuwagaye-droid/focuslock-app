@@ -8,21 +8,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,7 +32,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -46,27 +41,21 @@ import com.example.ui.theme.appBlackButtonColors
 import java.security.MessageDigest
 
 object ParentalControlHelper {
-
     fun hashPin(pin: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = digest.digest("readlock_pin_v1:$pin".toByteArray(Charsets.UTF_8))
-        return bytes.joinToString("") { "%02x".format(it) }
+        val digest = MessageDigest.getInstance("SHA-256").digest(pin.trim().toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
-    fun verifyPin(enteredPin: String, storedHash: String): Boolean {
-        if (enteredPin.length < 4 || storedHash.isBlank()) return false
-        val enteredHash = hashPin(enteredPin)
-        return MessageDigest.isEqual(
-            enteredHash.toByteArray(Charsets.UTF_8),
-            storedHash.toByteArray(Charsets.UTF_8)
-        )
+    fun verifyPin(pin: String, storedHash: String): Boolean {
+        if (storedHash.isBlank() || pin.isBlank()) return false
+        return hashPin(pin) == storedHash
     }
 }
 
 @Composable
 fun ParentalPinDialog(
-    title: String = "Parental Control Lock",
-    subtitle: String = "Enter your 4-digit parental PIN to continue.",
+    title: String,
+    subtitle: String,
     storedPinHash: String,
     isSettingNewPin: Boolean = false,
     onPinConfirmed: (String) -> Unit,
@@ -79,100 +68,94 @@ fun ParentalPinDialog(
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("parental_pin_dialog")
         ) {
             Column(
-                modifier = Modifier.padding(22.dp),
+                modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularIconBadge(
                     imageVector = Icons.Default.Lock,
                     contentDescription = "Parental Lock",
-                    containerSize = 60.dp,
-                    iconSize = 30.dp,
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    containerSize = 52.dp,
+                    iconSize = 26.dp
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.secondary
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-
+                Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = pinInput,
-                    onValueChange = { raw ->
-                        val digits = raw.filter { it.isDigit() }.take(6)
-                        pinInput = digits
-                        errorMessage = null
+                    onValueChange = { value ->
+                        if (value.length <= 8 && value.all { it.isDigit() }) {
+                            pinInput = value
+                            errorMessage = null
+                        }
                     },
-                    label = { Text("4-6 Digit PIN") },
+                    label = { Text("Enter 4–8 digit PIN") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    isError = errorMessage != null,
-                    supportingText = errorMessage?.let { msg -> { Text(msg, color = MaterialTheme.colorScheme.error) } },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("parental_pin_input")
                 )
-
+                errorMessage?.let { msg ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = msg,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
+                    OutlinedButton(
                         onClick = onDismiss,
-                        colors = appBlackButtonColors(),
-                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .testTag("parental_pin_cancel_btn")
                     ) {
-                        Text("CANCEL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
-
                     Button(
                         onClick = {
-                            if (pinInput.length < 4) {
-                                errorMessage = "Enter at least 4 digits"
-                                return@Button
-                            }
                             if (isSettingNewPin) {
-                                onPinConfirmed(ParentalControlHelper.hashPin(pinInput))
-                            } else if (ParentalControlHelper.verifyPin(pinInput, storedPinHash)) {
-                                onPinConfirmed(pinInput)
+                                if (pinInput.length < 4) {
+                                    errorMessage = "PIN must be at least 4 digits."
+                                } else {
+                                    onPinConfirmed(ParentalControlHelper.hashPin(pinInput))
+                                }
                             } else {
-                                errorMessage = "Incorrect PIN. Try again."
+                                if (ParentalControlHelper.verifyPin(pinInput, storedPinHash)) {
+                                    onPinConfirmed(storedPinHash)
+                                } else {
+                                    errorMessage = "Incorrect PIN. Please try again."
+                                }
                             }
                         },
-                        shape = RoundedCornerShape(50),
                         colors = appBlackButtonColors(),
                         border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)

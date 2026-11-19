@@ -22,6 +22,5 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "ReadLock"
-
+rootProject.name = "FocusLock"
 include(":app")

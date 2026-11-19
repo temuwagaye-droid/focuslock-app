@@ -45,17 +45,43 @@ jobs:
       env:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
       run: |
-        cp .env.example .env
-        for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_URL SUPABASE_ANON_KEY GOOGLE_WEB_CLIENT_ID; do
-          val=$(eval echo "\$$var")
-          if [ -n "$val" ]; then
-            sed -i "s|^${var}=.*|${var}=${val}|" .env
-          fi
-        done
+        python3 - << 'PY'
+        import os
+        with open(".env.example", "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        env_url = (os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUPABASE_URL") or "").strip()
+        env_key = (
+            os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+            or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+            or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+            or os.environ.get("SUPABASE_ANON_KEY")
+            or ""
+        ).strip()
+        env_google = (os.environ.get("GOOGLE_WEB_CLIENT_ID") or "").strip()
+        overrides = {
+            "NEXT_PUBLIC_SUPABASE_URL": (os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or env_url).strip(),
+            "SUPABASE_URL": (os.environ.get("SUPABASE_URL") or env_url).strip(),
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": (os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_PUBLISHABLE_KEY") or env_key).strip(),
+            "SUPABASE_ANON_KEY": (os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or env_key).strip(),
+            "GOOGLE_WEB_CLIENT_ID": env_google,
+        }
+        out = []
+        for line in lines:
+            if "=" in line and not line.lstrip().startswith("#"):
+                k = line.split("=", 1)[0].strip()
+                if overrides.get(k):
+                    out.append(f"{k}={overrides[k]}")
+                    continue
+            out.append(line)
+        with open(".env", "w", encoding="utf-8") as f:
+            f.write("\n".join(out) + "\n")
+        PY
 
     - name: Build Debug APK
       env:
@@ -65,5 +91,5 @@ jobs:
     - name: Upload Debug APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ReadLock-debug-apk
+        name: FocusLock-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
