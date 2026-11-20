@@ -167,7 +167,7 @@ fun SocialScreen(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(GamifiedPurple)
+                            .background(Color.Black)
                     ) {
                         Text(
                             text = "L$level",
@@ -280,17 +280,24 @@ fun SocialScreen(
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                             }
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     clipboard.setText(AnnotatedString(room.roomCode))
                                     Toast.makeText(context, "Copied code ${room.roomCode}", Toast.LENGTH_SHORT).show()
                                 },
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
                                 shape = RoundedCornerShape(50),
                                 modifier = Modifier.height(40.dp)
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Room Code", modifier = Modifier.size(14.dp))
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copy Room Code",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(room.roomCode, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                Text(room.roomCode, color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
                             }
                         }
 
@@ -314,7 +321,7 @@ fun SocialScreen(
                                                 modifier = Modifier
                                                     .size(34.dp)
                                                     .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.primary)
+                                                    .background(Color.Black)
                                             ) {
                                                 Text(
                                                     text = participant.displayName.take(1).uppercase(),
@@ -429,15 +436,17 @@ fun SocialScreen(
 
                         Button(
                             onClick = { showCreateRoomDialog = true },
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
                             shape = RoundedCornerShape(50),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
                                 .testTag("open_create_room_btn")
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("CREATE FOCUS ROOM", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            Text("CREATE FOCUS ROOM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
                         }
                     }
                 }

@@ -646,45 +646,45 @@ private fun ReminderRowCard(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     IconButton(onClick = onComplete, modifier = Modifier.size(48.dp)) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Mark Completed",
-                            tint = Color(0xFF0A6B43),
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 34.dp,
+                            iconSize = 17.dp
                         )
                     }
                     IconButton(onClick = onSnooze, modifier = Modifier.size(48.dp)) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Snooze,
                             contentDescription = "Snooze Reminder",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 34.dp,
+                            iconSize = 17.dp
                         )
                     }
                     IconButton(onClick = onDismissReminder, modifier = Modifier.size(48.dp)) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss Reminder",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 34.dp,
+                            iconSize = 17.dp
                         )
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     IconButton(onClick = onEdit, modifier = Modifier.size(48.dp)) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Reminder",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 34.dp,
+                            iconSize = 17.dp
                         )
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(48.dp)) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Reminder",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
+                            containerSize = 34.dp,
+                            iconSize = 17.dp
                         )
                     }
                 }

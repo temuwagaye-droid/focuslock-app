@@ -10,6 +10,7 @@ import com.example.audio.AmbientSoundType
 import com.example.data.model.BlockedAppEntity
 import com.example.data.model.SessionLogEntity
 import com.example.data.model.TodoEntity
+import com.example.data.remote.AdminUserManagementStore
 import com.example.data.remote.CloudBlockedAppBackup
 import com.example.data.remote.CloudPrivateSettings
 import com.example.data.remote.CloudRestoreBundle
@@ -18,6 +19,7 @@ import com.example.data.remote.CloudTodoBackup
 import com.example.data.remote.CloudUserProfile
 import com.example.data.remote.FocusRoomDto
 import com.example.data.remote.FocusRoomSyncStore
+import com.example.data.remote.ManagedUserRecord
 import com.example.data.remote.RoomParticipantDto
 import com.example.data.remote.SupabaseAuthService
 import com.example.data.remote.SupabaseGoogleSignInResult
@@ -249,6 +251,8 @@ class FocusViewModel(
         else roomSyncStore.observeParticipants(rid)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val managedUsers: StateFlow<List<ManagedUserRecord>> = AdminUserManagementStore.users
+
     private val _telemetryRefreshTick = MutableStateFlow(0)
     val telemetryRefreshTick: StateFlow<Int> = _telemetryRefreshTick.asStateFlow()
 
@@ -268,8 +272,15 @@ class FocusViewModel(
         appContext?.let { ctx ->
             SupabaseAuthService.initialize(ctx)
             ReadingReminderStore.ensureLoaded(ctx)
+            AdminUserManagementStore.ensureLoaded(ctx)
             viewModelScope.launch {
                 SupabaseAuthService.refreshSessionIfNeeded(ctx)
+            }
+            viewModelScope.launch {
+                combine(currentUser, isProTier) { user, pro -> user to pro }
+                    .collect { (user, pro) ->
+                        AdminUserManagementStore.syncActiveDeviceAccount(ctx, user, pro)
+                    }
             }
         }
         viewModelScope.launch {
@@ -1006,6 +1017,59 @@ class FocusViewModel(
             val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
             val created = roomSyncStore.createRoom(adminUser, name, durationMinutes, isPublic, stage)
             appContext?.let { TelemetryManager.trackEvent(it, "admin_create_room", created.roomCode) }
+            _telemetryRefreshTick.value += 1
+        }
+    }
+
+    suspend fun adminRegisterUser(
+        context: Context,
+        displayName: String,
+        email: String,
+        initialTier: String,
+        passwordOptional: String = "",
+        notes: String = ""
+    ): Result<ManagedUserRecord> {
+        val result = AdminUserManagementStore.registerUser(
+            context = context,
+            displayName = displayName,
+            email = email,
+            initialTier = initialTier,
+            passwordOptional = passwordOptional,
+            notes = notes
+        )
+        result.onSuccess { record ->
+            val signedInEmail = currentUser.value?.email
+            if (!signedInEmail.isNullOrBlank() && record.email.equals(signedInEmail, ignoreCase = true)) {
+                setProTier(record.isPro)
+            }
+            TelemetryManager.trackEvent(context, "admin_register_user", "${record.planTier}:${record.email}")
+            _telemetryRefreshTick.value += 1
+        }
+        return result
+    }
+
+    fun adminSetUserPlan(context: Context, userId: String, planTier: String) {
+        val updated = AdminUserManagementStore.setUserPlan(context, userId, planTier)
+        val signedIn = currentUser.value
+        val appliesToActiveDevice = userId == ManagedUserRecord.PRIMARY_DEVICE_USER_ID ||
+            (signedIn != null && (userId == signedIn.uid ||
+                (!signedIn.email.isNullOrBlank() && updated?.email.equals(signedIn.email, ignoreCase = true))))
+        if (appliesToActiveDevice) {
+            setProTier(planTier.equals(ManagedUserRecord.PLAN_PRO, ignoreCase = true))
+        }
+        TelemetryManager.trackEvent(context, "admin_user_plan_changed", "$userId->$planTier")
+        _telemetryRefreshTick.value += 1
+    }
+
+    fun adminSetUserEnabled(context: Context, userId: String, enabled: Boolean) {
+        AdminUserManagementStore.setUserEnabled(context, userId, enabled)
+        TelemetryManager.trackEvent(context, "admin_user_status_changed", "$userId->enabled=$enabled")
+        _telemetryRefreshTick.value += 1
+    }
+
+    fun adminDeleteManagedUser(context: Context, userId: String) {
+        if (AdminUserManagementStore.deleteUser(context, userId)) {
+            TelemetryManager.trackEvent(context, "admin_delete_user", userId)
             _telemetryRefreshTick.value += 1
         }
     }

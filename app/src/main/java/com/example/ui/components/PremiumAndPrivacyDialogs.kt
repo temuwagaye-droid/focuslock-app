@@ -94,11 +94,14 @@ fun PremiumUpgradeDialog(
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
+                            CircularIconBadge(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = "FocusLock Pro",
-                                tint = Color(0xFFF3E5AB),
-                                modifier = Modifier.size(22.dp)
+                                containerSize = 30.dp,
+                                iconSize = 17.dp,
+                                containerColor = Color.Black,
+                                iconTint = Color.White,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -219,14 +222,14 @@ private fun ProFeatureRow(title: String, subtitle: String) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(22.dp)
+                .size(24.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
+                .background(Color.Black)
         ) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = Color.White,
                 modifier = Modifier.size(14.dp)
             )
         }

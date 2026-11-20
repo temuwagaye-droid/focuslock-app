@@ -157,7 +157,7 @@ fun TimerXpAndStreakCard(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(GamifiedPurple)
+                            .background(Color.Black)
                     ) {
                         Text(
                             text = "L$level",
@@ -194,18 +194,26 @@ fun TimerXpAndStreakCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(flameChipBg)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                             .testTag("timer_streak_flame_pill")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalFireDepartment,
-                            contentDescription = "Streak Flame",
-                            tint = GamifiedYellow,
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(16.dp)
-                                .scale(flameScale)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalFireDepartment,
+                                contentDescription = "Streak Flame",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(13.dp)
+                                    .scale(flameScale)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${stats.currentStreak}d",
                             color = flameChipContent,
@@ -220,16 +228,24 @@ fun TimerXpAndStreakCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(shieldChipBg)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                             .testTag("timer_blocked_attempts_pill")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = "Distractions Blocked",
-                            tint = GamifiedMint,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Distractions Blocked",
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${stats.totalBlockedAttempts}",
                             color = shieldChipContent,
@@ -585,15 +601,23 @@ fun DailyQuestsRingsCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(if (questsDone == 3) GamifiedMint.copy(alpha = 0.2f) else yellowRewardBg)
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
-                    Icon(
-                        imageVector = if (questsDone == 3) Icons.Default.Check else Icons.Default.Bolt,
-                        contentDescription = null,
-                        tint = if (questsDone == 3) GamifiedMint else GamifiedYellow,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black)
+                    ) {
+                        Icon(
+                            imageVector = if (questsDone == 3) Icons.Default.Check else Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "$questsDone/3 DONE",
                         color = if (questsDone == 3) GamifiedMint else yellowRewardText,
@@ -760,13 +784,21 @@ fun TimerBadgesStripCard(
                     letterSpacing = 0.8.sp
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = GamifiedYellow,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "$unlockedCount/${badges.size}",
                         color = MaterialTheme.colorScheme.onSurface,
@@ -888,7 +920,7 @@ fun ReaderAndShieldLoadoutRow(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (hasReadingApp) purpleTintBg else MaterialTheme.colorScheme.surface)
+                            .background(Color.Black)
                     ) {
                         val pkg = designatedReadingApp
                         if (!pkg.isNullOrBlank()) {
@@ -901,7 +933,7 @@ fun ReaderAndShieldLoadoutRow(
                             Icon(
                                 imageVector = Icons.Default.Book,
                                 contentDescription = "Select Reading App",
-                                tint = GamifiedPurple,
+                                tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1007,12 +1039,12 @@ fun ReaderAndShieldLoadoutRow(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (hasBlockedAppsConfig) readyBg else MaterialTheme.colorScheme.surface)
+                            .background(Color.Black)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = "App Shield",
-                            tint = if (hasBlockedAppsConfig) GamifiedMint else GamifiedYellow,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1133,7 +1165,7 @@ fun AccountProfileDialog(
                         modifier = Modifier
                             .size(62.dp)
                             .clip(CircleShape)
-                            .background(GamifiedPurple)
+                            .background(Color.Black)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CloudDone,
@@ -1213,10 +1245,8 @@ fun AccountProfileDialog(
 
                     Button(
                         onClick = onOpenAdminDashboard,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GamifiedPurple,
-                            contentColor = Color.White
-                        ),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1237,7 +1267,7 @@ fun AccountProfileDialog(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(CircleShape)
-                            .background(GamifiedPurple)
+                            .background(Color.Black)
                     ) {
                         Text(
                             text = initial.toString(),
@@ -1358,10 +1388,8 @@ fun AccountProfileDialog(
 
                     Button(
                         onClick = onOpenAdminDashboard,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GamifiedPurple,
-                            contentColor = Color.White
-                        ),
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
                         shape = RoundedCornerShape(50),
                         modifier = Modifier
                             .fillMaxWidth()

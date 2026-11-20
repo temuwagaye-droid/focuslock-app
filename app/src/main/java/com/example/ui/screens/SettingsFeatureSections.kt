@@ -152,11 +152,14 @@ fun SettingsAdvancedSections(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
+                                CircularIconBadge(
                                     imageVector = Icons.Default.Star,
                                     contentDescription = "Pro Pass",
-                                    tint = Color(0xFFF3E5AB),
-                                    modifier = Modifier.size(20.dp)
+                                    containerSize = 28.dp,
+                                    iconSize = 16.dp,
+                                    containerColor = Color.Black,
+                                    iconTint = Color.White,
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
@@ -489,9 +492,11 @@ fun SettingsAdvancedSections(
                                 )
                             }
                         }
-                        Icon(
+                        CircularIconBadge(
                             imageVector = if (partnerExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = "Expand Accountability Partner"
+                            contentDescription = "Expand Accountability Partner",
+                            containerSize = 28.dp,
+                            iconSize = 16.dp
                         )
                     }
 
@@ -751,10 +756,11 @@ fun SettingsAdvancedSections(
                             )
                         }
                     }
-                    Icon(
+                    CircularIconBadge(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = "Open Admin Control Center",
-                        tint = MaterialTheme.colorScheme.primary
+                        containerSize = 30.dp,
+                        iconSize = 18.dp
                     )
                 }
             }

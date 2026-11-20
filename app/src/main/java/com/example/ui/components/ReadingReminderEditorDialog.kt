@@ -305,10 +305,11 @@ fun ReminderEditorDialog(
                         onClick = { NotificationHelper.previewSound(context, soundOption, customUri) },
                         modifier = Modifier.size(48.dp)
                     ) {
-                        Icon(
+                        CircularIconBadge(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = "Preview Notification Sound",
-                            tint = MaterialTheme.colorScheme.primary
+                            containerSize = 32.dp,
+                            iconSize = 18.dp
                         )
                     }
                 }

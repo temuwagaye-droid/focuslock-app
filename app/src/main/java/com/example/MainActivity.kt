@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -210,12 +211,37 @@ class MainActivity : ComponentActivity() {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "FocusLock",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.Black)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isDarkMode) Color.White.copy(alpha = 0.28f) else Color.Black,
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .testTag("top_bar_focuslock_logo")
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_focuslock_mark),
+                                            contentDescription = "FocusLock logo",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "FocusLock",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -226,18 +252,20 @@ class MainActivity : ComponentActivity() {
                                         .trim()
                                         .firstOrNull()
                                         ?.uppercase()
+                                    val iconBadgeBorder = if (isDarkMode) {
+                                        Color.White.copy(alpha = 0.28f)
+                                    } else {
+                                        MaterialTheme.colorScheme.outlineVariant
+                                    }
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clip(CircleShape)
-                                            .background(
-                                                if (currentUser != null) GamifiedPurple
-                                                else MaterialTheme.colorScheme.surfaceVariant
-                                            )
+                                            .background(Color.Black)
                                             .border(
                                                 1.dp,
-                                                MaterialTheme.colorScheme.outlineVariant,
+                                                iconBadgeBorder,
                                                 CircleShape
                                             )
                                             .clickable { showProfileDialog = true }
@@ -254,7 +282,7 @@ class MainActivity : ComponentActivity() {
                                             Icon(
                                                 imageVector = Icons.Default.AccountCircle,
                                                 contentDescription = "Account Profile",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = Color.White,
                                                 modifier = Modifier.size(24.dp)
                                             )
                                         }
@@ -266,13 +294,18 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .background(Color.Black)
+                                            .border(
+                                                1.dp,
+                                                iconBadgeBorder,
+                                                RoundedCornerShape(14.dp)
+                                            )
                                             .testTag("theme_toggle_button")
                                     ) {
                                         Icon(
                                             imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                                             contentDescription = if (isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            tint = Color.White
                                         )
                                     }
                                 }

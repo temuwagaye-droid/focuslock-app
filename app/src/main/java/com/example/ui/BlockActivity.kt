@@ -133,13 +133,13 @@ fun BlockScreenContent(
             modifier = Modifier
                 .size(88.dp)
                 .clip(CircleShape)
-                .background(GamifiedPurple.copy(alpha = 0.14f))
+                .background(Color.Black)
                 .border(2.dp, GamifiedPurple, CircleShape)
         ) {
             Icon(
                 imageVector = Icons.Default.Shield,
                 contentDescription = "Distraction Blocked",
-                tint = GamifiedPurple,
+                tint = Color.White,
                 modifier = Modifier.size(44.dp)
             )
         }

@@ -93,9 +93,9 @@ fun ConcaveNotchBottomNavigationBar(
     val barSurfaceColor = MaterialTheme.colorScheme.surface
     val barBorderColor = MaterialTheme.colorScheme.outlineVariant
     val primaryColor = MaterialTheme.colorScheme.primary
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
-    val pillBg = if (isDark) Color.White else Color.Black
-    val pillIconTint = if (isDark) Color.Black else Color.White
+    val inactiveLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val pillBg = Color.Black
+    val pillIconTint = Color.White
 
     Box(
         modifier = modifier
@@ -176,7 +176,11 @@ fun ConcaveNotchBottomNavigationBar(
                     .shadow(8.dp, CircleShape)
                     .clip(CircleShape)
                     .background(pillBg)
-                    .border(2.dp, primaryColor.copy(alpha = 0.8f), CircleShape)
+                    .border(
+                        width = if (isDark) 1.5.dp else 2.dp,
+                        color = if (isDark) Color.White.copy(alpha = 0.55f) else primaryColor.copy(alpha = 0.8f),
+                        shape = CircleShape
+                    )
             ) {
                 Icon(
                     imageVector = activeMeta.activeIcon,
@@ -209,25 +213,40 @@ fun ConcaveNotchBottomNavigationBar(
                                 role = Role.Tab,
                                 onClick = { onSelectTab(item.tab) }
                             )
-                            .padding(bottom = 8.dp)
+                            .padding(bottom = 6.dp)
                             .testTag("bottom_nav_${item.tab.name.lowercase()}")
                     ) {
                         if (!isSelected) {
-                            Icon(
-                                imageVector = item.inactiveIcon,
-                                contentDescription = item.label,
-                                tint = inactiveTint,
-                                modifier = Modifier.size(21.dp)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black)
+                                    .then(
+                                        if (isDark) {
+                                            Modifier.border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = item.inactiveIcon,
+                                    contentDescription = item.label,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                         } else {
-                            Spacer(modifier = Modifier.height(22.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
                         Text(
                             text = item.label,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold,
-                            color = if (isSelected) primaryColor else inactiveTint,
+                            color = if (isSelected) primaryColor else inactiveLabelColor,
                             maxLines = 1
                         )
                     }

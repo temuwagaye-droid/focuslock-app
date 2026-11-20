@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Padlock shackle above the book -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M9,8.5 V6.2 C9,4.4 10.3,3 12,3 C13.7,3 15,4.4 15,6.2 V8.5" />
+    <!-- Lock body shield center -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8.5,8.2 H15.5 C16.3,8.2 17,8.9 17,9.7 V13.8 C17,14.6 16.3,15.2 15.5,15.2 H8.5 C7.7,15.2 7,14.6 7,13.8 V9.7 C7,8.9 7.7,8.2 8.5,8.2 Z" />
+    <!-- Keyhole cut in black -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,10.2 A1.1,1.1 0 1,1 11.99,10.2 Z M11.4,11.1 H12.6 L12.9,13.3 H11.1 Z" />
+    <!-- Open book left & right pages -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M3,14.5 C5.8,13.6 9.2,14.6 12,17.2 C14.8,14.6 18.2,13.6 21,14.5 V19.5 C18.2,18.7 14.8,19.4 12,21 C9.2,19.4 5.8,18.7 3,19.5 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M12,17.2 V21" />
+</vector>
