@@ -14,6 +14,9 @@ import com.example.widget.FocusQuickWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.supervisor.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +47,9 @@ object FocusSessionManager {
 
     private val _pendingQuitAlert = MutableStateFlow<EarlyQuitAlert?>(null)
     val pendingQuitAlert: StateFlow<EarlyQuitAlert?> = _pendingQuitAlert.asStateFlow()
+
+    private val managerScope = CoroutineScope(SupervisorJob())
+    private var previousInterruptionFilter: Int = NotificationManager.INTERRUPTION_FILTER_ALL
 
     var totalDurationSeconds: Long = 0L
         private set
