@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -58,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.ui.components.AppSwitch
 import com.example.notifications.NotificationHistoryStatus
 import com.example.notifications.ReadingReminderItem
 import com.example.notifications.ReminderSoundOption
@@ -631,7 +631,7 @@ private fun ReminderRowCard(
                         )
                     }
                 }
-                Switch(
+                AppSwitch(
                     checked = item.enabled,
                     onCheckedChange = onToggle
                 )
@@ -711,6 +711,6 @@ private fun PreferenceSwitchRow(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

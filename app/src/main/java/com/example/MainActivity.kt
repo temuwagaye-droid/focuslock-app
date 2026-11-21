@@ -43,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +59,7 @@ import com.example.ui.FocusViewModel
 import com.example.ui.FocusViewModelFactory
 import com.example.ui.components.AccountProfileDialog
 import com.example.ui.components.AccountabilityQuitDialog
+import com.example.ui.components.AppLauncherIcon
 import com.example.ui.components.ConcaveNotchBottomNavigationBar
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AppSelectionScreen
@@ -215,26 +215,18 @@ class MainActivity : ComponentActivity() {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
+                                    AppLauncherIcon(
+                                        packageName = packageName,
+                                        contentDescription = "FocusLock logo",
                                         modifier = Modifier
                                             .size(38.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(Color.Black)
                                             .border(
                                                 width = 1.dp,
                                                 color = if (isDarkMode) Color.White.copy(alpha = 0.28f) else Color.Black,
                                                 shape = RoundedCornerShape(12.dp)
                                             )
-                                            .testTag("top_bar_focuslock_logo")
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_focuslock_mark),
-                                            contentDescription = "FocusLock logo",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
+                                    )
                                     Text(
                                         text = "FocusLock",
                                         style = MaterialTheme.typography.titleLarge,

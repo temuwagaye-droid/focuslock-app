@@ -33,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.FocusViewModel
+import com.example.ui.components.AppSwitch
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.readerRankTitle
@@ -681,7 +681,7 @@ private fun CreateFocusRoomDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Public Room (visible in lobby)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Switch(checked = isPublic, onCheckedChange = { isPublic = it })
+                    AppSwitch(checked = isPublic, onCheckedChange = { isPublic = it })
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),

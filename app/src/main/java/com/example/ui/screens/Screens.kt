@@ -150,8 +150,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -445,7 +443,7 @@ fun AppSelectionScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    Switch(
+                    AppSwitch(
                         checked = isProTier && isWhitelistMode,
                         onCheckedChange = { enabled ->
                             if (!isProTier) {
@@ -455,12 +453,6 @@ fun AppSelectionScreen(
                                 runWithParentalCheck { viewModel.toggleWhitelistMode(enabled) }
                             }
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                        ),
                         modifier = Modifier.testTag("whitelist_mode_switch")
                     )
                 }
@@ -3860,15 +3852,9 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    Switch(
+                    AppSwitch(
                         checked = isScheduleEnabled,
                         onCheckedChange = { viewModel.toggleSchedule(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
-                        ),
                         modifier = Modifier.testTag("schedule_switch")
                     )
                 }

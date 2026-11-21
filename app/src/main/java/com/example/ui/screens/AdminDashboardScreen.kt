@@ -45,7 +45,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -72,6 +71,7 @@ import com.example.audio.AmbientSoundType
 import com.example.data.remote.ManagedUserRecord
 import com.example.telemetry.TelemetryManager
 import com.example.ui.FocusViewModel
+import com.example.ui.components.AppSwitch
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.theme.AppAccentTheme
 import com.example.ui.theme.GamifiedMint
@@ -1079,6 +1079,6 @@ private fun AdminSwitchRow(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

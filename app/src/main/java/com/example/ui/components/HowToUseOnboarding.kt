@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -50,6 +51,87 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
+
+/**
+ * Animated, step-by-step path shown inside the Accessibility Required dialog so the user
+ * can see exactly which app to open and where to tap to turn the service ON.
+ */
+@Composable
+private fun AccessibilityStepsGuide() {
+    val steps = listOf(
+        "1" to "Open Android Settings",
+        "2" to "Find \"Apps\"",
+        "3" to "Tap \"Accessibility\"",
+        "4" to "Turn ON FocusLock"
+    )
+
+    val transition = rememberInfiniteTransition(label = "steps_flow")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = steps.size.floatValue(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "steps_phase"
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Follow these steps:",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        steps.forEachIndexed { index, (num, label) ->
+            val isActive = index <= phase.toInt()
+            val animatedAlpha by animateFloatAsState(
+                targetValue = if (isActive) 1f else 0.35f,
+                animationSpec = tween(300),
+                label = "step_alpha_$index"
+            )
+            val animatedScale by animateFloatAsState(
+                targetValue = if (isActive) 1.04f else 0.96f,
+                animationSpec = tween(300),
+                label = "step_scale_$index"
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+                    .scale(animatedScale)
+                    .alpha(animatedAlpha),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Text(
+                        text = num,
+                        color = if (isActive) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
 
 /**
  * Dialog shown when user attempts to start a focus session without Accessibility Service enabled.
@@ -164,6 +246,11 @@ fun AccessibilityRequiredDialog(
                         fontSize = 13.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Animated step-by-step path so the user sees exactly where to tap.
+                AccessibilityStepsGuide()
 
                 Spacer(modifier = Modifier.height(10.dp))
 

@@ -44,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +66,7 @@ import com.example.security.ParentalPinDialog
 import com.example.ui.FocusViewModel
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
+import com.example.ui.components.AppSwitch
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
 import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.PremiumUpgradeDialog
@@ -282,7 +282,7 @@ fun SettingsAdvancedSections(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Show Me on Global Leaderboard", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Switch(
+                            AppSwitch(
                                 checked = isLeaderboardVisible,
                                 onCheckedChange = { viewModel.setLeaderboardVisible(it) }
                             )
@@ -293,7 +293,7 @@ fun SettingsAdvancedSections(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Automatic Cloud Backup", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Switch(
+                            AppSwitch(
                                 checked = isCloudSyncEnabled,
                                 onCheckedChange = { viewModel.setCloudSyncEnabled(it) }
                             )
@@ -402,7 +402,7 @@ fun SettingsAdvancedSections(
                                 )
                             }
                         }
-                        Switch(
+                        AppSwitch(
                             checked = isAutoDndEnabled,
                             onCheckedChange = { enable ->
                                 if (enable) {
@@ -525,7 +525,7 @@ fun SettingsAdvancedSections(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("Alert on early quit", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                Switch(
+                                AppSwitch(
                                     checked = notifyQuitInput,
                                     onCheckedChange = { notifyQuitInput = it }
                                 )
@@ -622,7 +622,7 @@ fun SettingsAdvancedSections(
                                 )
                             }
                         }
-                        Switch(
+                        AppSwitch(
                             checked = isParentalLockEnabled,
                             onCheckedChange = { enable ->
                                 if (enable) {
@@ -688,7 +688,7 @@ fun SettingsAdvancedSections(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Local Usage Analytics", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Switch(checked = analyticsOptIn, onCheckedChange = { viewModel.setAnalyticsOptIn(it) })
+                        AppSwitch(checked = analyticsOptIn, onCheckedChange = { viewModel.setAnalyticsOptIn(it) })
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -696,7 +696,7 @@ fun SettingsAdvancedSections(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Local Crash Reporting", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Switch(checked = crashReportingOptIn, onCheckedChange = { viewModel.setCrashReportingOptIn(it) })
+                        AppSwitch(checked = crashReportingOptIn, onCheckedChange = { viewModel.setCrashReportingOptIn(it) })
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
