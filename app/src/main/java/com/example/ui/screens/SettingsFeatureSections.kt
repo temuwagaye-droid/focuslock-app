@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.ui.geometry.AnchorPoint
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.text.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1159,7 +1160,9 @@ fun FocusModeOptionCard(
             }
         ),
         shape = RoundedCornerShape(16.dp),
-        elevation = if (isSelected) 4.dp else 0.dp,
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 4.dp else 0.dp
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
