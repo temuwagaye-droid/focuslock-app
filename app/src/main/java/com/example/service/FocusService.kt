@@ -46,7 +46,7 @@ class FocusService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val focusMode = when (intent?.getStringExtra(EXTRA_FOCUS_MODE)) {
             null -> FocusSessionManager.FocusMode.DEEP_WORK
-            else -> FocusSessionManager.FocusMode.valueOf(intent.getStringExtra(EXTRA_FOCUS_MODE).uppercase())
+            else -> FocusSessionManager.FocusMode.valueOf(intent.getStringExtra(EXTRA_FOCUS_MODE)?.uppercase() ?: "DEEP_WORK")
         }
 
         when (intent?.action) {
@@ -133,7 +133,7 @@ class FocusService : Service() {
         val title = if (isBreak) "FocusLock Break Timer" else "FocusLock Session Active"
 
         // Mode-specific text
-        val modeText = when (FocusSessionManager.currentFocusMode) {
+        val modeText = when (FocusSessionManager.getCurrentFocusMode()) {
             FocusSessionManager.FocusMode.DEEP_WORK -> "• Deep focus mode"
             FocusSessionManager.FocusMode.STUDY -> "• Study session"
             FocusSessionManager.FocusMode.POMODORO -> "• Pomodoro timer"

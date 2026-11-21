@@ -853,6 +853,7 @@ fun SettingsAdvancedSections(
 }
 
 // 9. Focus Mode Selection Card
+@Composable
 fun FocusModeSelectionCard(
     viewModel: FocusViewModel,
     onModeSelected: (FocusSessionManager.FocusMode) -> Unit
@@ -889,7 +890,7 @@ fun FocusModeSelectionCard(
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularIconBadge(
-                        imageVector = Icons.Default.Focus,
+                        imageVector = Icons.Default.Star,
                         contentDescription = "Focus Mode",
                         containerSize = 32.dp,
                         iconSize = 16.dp,
@@ -1007,8 +1008,9 @@ fun FocusModeSelectionCard(
                     ProOnlyIndicator(
                         isProOnly = isProOnlyMode,
                         mode = FocusSessionManager.FocusMode.STRICT_FOCUS,
+                        isProTier = isProTier,
                         onSelect = {
-                            if (isProTier.value) {
+                            if (isProTier) {
                                 selectedMode = FocusSessionManager.FocusMode.STRICT_FOCUS
                                 onModeSelected(FocusSessionManager.FocusMode.STRICT_FOCUS)
                             }
@@ -1025,8 +1027,9 @@ fun FocusModeSelectionCard(
                     ProOnlyIndicator(
                         isProOnly = isProOnlyMode,
                         mode = FocusSessionManager.FocusMode.RELAX_RECHARGE,
+                        isProTier = isProTier,
                         onSelect = {
-                            if (isProTier.value) {
+                            if (isProTier) {
                                 selectedMode = FocusSessionManager.FocusMode.RELAX_RECHARGE
                                 onModeSelected(FocusSessionManager.FocusMode.RELAX_RECHARGE)
                             }
@@ -1037,8 +1040,9 @@ fun FocusModeSelectionCard(
                     ProOnlyIndicator(
                         isProOnly = isProOnlyMode,
                         mode = FocusSessionManager.FocusMode.CUSTOM,
+                        isProTier = isProTier,
                         onSelect = {
-                            if (isProTier.value) {
+                            if (isProTier) {
                                 selectedMode = FocusSessionManager.FocusMode.CUSTOM
                                 onModeSelected(FocusSessionManager.FocusMode.CUSTOM)
                             }
@@ -1050,14 +1054,16 @@ fun FocusModeSelectionCard(
     }
 }
 
+@Composable
 fun ProOnlyIndicator(
     isProOnly: Boolean,
     mode: FocusSessionManager.FocusMode,
+    isProTier: Boolean,
     onSelect: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (isProOnly && !isProTier.value) {
+            containerColor = if (isProOnly && !isProTier) {
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
@@ -1079,7 +1085,7 @@ fun ProOnlyIndicator(
                         else -> "Mode"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isProOnly && !isProTier.value) {
+                    color = if (isProOnly && !isProTier) {
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     } else {
                         MaterialTheme.colorScheme.onSurface
@@ -1089,7 +1095,7 @@ fun ProOnlyIndicator(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = "Pro feature locked",
-                    tint = if (isProOnly && !isProTier.value) {
+                    tint = if (isProOnly && !isProTier) {
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     } else {
                         MaterialTheme.colorScheme.onSurface
@@ -1101,7 +1107,7 @@ fun ProOnlyIndicator(
             Text(
                 text = "PRO feature - upgrade needed",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isProOnly && !isProTier.value) {
+                color = if (isProOnly && !isProTier) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurface
@@ -1109,9 +1115,9 @@ fun ProOnlyIndicator(
             )
             Spacer(modifier = Modifier.height(4.dp))
             AppSwitch(
-                checked = isProTier.value,
+                checked = isProTier,
                 onCheckedChange = {
-                    if (it && isProTier.value) {
+                    if (it && isProTier) {
                         onSelect()
                     }
                 }
@@ -1120,11 +1126,12 @@ fun ProOnlyIndicator(
     }
 }
 
+@Composable
 fun FocusModeOptionCard(
     mode: FocusSessionManager.FocusMode,
     title: String,
     description: String,
-    icon: androidx.compose.material.icons.filled.*,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     isSelected: Boolean,
     isProOnly: Boolean,
     onSelect: () -> Unit

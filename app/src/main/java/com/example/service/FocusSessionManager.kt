@@ -153,12 +153,12 @@ object FocusSessionManager {
         }
         // Note: the ambient sound handling above already covers the cases
 
-        TelemetryManager.trackEvent(appCtx, "focus_session_started", "${clampedMinutes}m ${focusMode.id}")
+        TelemetryManager.trackEvent(appCtx, "focus_session_started", "${clampedMinutes}m ${focusMode.name}")
 
         val serviceIntent = Intent(appCtx, FocusService::class.java).apply {
             action = FocusService.ACTION_START_SESSION
             putExtra(FocusService.EXTRA_DURATION_MINUTES, clampedMinutes)
-            putExtra(FocusService.EXTRA_FOCUS_MODE, focusMode.id)
+            putExtra(FocusService.EXTRA_FOCUS_MODE, focusMode.name)
         }
         runCatching {
             ContextCompat.startForegroundService(appCtx, serviceIntent)
