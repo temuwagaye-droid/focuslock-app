@@ -46,7 +46,7 @@ object FocusSessionManager {
     val pendingQuitAlert: StateFlow<EarlyQuitAlert?> = _pendingQuitAlert.asStateFlow()
 
     private val managerScope = CoroutineScope(SupervisorJob + Dispatchers.Default)
-    private var previousInterruptionFilter: Int = NotificationManager.INTERRUPTION_FILTER_ALL
+    private var previousInterruptionFilter: Int? = NotificationManager.INTERRUPTION_FILTER_ALL
 
     var totalDurationSeconds: Long = 0L
         private set
@@ -279,8 +279,9 @@ object FocusSessionManager {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         if (!nm.isNotificationPolicyAccessGranted) return
         runCatching {
-            previousInterruptionFilter = nm.currentInterruptionFilter
-            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+            previousInterruptionFilter = nm.currentInterruptionFilter?.let { it as Int }
+                ?: NotificationManager.INTERRUPTION_FILTER_PRIORITY
+            nm.setInterruptionFilter(previousInterruptionFilter!!)
             _isDndActivatedBySession.value = true
         }
     }
