@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DoNotDisturbOn
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.security.ParentalPinDialog
+import com.example.ui.FocusSessionManager
 import com.example.ui.FocusViewModel
 import com.example.ui.FocusSessionManager
 import com.example.ui.components.CinematicCardEntrance
