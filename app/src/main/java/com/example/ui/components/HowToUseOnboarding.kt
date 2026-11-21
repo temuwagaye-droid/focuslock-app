@@ -79,6 +79,17 @@ private fun AccessibilityStepsGuide() {
         label = "steps_phase"
     )
 
+    val blinkTransition = rememberInfiniteTransition(label = "blink_focus")
+    val blinkAlpha by blinkTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blink_alpha"
+    )
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Follow these steps:",
@@ -90,6 +101,8 @@ private fun AccessibilityStepsGuide() {
         Spacer(modifier = Modifier.height(8.dp))
         steps.forEachIndexed { index, (num, label) ->
             val isActive = index <= phase.toInt()
+            val isLastStep = index == steps.size - 1
+
             val animatedAlpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.35f,
                 animationSpec = tween(300),
@@ -100,15 +113,30 @@ private fun AccessibilityStepsGuide() {
                 animationSpec = tween(300),
                 label = "step_scale_$index"
             )
+
+            // Apply blinking effect only to the last step when it becomes the active target.
+            val rowAlpha = if (isLastStep && isActive) blinkAlpha else animatedAlpha
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 2.dp)
                     .scale(animatedScale)
-                    .alpha(animatedAlpha),
+                    .alpha(rowAlpha),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
+                if (isLastStep && isActive) {
+                    // Blinking indicator dot for the final goal
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color.Red)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -128,7 +156,7 @@ private fun AccessibilityStepsGuide() {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isLastStep && isActive) MaterialTheme.colorScheme.primary else (if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant),
                     fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
