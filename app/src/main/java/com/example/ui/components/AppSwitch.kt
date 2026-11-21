@@ -45,12 +45,10 @@ fun AppSwitch(
             uncheckedThumbColor = thumbColor,
             checkedTrackColor = checkedTrack,
             uncheckedTrackColor = uncheckedTrack,
-            checkedIconTint = checkedIconTint,
-            uncheckedIconTint = uncheckedIconTint,
+            checkedIconColor = checkedIconTint,
+            uncheckedIconColor = uncheckedIconTint,
             checkedBorderColor = if (isDark) Color.White.copy(alpha = 0.28f) else Color.Black,
-            uncheckedBorderColor = if (isDark) Color.White.copy(alpha = 0.28f) else Color.Black,
-            checkedBorderWidth = 1.dp,
-            uncheckedBorderWidth = 1.dp
+            uncheckedBorderColor = if (isDark) Color.White.copy(alpha = 0.28f) else Color.Black
         )
     )
 }

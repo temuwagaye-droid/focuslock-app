@@ -110,6 +110,7 @@ import com.example.data.model.TodoEntity
 import com.example.security.ParentalPinDialog
 import com.example.ui.components.AccessibilityRequiredDialog
 import com.example.ui.components.AppLauncherIcon
+import com.example.ui.components.AppSwitch
 import com.example.ui.components.BlockedAppsRequiredDialog
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge

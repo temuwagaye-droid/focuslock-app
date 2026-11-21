@@ -12,8 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -68,7 +71,7 @@ private fun AccessibilityStepsGuide() {
     val transition = rememberInfiniteTransition(label = "steps_flow")
     val phase by transition.animateFloat(
         initialValue = 0f,
-        targetValue = steps.size.floatValue(),
+        targetValue = steps.size.toFloat(),
         animationSpec = infiniteRepeatable(
             animation = tween(2600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
