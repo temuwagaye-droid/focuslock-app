@@ -64,8 +64,8 @@ private fun AccessibilityStepsGuide() {
     val steps = listOf(
         "1" to "Open Android Settings",
         "2" to "Find \"Apps\"",
-        "3" to "Tap \"Accessibility\"",
-        "4" to "Turn ON FocusLock"
+        "3" to "Tap \"FocusLock\"",
+        "4" to "Turn ON Service"
     )
 
     val transition = rememberInfiniteTransition(label = "steps_flow")
@@ -246,7 +246,11 @@ fun AccessibilityRequiredDialog(
 
                 Button(
                     onClick = {
-                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                        // Deep link to FocusLock's own Settings page so the user
+                        // can enable the Accessibility Service from within the app.
+                        val packageName = context.packageName
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.parse("package:$packageName")
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
                         context.startActivity(intent)
@@ -271,7 +275,7 @@ fun AccessibilityRequiredDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "TURN ON IN SETTINGS",
+                        text = "OPEN APP SETTINGS",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
