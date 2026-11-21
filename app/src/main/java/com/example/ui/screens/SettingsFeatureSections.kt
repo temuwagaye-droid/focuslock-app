@@ -64,11 +64,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.security.ParentalPinDialog
 import com.example.ui.FocusViewModel
+import com.example.ui.FocusSessionManager
 import com.example.ui.components.CinematicCardEntrance
 import com.example.ui.components.CircularIconBadge
 import com.example.ui.components.AppSwitch
 import com.example.ui.components.DiagnosticsAndPrivacyDialog
-import com.example.ui.components.GoogleSignInButton
 import com.example.ui.components.PremiumUpgradeDialog
 import com.example.ui.components.ReadingRemindersCard
 import com.example.ui.theme.AppAccentTheme
@@ -125,6 +125,48 @@ fun SettingsAdvancedSections(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Spacer(modifier = Modifier.height(0.dp))
+
+        // 9. Focus Mode Selection Card
+        FocusModeSelectionCard(
+            viewModel = viewModel,
+            onModeSelected = { mode ->
+                // Apply mode-specific settings
+                when (mode) {
+                    FocusSessionManager.FocusMode.DEEP_WORK -> {
+                        // Set default deep work settings
+                        viewModel.setAutoDndEnabled(true)
+                    }
+                    FocusSessionManager.FocusMode.STUDY -> {
+                        // Study mode settings
+                        viewModel.setAutoDndEnabled(true)
+                    }
+                    FocusSessionManager.FocusMode.POMODORO -> {
+                        // Pomodoro mode - minimal settings
+                        viewModel.setAutoDndEnabled(false)
+                    }
+                    FocusSessionManager.FocusMode.READING -> {
+                        // Reading mode
+                        viewModel.setAutoDndEnabled(true)
+                    }
+                    FocusSessionManager.FocusMode.QUICK_FOCUS -> {
+                        // Quick focus - minimal DND
+                        viewModel.setAutoDndEnabled(false)
+                    }
+                    FocusSessionManager.FocusMode.STRICT_FOCUS -> {
+                        // Strict mode - always on DND
+                        viewModel.setAutoDndEnabled(true)
+                    }
+                    FocusSessionManager.FocusMode.RELAX_RECHARGE -> {
+                        // Relax mode - enable sounds
+                        // Sound already handled in session start
+                    }
+                    FocusSessionManager.FocusMode.CUSTOM -> {
+                        // Custom mode settings
+                        viewModel.setAutoDndEnabled(true)
+                    }
+                }
+            }
+        )
 
         // 1. Pro Pass & Accent Theme Card
         CinematicCardEntrance(index = 2) {
@@ -807,5 +849,357 @@ fun SettingsAdvancedSections(
             },
             onDismiss = { showDisablePinDialog = false }
         )
+    }
+}
+
+// 9. Focus Mode Selection Card
+fun FocusModeSelectionCard(
+    viewModel: FocusViewModel,
+    onModeSelected: (FocusSessionManager.FocusMode) -> Unit
+) {
+    val context = LocalContext.current
+    val isProTier by viewModel.isProTier.collectAsState()
+    val currentMode = FocusSessionManager.getCurrentFocusMode()
+    val isProOnlyMode by remember { mutableStateOf(false) }
+
+    // Check if current mode is pro-only
+    when (currentMode) {
+        FocusSessionManager.FocusMode.STRICT_FOCUS -> {
+            isProOnlyMode = true
+        }
+        FocusSessionManager.FocusMode.RELAX_RECHARGE -> {
+            isProOnlyMode = true
+        }
+        FocusSessionManager.FocusMode.CUSTOM -> {
+            isProOnlyMode = true
+        }
+        else -> {
+            isProOnlyMode = false
+        }
+    }
+
+    CinematicCardEntrance(index = 6) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Focus,
+                        contentDescription = "Focus Mode",
+                        containerSize = 32.dp,
+                        iconSize = 16.dp,
+                        containerColor = Color(0xFF1E88E5),
+                        iconTint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "FOCUS MODE SELECTION",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Choose your focus mode",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Mode cards grid
+                var selectedMode by remember { mutableStateOf(currentMode) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Deep Work Mode Card
+                    FocusModeOptionCard(
+                        mode = FocusSessionManager.FocusMode.DEEP_WORK,
+                        title = "Deep Work",
+                        description = "Uninterrupted concentration\nblock distracting apps",
+                        icon = Icons.Default.PriorityHigh,
+                        isSelected = selectedMode == FocusSessionManager.FocusMode.DEEP_WORK,
+                        isProOnly = false,
+                        onSelect = {
+                            selectedMode = FocusSessionManager.FocusMode.DEEP_WORK
+                            onModeSelected(FocusSessionManager.FocusMode.DEEP_WORK)
+                        }
+                    )
+
+                    // Study Mode Card
+                    FocusModeOptionCard(
+                        mode = FocusSessionManager.FocusMode.STUDY,
+                        title = "Study",
+                        description = "50-min study/10-min break\nblocks, track by subject",
+                        icon = Icons.Default.Book,
+                        isSelected = selectedMode == FocusSessionManager.FocusMode.STUDY,
+                        isProOnly = false,
+                        onSelect = {
+                            selectedMode = FocusSessionManager.FocusMode.STUDY
+                            onModeSelected(FocusSessionManager.FocusMode.STUDY)
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Pomodoro Mode Card
+                    FocusModeOptionCard(
+                        mode = FocusSessionManager.FocusMode.POMODORO,
+                        title = "Pomodoro",
+                        description = "25-min sessions\ncomplete small tasks",
+                        icon = Icons.Default.Timer,
+                        isSelected = selectedMode == FocusSessionManager.FocusMode.POMODORO,
+                        isProOnly = false,
+                        onSelect = {
+                            selectedMode = FocusSessionManager.FocusMode.POMODORO
+                            onModeSelected(FocusSessionManager.FocusMode.POMODORO)
+                        }
+                    )
+
+                    // Reading Mode Card
+                    FocusModeOptionCard(
+                        mode = FocusSessionManager.FocusMode.READING,
+                        title = "Reading",
+                        description = "Quiet reading sessions\ntrack books/chapters",
+                        icon = Icons.Default.Article,
+                        isSelected = selectedMode == FocusSessionManager.FocusMode.READING,
+                        isProOnly = false,
+                        onSelect = {
+                            selectedMode = FocusSessionManager.FocusMode.READING
+                            onModeSelected(FocusSessionManager.FocusMode.READING)
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Quick Focus Mode Card
+                    FocusModeOptionCard(
+                        mode = FocusSessionManager.FocusMode.QUICK_FOCUS,
+                        title = "Quick Focus",
+                        description = "Short sessions\ncomplete small tasks",
+                        icon = Icons.Default.FastForward,
+                        isSelected = selectedMode == FocusSessionManager.FocusMode.QUICK_FOCUS,
+                        isProOnly = false,
+                        onSelect = {
+                            selectedMode = FocusSessionManager.FocusMode.QUICK_FOCUS
+                            onModeSelected(FocusSessionManager.FocusMode.QUICK_FOCUS)
+                        }
+                    )
+
+                    // Strict Focus Mode Card (Pro only)
+                    ProOnlyIndicator(
+                        isProOnly = isProOnlyMode,
+                        mode = FocusSessionManager.FocusMode.STRICT_FOCUS,
+                        onSelect = {
+                            if (isProTier.value) {
+                                selectedMode = FocusSessionManager.FocusMode.STRICT_FOCUS
+                                onModeSelected(FocusSessionManager.FocusMode.STRICT_FOCUS)
+                            }
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Relax & Recharge Mode Card (Pro only)
+                    ProOnlyIndicator(
+                        isProOnly = isProOnlyMode,
+                        mode = FocusSessionManager.FocusMode.RELAX_RECHARGE,
+                        onSelect = {
+                            if (isProTier.value) {
+                                selectedMode = FocusSessionManager.FocusMode.RELAX_RECHARGE
+                                onModeSelected(FocusSessionManager.FocusMode.RELAX_RECHARGE)
+                            }
+                        }
+                    )
+
+                    // Custom Focus Mode Card (Pro only)
+                    ProOnlyIndicator(
+                        isProOnly = isProOnlyMode,
+                        mode = FocusSessionManager.FocusMode.CUSTOM,
+                        onSelect = {
+                            if (isProTier.value) {
+                                selectedMode = FocusSessionManager.FocusMode.CUSTOM
+                                onModeSelected(FocusSessionManager.FocusMode.CUSTOM)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+fun ProOnlyIndicator(
+    isProOnly: Boolean,
+    mode: FocusSessionManager.FocusMode,
+    onSelect: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isProOnly && !isProTier.value) {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = when (mode) {
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> "Strict Focus"
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> "Relax & Recharge"
+                        FocusSessionManager.FocusMode.CUSTOM -> "Custom Focus"
+                        else -> "Mode"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isProOnly && !isProTier.value) {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Pro feature locked",
+                    tint = if (isProOnly && !isProTier.value) {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "PRO feature - upgrade needed",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isProOnly && !isProTier.value) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            AppSwitch(
+                checked = isProTier.value,
+                onCheckedChange = {
+                    if (it && isProTier.value) {
+                        onSelect()
+                    }
+                }
+            )
+        }
+    }
+}
+
+fun FocusModeOptionCard(
+    mode: FocusSessionManager.FocusMode,
+    title: String,
+    description: String,
+    icon: androidx.compose.material.icons.filled.*,
+    isSelected: Boolean,
+    isProOnly: Boolean,
+    onSelect: () -> Unit
+) {
+    val brush = Brush.sweepGradient(
+        colors = listOf(
+            Color(0xFF1E88E5),
+            Color(0xFF673AB7)
+        ),
+        start = androidx.compose.ui.geometry.AnchorPoint(0f, 0f),
+        end = androidx.compose.ui.geometry.AnchorPoint(1f, 1f)
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                Color(0xFF1E88E5).copy(alpha = 0.15f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = if (isSelected) 4.dp else 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = if (isSelected) Color(0xFFE3F2FD) else Color(0xFFB0BEC5),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (isSelected) Color(0xFFE3F2FD) else Color(0xFF212121),
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Normal
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isSelected) Color(0xFFE3F2FD) else Color(0xFF616161),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color(0xFFE3F2FD),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // Pulse animation for selected mode
+            AnimatedVisibility(visible = isSelected) {
+                Box(
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.solid(Color(0xFFE3F2FD)),
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
     }
 }

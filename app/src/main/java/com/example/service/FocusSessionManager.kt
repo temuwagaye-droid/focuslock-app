@@ -57,8 +57,25 @@ object FocusSessionManager {
     var designatedReadingApp: String? = null
         private set
 
-    private var previousInterruptionFilter: Int? = null
-    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Focus mode types
+    enum class FocusMode {
+        DEEP_WORK,        // uninterrupted concentration, block distracting apps, minimal notifications
+        STUDY,            // link sessions to assignments, 50-min study/10-min break blocks, track time by subject
+        POMODORO,         // short concentration sessions, complete small tasks, minimal setup
+        READING,          // quiet reading sessions, track reading duration, track books/chapters
+        QUICK_FOCUS,      // short concentration sessions, complete small tasks, minimal setup
+        STRICT_FOCUS,     // block selected distracting apps, strict session rules, prevent accidental cancellation
+        RELAX_RECHARGE,   // breathing exercises, relaxing sounds, short meditation, recovery timer
+        CUSTOM            // choose duration, select blocking rules, configure breaks, select sounds, set daily goals
+    }
+
+    private var currentFocusMode: FocusMode = FocusMode.DEEP_WORK
+
+    fun getCurrentFocusMode(): FocusMode = currentFocusMode
+
+    fun setFocusMode(mode: FocusMode) {
+        currentFocusMode = mode
+    }
 
     fun startSession(
         context: Context,
@@ -67,7 +84,8 @@ object FocusSessionManager {
         isWhitelist: Boolean,
         blockedPkgs: List<String>,
         enableAutoDnd: Boolean = false,
-        ambientSound: AmbientSoundType = AmbientSoundType.NONE
+        ambientSound: AmbientSoundType = AmbientSoundType.NONE,
+        focusMode: FocusMode = FocusMode.DEEP_WORK
     ) {
         val appCtx = context.applicationContext
         val clampedMinutes = durationMinutes.coerceIn(1, 180)
@@ -80,21 +98,67 @@ object FocusSessionManager {
         isWhitelistMode = isWhitelist
         blockedPackages = blockedPkgs
         designatedReadingApp = readingAppPackage
+        currentFocusMode = focusMode
+
+        // Mode-specific behavior
+        when (focusMode) {
+            FocusMode.STRICT_FOCUS -> {
+                // Strict mode: ensure DND is always enabled and can't be easily disabled
+                if (enableAutoDnd) {
+                    activateDoNotDisturbIfPermitted(appCtx)
+                }
+            }
+            FocusMode.RELAX_RECHARGE -> {
+                // Relax mode: play relaxing sounds by default
+                if (ambientSound == AmbientSoundType.NONE) {
+                    AmbientSoundPlayer.play(AmbientSoundType.WHITE_NOISE)
+                }
+            }
+            FocusMode.DEEP_WORK -> {
+                // Deep work: minimal notifications, optional ambient sounds
+                if (enableAutoDnd) {
+                    activateDoNotDisturbIfPermitted(appCtx)
+                }
+                if (ambientSound == AmbientSoundType.NONE) {
+                    // No sound by default for deep work unless specified
+                    AmbientSoundPlayer.stop()
+                }
+            }
+            FocusMode.STUDY, FocusMode.POMODORO, FocusMode.QUICK_FOCUS -> {
+                // Standard modes: default DND behavior
+                if (enableAutoDnd) {
+                    activateDoNotDisturbIfPermitted(appCtx)
+                }
+            }
+            FocusMode.READING -> {
+                // Reading mode: optional sounds
+                if (ambientSound == AmbientSoundType.NONE) {
+                    AmbientSoundPlayer.play(AmbientSoundType.WHITE_NOISE)
+                } else {
+                    AmbientSoundPlayer.play(ambientSound)
+                }
+            }
+            FocusMode.CUSTOM -> {
+                // Custom mode: follow the configured sound setting
+                if (ambientSound == AmbientSoundType.NONE) {
+                    AmbientSoundPlayer.stop()
+                } else {
+                    AmbientSoundPlayer.play(ambientSound)
+                }
+            }
+        }
 
         if (enableAutoDnd) {
             activateDoNotDisturbIfPermitted(appCtx)
         }
-        if (ambientSound != AmbientSoundType.NONE) {
-            AmbientSoundPlayer.play(ambientSound)
-        } else {
-            AmbientSoundPlayer.stop()
-        }
+        // Note: the ambient sound handling above already covers the cases
 
-        TelemetryManager.trackEvent(appCtx, "focus_session_started", "${clampedMinutes}m")
+        TelemetryManager.trackEvent(appCtx, "focus_session_started", "${clampedMinutes}m ${focusMode.id}")
 
         val serviceIntent = Intent(appCtx, FocusService::class.java).apply {
             action = FocusService.ACTION_START_SESSION
             putExtra(FocusService.EXTRA_DURATION_MINUTES, clampedMinutes)
+            putExtra(FocusService.EXTRA_FOCUS_MODE, focusMode.id)
         }
         runCatching {
             ContextCompat.startForegroundService(appCtx, serviceIntent)

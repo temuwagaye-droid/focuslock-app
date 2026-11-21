@@ -399,6 +399,268 @@ class FocusViewModel(
         }
     }
 
+    fun startDeepWorkSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            // Deep work: no sound by default, DND enabled
+            val effectiveSound = AmbientSoundType.NONE
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.DEEP_WORK
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startStudySession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
+            val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.STUDY
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startPomodoroSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            // Pomodoro: 25-minute sessions by default, minimal setup
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
+            val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.POMODORO
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startReadingSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            // Reading mode: white noise by default
+            val effectiveSound = AmbientSoundType.WHITE_NOISE
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.READING
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startQuickFocusSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            val sound = AmbientSoundType.fromId(repository.getAmbientSoundIdSync())
+            val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.QUICK_FOCUS
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startStrictFocusSession(context: Context, durationMinutes: Int, blockedApps: List<String>) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = false // Strict mode is always blocklist
+            val blockedPkgs = blockedApps
+            if (blockedPkgs.isEmpty()) return@launch
+            val autoDnd = true // Strict mode always enables DND
+            val effectiveSound = AmbientSoundType.NONE
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.STRICT_FOCUS
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startRelaxRechargeSession(context: Context, durationMinutes: Int) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = repository.isWhitelistModeEnabledSync()
+            val blockedPkgs = repository.getBlockedAppsSync().filter { it.isBlocked }.map { it.packageName }
+            if (!isWhitelist && blockedPkgs.isEmpty()) return@launch
+            val autoDnd = repository.isAutoDndEnabledSync()
+            // Relax mode: white noise by default
+            val effectiveSound = AmbientSoundType.WHITE_NOISE
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.RELAX_RECHARGE
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
+    fun startCustomFocusSession(context: Context, durationMinutes: Int, blockedApps: List<String>, sound: AmbientSoundType) {
+        viewModelScope.launch {
+            val readingApp = repository.getReadingAppPackageSync()?.takeIf { it.isNotBlank() }
+                ?: designatedReadingApp.value?.takeIf { it.isNotBlank() }
+                ?: return@launch
+            val isWhitelist = false // Custom mode defaults to blocklist
+            val blockedPkgs = blockedApps
+            val autoDnd = true // Custom mode enables DND
+            val effectiveSound = if (sound.isProOnly && !isProTier.value) AmbientSoundType.WHITE_NOISE else sound
+
+            FocusSessionManager.startSession(
+                context = context,
+                durationMinutes = durationMinutes,
+                readingAppPackage = readingApp,
+                isWhitelist = isWhitelist,
+                blockedPkgs = blockedPkgs,
+                enableAutoDnd = autoDnd,
+                ambientSound = effectiveSound,
+                focusMode = FocusSessionManager.FocusMode.CUSTOM
+            )
+
+            // Update active multiplayer room participant status if inside a room
+            val rid = _selectedRoomId.value
+            val user = currentUser.value
+            if (!rid.isNullOrBlank() && user != null) {
+                val stage = calculateTreeStage(statsSummary.value.totalFocusMinutes, statsSummary.value.completedSessionsCount)
+                roomSyncStore.updateParticipantStatus(user.uid, rid, "focusing", 0, stage)
+            }
+        }
+    }
+
     fun stopFocusSession(context: Context, completed: Boolean) {
         FocusSessionManager.stopSession(context, completed)
         val rid = _selectedRoomId.value

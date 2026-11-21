@@ -31,10 +31,12 @@ class FocusService : Service() {
         const val ACTION_START_BREAK = "com.example.service.action.START_BREAK"
         const val ACTION_STOP_SESSION = "com.example.service.action.STOP_SESSION"
         const val EXTRA_DURATION_MINUTES = "extra_duration_minutes"
+        const val EXTRA_FOCUS_MODE = "extra_focus_mode"
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var timerJob: Job? = null
+    private var currentFocusMode: FocusSessionManager.FocusMode = FocusSessionManager.FocusMode.DEEP_WORK
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +44,11 @@ class FocusService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val focusMode = when (intent?.getStringExtra(EXTRA_FOCUS_MODE)) {
+            null -> FocusSessionManager.FocusMode.DEEP_WORK
+            else -> FocusSessionManager.FocusMode.valueOf(intent.getStringExtra(EXTRA_FOCUS_MODE).uppercase())
+        }
+
         when (intent?.action) {
             ACTION_STOP_SESSION -> {
                 timerJob?.cancel()
@@ -49,9 +56,16 @@ class FocusService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_START_BREAK, ACTION_START_SESSION, null -> {
+            ACTION_START_BREAK -> {
+                // For break starts, keep default mode unless specified otherwise
                 startForeground(NOTIFICATION_ID, buildNotification(FocusSessionManager.timeLeftSeconds.value))
                 startTickerLoop()
+            }
+            ACTION_START_SESSION -> {
+                startForeground(NOTIFICATION_ID, buildNotification(FocusSessionManager.timeLeftSeconds.value))
+                startTickerLoop()
+                // Store focus mode for tick loop reference
+                currentFocusMode = focusMode
             }
         }
         return START_STICKY
@@ -65,11 +79,11 @@ class FocusService : Service() {
                 val remaining = FocusSessionManager.timeLeftSeconds.value
                 if (remaining > 1L) {
                     FocusSessionManager.tick()
-                    updateNotification(remaining - 1L)
+                    updateNotification(remaining - 1L, remaining)
                 } else {
                     FocusSessionManager.tick()
                     if (FocusSessionManager.isSessionActive.value) {
-                        FocusSessionManager.stopSession(applicationContext, completed = true)
+                        modeSpecificSessionEnd()
                     } else if (FocusSessionManager.isBreakActive.value) {
                         FocusSessionManager.stopBreak(applicationContext)
                     }
@@ -81,13 +95,56 @@ class FocusService : Service() {
         }
     }
 
-    private fun buildNotification(secondsLeft: Long): Notification {
+    private fun modeSpecificSessionEnd() {
+        when (currentFocusMode) {
+            FocusSessionManager.FocusMode.STRICT_FOCUS -> {
+                // Strict mode: show emergency exit info, don't auto-complete
+                // The session will be stopped user-initiated or via admin
+            }
+            FocusSessionManager.FocusMode.RELAX_RECHARGE -> {
+                // Relax mode: stop after timer, show recovery complete notification
+                FocusSessionManager.stopSession(applicationContext, completed = true)
+                NotificationHelper.showSessionCompletedNotification(
+                    applicationContext,
+                    1,  // 1 minute recovery
+                    FocusSessionManager.blockedAttemptsCount.value
+                )
+            }
+            FocusSessionManager.FocusMode.POMODORO, FocusSessionManager.FocusMode.QUICK_FOCUS -> {
+                // Standard short sessions: complete normally
+                FocusSessionManager.stopSession(applicationContext, completed = true)
+            }
+            FocusSessionManager.FocusMode.DEEP_WORK, FocusSessionManager.FocusMode.STUDY, FocusSessionManager.FocusMode.READING -> {
+                // Study/Deep work/Reading: complete normally
+                FocusSessionManager.stopSession(applicationContext, completed = true)
+            }
+            FocusSessionManager.FocusMode.CUSTOM -> {
+                // Custom mode: complete normally
+                FocusSessionManager.stopSession(applicationContext, completed = true)
+            }
+        }
+    }
+
+    private fun buildNotification(secondsLeft: Long, remaining: Long = secondsLeft): Notification {
         val mins = secondsLeft / 60L
         val secs = secondsLeft % 60L
         val formatted = String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
         val isBreak = FocusSessionManager.isBreakActive.value
         val title = if (isBreak) "FocusLock Break Timer" else "FocusLock Session Active"
-        val text = if (isBreak) "Coffee break remaining: $formatted" else "Stay focused • $formatted remaining"
+
+        // Mode-specific text
+        val modeText = when (FocusSessionManager.currentFocusMode) {
+            FocusSessionManager.FocusMode.DEEP_WORK -> "• Deep focus mode"
+            FocusSessionManager.FocusMode.STUDY -> "• Study session"
+            FocusSessionManager.FocusMode.POMODORO -> "• Pomodoro timer"
+            FocusSessionManager.FocusMode.READING -> "• Reading mode"
+            FocusSessionManager.FocusMode.QUICK_FOCUS -> "• Quick focus"
+            FocusSessionManager.FocusMode.STRICT_FOCUS -> "• Strict focus"
+            FocusSessionManager.FocusMode.RELAX_RECHARGE -> "• Relax & recharge"
+            FocusSessionManager.FocusMode.CUSTOM -> "• Custom mode"
+            else -> ""
+        }
+        val text = if (isBreak) "Coffee break remaining: $formatted$modeText" else "Stay focused • $formatted remaining$modeText"
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -109,9 +166,9 @@ class FocusService : Service() {
             .build()
     }
 
-    private fun updateNotification(secondsLeft: Long) {
+    private fun updateNotification(secondsLeft: Long, remaining: Long) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        runCatching { nm.notify(NOTIFICATION_ID, buildNotification(secondsLeft)) }
+        runCatching { nm.notify(NOTIFICATION_ID, buildNotification(secondsLeft, remaining)) }
     }
 
     private fun createNotificationChannel() {
