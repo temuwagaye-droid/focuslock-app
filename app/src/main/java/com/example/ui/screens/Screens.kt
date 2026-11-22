@@ -3912,13 +3912,271 @@ fun SettingsScreen(
                 }
             }
             }
-        }
+    }
 
-        // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
-        SettingsAdvancedSections(
-            viewModel = viewModel,
-            onOpenAdminDashboard = onOpenAdminDashboard
-        )
+    // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
+    @Composable
+    fun SettingsAdvancedSections(
+            viewModel: FocusViewModel,
+            onOpenAdminDashboard: () -> Unit
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                // Pro Tier section
+                CinematicCardEntrance(index = 7) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Pro Tier",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Unlock premium focus modes and advanced features.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            AppSwitch(
+                                checked = viewModel.isProTierEnabled,
+                                onCheckedChange = { viewModel.setProTierEnabled(it) },
+                                modifier = Modifier.testTag("pro_tier_switch")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Cloud Sync section
+                CinematicCardEntrance(index = 8) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Cloud Sync",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Sync your focus sessions and statistics across devices.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            AppSwitch(
+                                checked = viewModel.isCloudSyncEnabled,
+                                onCheckedChange = { viewModel.setCloudSyncEnabled(it) },
+                                modifier = Modifier.testTag("cloud_sync_switch")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // DND Configuration section
+                CinematicCardEntrance(index = 9) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Do Not Disturb",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Configure DND behavior during focus sessions.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            AppSwitch(
+                                checked = viewModel.isDndEnabled,
+                                onCheckedChange = { viewModel.setDndEnabled(it) },
+                                modifier = Modifier.testTag("dnd_switch")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Accountability Partner section
+                CinematicCardEntrance(index = 10) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Accountability Partner",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Share session completion notifications with a partner.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            // Partner email input
+                            OutlinedTextField(
+                                value = viewModel.partnerEmail,
+                                onValueChange = { viewModel.setPartnerEmail(it) },
+                                label = { Text("Partner Email") },
+                                modifier = Modifier.testTag("partner_email_field")
+                            )
+                            AppSwitch(
+                                checked = viewModel.isPartnerNotificationsEnabled,
+                                onCheckedChange = { viewModel.setPartnerNotificationsEnabled(it) },
+                                modifier = Modifier.testTag("partner_notifications_switch")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Parental Lock section
+                CinematicCardEntrance(index = 11) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Parental Lock",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Restrict app access with parental controls.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            OutlinedTextField(
+                                value = viewModel.parentalPin,
+                                onValueChange = { viewModel.setParentalPin(it) },
+                                label = { Text("PIN") },
+                                modifier = Modifier.testTag("parental_pin_field")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Reminders section
+                CinematicCardEntrance(index = 12) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Reminders",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Set reminders for breaks and session completion.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            OutlinedTextField(
+                                value = viewModel.reminderInterval,
+                                onValueChange = { viewModel.setReminderInterval(it) },
+                                label = { Text("Interval (minutes)") },
+                                modifier = Modifier.testTag("reminder_interval_field")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Widgets section
+                CinematicCardEntrance(index = 13) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Widgets",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Add focus session widgets to your home screen.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            AppSwitch(
+                                checked = viewModel.isWidgetEnabled,
+                                onCheckedChange = { viewModel.setWidgetEnabled(it) },
+                                modifier = Modifier.testTag("widget_switch")
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Privacy section
+                CinematicCardEntrance(index = 14) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Privacy",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "All data is processed locally on your device.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 12.sp
+                            )
+                            AppSwitch(
+                                checked = viewModel.isPrivateTrackingEnabled,
+                                onCheckedChange = { viewModel.setPrivateTrackingEnabled(it) },
+                                modifier = Modifier.testTag("private_tracking_switch")
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
