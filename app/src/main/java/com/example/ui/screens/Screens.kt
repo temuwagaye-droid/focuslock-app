@@ -158,6 +158,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -866,86 +869,91 @@ fun FocusModeSelectorSection(
     onSelectMode: (FocusSessionManager.FocusMode) -> Unit,
     onStartFocusMode: (FocusSessionManager.FocusMode) -> Unit
 ) {
-    var selectedFilter by remember { mutableStateOf("ALL") }
-
-    val modes = listOf(
-        FocusSessionManager.FocusMode.DEEP_WORK,
-        FocusSessionManager.FocusMode.STUDY,
-        FocusSessionManager.FocusMode.POMODORO,
-        FocusSessionManager.FocusMode.READING,
-        FocusSessionManager.FocusMode.QUICK_FOCUS,
-        FocusSessionManager.FocusMode.STRICT_FOCUS,
-        FocusSessionManager.FocusMode.RELAX_RECHARGE,
-        FocusSessionManager.FocusMode.CUSTOM
-    )
-
-    val filteredModes = remember(selectedFilter) {
-        when (selectedFilter) {
-            "WORK" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.DEEP_WORK, FocusSessionManager.FocusMode.STRICT_FOCUS, FocusSessionManager.FocusMode.CUSTOM) }
-            "STUDY" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.STUDY, FocusSessionManager.FocusMode.POMODORO, FocusSessionManager.FocusMode.READING) }
-            "RECHARGE" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.RELAX_RECHARGE, FocusSessionManager.FocusMode.QUICK_FOCUS) }
-            else -> modes
-        }
+    val modes = remember {
+        listOf(
+            FocusSessionManager.FocusMode.DEEP_WORK,
+            FocusSessionManager.FocusMode.STUDY,
+            FocusSessionManager.FocusMode.POMODORO,
+            FocusSessionManager.FocusMode.READING,
+            FocusSessionManager.FocusMode.QUICK_FOCUS,
+            FocusSessionManager.FocusMode.STRICT_FOCUS,
+            FocusSessionManager.FocusMode.RELAX_RECHARGE,
+            FocusSessionManager.FocusMode.CUSTOM
+        )
     }
+
+    val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(22.dp),
         border = null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(vertical = 12.dp)) {
+            // Header Row
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "FOCUS MODES",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = GamifiedPurple,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(GamifiedPurple.copy(alpha = 0.16f))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "TOP TABS",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            color = GamifiedPurple
+                        )
+                    }
+                }
                 Text(
-                    text = "8 PROFESSIONAL FOCUS MODES",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    color = GamifiedPurple
-                )
-                Text(
-                    text = "${modes.size} MODES",
+                    text = "${selectedIndex + 1} of ${modes.size}",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.secondary,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Filter tabs
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf("ALL", "WORK", "STUDY", "RECHARGE").forEach { filter ->
-                    val isSel = selectedFilter == filter
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isSel) GamifiedPurple else MaterialTheme.colorScheme.surface)
-                            .clickable { selectedFilter = filter }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = filter,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface
+            // Scrollable Tab Row (Top Tabs)
+            ScrollableTabRow(
+                selectedTabIndex = selectedIndex,
+                edgePadding = 12.dp,
+                containerColor = Color.Transparent,
+                contentColor = GamifiedPurple,
+                divider = {},
+                indicator = { tabPositions ->
+                    if (selectedIndex in tabPositions.indices) {
+                        Box(
+                            Modifier
+                                .tabIndicatorOffset(tabPositions[selectedIndex])
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                                .background(GamifiedPurple)
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                filteredModes.forEach { mode ->
-                    val isSelected = mode == selectedMode
+            ) {
+                modes.forEachIndexed { index, mode ->
+                    val isSelected = index == selectedIndex
                     val modeIcon = when (mode) {
                         FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
                         FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
@@ -957,78 +965,156 @@ fun FocusModeSelectorSection(
                         FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
                     }
 
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) GamifiedPurple.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(
-                            if (isSelected) 2.dp else 1.dp,
-                            if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectMode(mode) }
+                    Tab(
+                        selected = isSelected,
+                        onClick = { onSelectMode(mode) },
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                CircularIconBadge(
-                                    imageVector = modeIcon,
-                                    contentDescription = mode.displayName,
-                                    containerSize = 38.dp,
-                                    iconSize = 20.dp,
-                                    containerColor = if (isSelected) GamifiedPurple else Color.Black
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (isSelected) GamifiedPurple.copy(alpha = 0.16f)
+                                    else Color.Transparent
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = mode.displayName,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(GamifiedMint.copy(alpha = 0.2f))
-                                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = mode.intensity,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color(0xFF0A6B43)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${mode.defaultMinutes}m focus • ${if (mode.breakMinutes > 0) "${mode.breakMinutes}m break" else "recovery"}",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.secondary
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = modeIcon,
+                                contentDescription = mode.displayName,
+                                tint = if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = mode.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                color = if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (isSelected) GamifiedPurple.copy(alpha = 0.25f)
+                                        else MaterialTheme.colorScheme.surface
                                     )
-                                }
-                            }
-
-                            Button(
-                                onClick = { onStartFocusMode(mode) },
-                                colors = appBlackButtonColors(),
-                                border = appBlackButtonBorder(),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.height(34.dp)
+                                    .padding(horizontal = 5.dp, vertical = 1.dp)
                             ) {
-                                Text("START", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text(
+                                    text = "${mode.defaultMinutes}m",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.secondary
+                                )
                             }
                         }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Active Tab Content / Mode Detail Card
+            val activeModeIcon = when (selectedMode) {
+                FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
+                FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
+                FocusSessionManager.FocusMode.POMODORO -> Icons.Default.Timer
+                FocusSessionManager.FocusMode.READING -> Icons.Default.Book
+                FocusSessionManager.FocusMode.QUICK_FOCUS -> Icons.Default.Bolt
+                FocusSessionManager.FocusMode.STRICT_FOCUS -> Icons.Default.Lock
+                FocusSessionManager.FocusMode.RELAX_RECHARGE -> Icons.Default.SelfImprovement
+                FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
+            }
+
+            val modeDesc = when (selectedMode) {
+                FocusSessionManager.FocusMode.DEEP_WORK -> "Uninterrupted 90-minute concentration block with full distraction shield and automatic DND."
+                FocusSessionManager.FocusMode.STUDY -> "Structured 50-minute study sessions paired with 10-minute mental recovery intervals."
+                FocusSessionManager.FocusMode.POMODORO -> "25-minute sprints with 5-minute short breaks and 20-minute long breaks after 4 cycles."
+                FocusSessionManager.FocusMode.READING -> "Quiet, dedicated reading focus with protected reader application launch."
+                FocusSessionManager.FocusMode.QUICK_FOCUS -> "Rapid 15-minute high-focus burst to tackle bite-sized tasks without friction."
+                FocusSessionManager.FocusMode.STRICT_FOCUS -> "High-accountability locked session with strict exit confirmation dialog."
+                FocusSessionManager.FocusMode.RELAX_RECHARGE -> "Guided breathing exercises and calming ambient sounds for nervous system recovery."
+                FocusSessionManager.FocusMode.CUSTOM -> "Personalized focus duration, custom break periods, and tailored distraction rules."
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, GamifiedPurple.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = activeModeIcon,
+                                contentDescription = selectedMode.displayName,
+                                containerSize = 38.dp,
+                                iconSize = 20.dp,
+                                containerColor = GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = selectedMode.displayName,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(GamifiedMint.copy(alpha = 0.22f))
+                                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = selectedMode.intensity,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFF0A6B43)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "${selectedMode.defaultMinutes}m focus • ${if (selectedMode.breakMinutes > 0) "${selectedMode.breakMinutes}m break" else "recovery session"}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { onStartFocusMode(selectedMode) },
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("START", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = modeDesc,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -1168,13 +1254,8 @@ fun TimerSetupScreen(
                 )
             }
 
-            // Bedtime Lock Quick Status Card
+            // 8 Professional Focus Modes Scrollable Top Tabs
             CinematicCardEntrance(index = 1) {
-                BedtimeDashboardCard(onNavigateToBedtime = onNavigateToBedtime)
-            }
-
-            // 8 Professional Focus Modes Selector Card
-            CinematicCardEntrance(index = 2) {
                 FocusModeSelectorSection(
                     selectedMode = selectedFocusMode,
                     onSelectMode = { mode ->
@@ -1188,8 +1269,13 @@ fun TimerSetupScreen(
                 )
             }
 
+            // Bedtime Lock Quick Status Card
+            CinematicCardEntrance(index = 2) {
+                BedtimeDashboardCard(onNavigateToBedtime = onNavigateToBedtime)
+            }
+
             // 2. Hero Duration Ring Stepper Card (Apple Fitness ring + Duolingo stepper pills)
-            CinematicCardEntrance(index = 1) {
+            CinematicCardEntrance(index = 3) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(22.dp),
