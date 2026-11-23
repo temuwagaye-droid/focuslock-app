@@ -143,6 +143,7 @@ import com.example.ui.theme.GamifiedYellow
 import com.example.ui.theme.LocalDarkTheme
 import com.example.ui.theme.appBlackButtonBorder
 import com.example.ui.theme.appBlackButtonColors
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -1036,13 +1037,13 @@ fun FocusModeSelectorSection(
 
 @Composable
 fun TimerSetupScreen(
-
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
     onNavigateToBlocklist: () -> Unit = {},
     onNavigateToReadingAppPicker: (() -> Unit)? = null,
     onNavigateToStats: () -> Unit = {},
     onNavigateToRooms: () -> Unit = {},
+    onNavigateToBedtime: () -> Unit = {},
     autoStartFromShortcut: Boolean = false,
     onAutoStartConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
