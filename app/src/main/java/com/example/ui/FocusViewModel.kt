@@ -180,6 +180,19 @@ class FocusViewModel(
     val crashReportingOptIn: StateFlow<Boolean> = repository.isCrashReportingOptIn()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    // Additional Settings Aliases & Providers for UI
+    val isProTierEnabled: StateFlow<Boolean> = isProTier
+    val isDndEnabled: StateFlow<Boolean> = isAutoDndEnabled
+    val isPartnerNotificationsEnabled: StateFlow<Boolean> = notifyPartnerOnQuit
+    val parentalPin: StateFlow<String> = repository.getParentalPin()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val reminderInterval: StateFlow<String> = repository.getReminderInterval()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "15")
+    val isWidgetEnabled: StateFlow<Boolean> = repository.isWidgetEnabled()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isPrivateTrackingEnabled: StateFlow<Boolean> = repository.isPrivateTrackingEnabled()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     // Stats
     val sessionLogs: StateFlow<List<SessionLogEntity>> = repository.allSessionLogs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -879,6 +892,50 @@ class FocusViewModel(
         viewModelScope.launch {
             repository.setCrashReportingOptIn(optIn)
             TelemetryManager.isCrashReportingOptIn = optIn
+        }
+    }
+
+    fun setProTierEnabled(enabled: Boolean) {
+        setProTier(enabled)
+    }
+
+    fun setDndEnabled(enabled: Boolean) {
+        setAutoDndEnabled(enabled)
+    }
+
+    fun setPartnerEmail(email: String) {
+        viewModelScope.launch {
+            repository.setPartnerEmail(email.trim())
+        }
+    }
+
+    fun setPartnerNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setNotifyPartnerOnQuit(enabled)
+        }
+    }
+
+    fun setParentalPin(pin: String) {
+        viewModelScope.launch {
+            repository.setParentalPin(pin)
+        }
+    }
+
+    fun setReminderInterval(interval: String) {
+        viewModelScope.launch {
+            repository.setReminderInterval(interval)
+        }
+    }
+
+    fun setWidgetEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setWidgetEnabled(enabled)
+        }
+    }
+
+    fun setPrivateTrackingEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setPrivateTrackingEnabled(enabled)
         }
     }
 

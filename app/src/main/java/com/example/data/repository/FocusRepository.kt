@@ -6,6 +6,7 @@ import com.example.data.model.SessionLogEntity
 import com.example.data.model.SettingEntity
 import com.example.data.model.TodoEntity
 import com.example.data.remote.CloudRestoreBundle
+import com.example.security.ParentalControlHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -35,6 +36,10 @@ class FocusRepository(private val focusDao: FocusDao) {
         const val KEY_CLOUD_SYNC = "cloud_sync_enabled"
         const val KEY_ANALYTICS_OPT_IN = "analytics_opt_in"
         const val KEY_CRASH_OPT_IN = "crash_reporting_opt_in"
+        const val KEY_PARENTAL_PIN = "parental_pin"
+        const val KEY_REMINDER_INTERVAL = "reminder_interval"
+        const val KEY_WIDGET_ENABLED = "widget_enabled"
+        const val KEY_PRIVATE_TRACKING = "private_tracking_enabled"
     }
 
     val allBlockedApps: Flow<List<BlockedAppEntity>> = focusDao.getAllBlockedAppsFlow()
@@ -266,6 +271,46 @@ class FocusRepository(private val focusDao: FocusDao) {
 
     suspend fun setCrashReportingOptIn(enabled: Boolean) {
         focusDao.insertSetting(SettingEntity(KEY_CRASH_OPT_IN, enabled.toString()))
+    }
+
+    fun isProTierEnabled(): Flow<Boolean> = isProTier()
+    suspend fun setProTierEnabled(enabled: Boolean) = setProTier(enabled)
+
+    fun isDndEnabled(): Flow<Boolean> = isAutoDndEnabled()
+    suspend fun setDndEnabled(enabled: Boolean) = setAutoDndEnabled(enabled)
+
+    fun isPartnerNotificationsEnabled(): Flow<Boolean> = isNotifyPartnerOnQuit()
+    suspend fun setPartnerNotificationsEnabled(enabled: Boolean) = setNotifyPartnerOnQuit(enabled)
+
+    fun getParentalPin(): Flow<String> =
+        focusDao.getSettingFlow(KEY_PARENTAL_PIN).map { it?.value ?: "" }
+
+    suspend fun setParentalPin(pin: String) {
+        focusDao.insertSetting(SettingEntity(KEY_PARENTAL_PIN, pin))
+        if (pin.isNotBlank()) {
+            setParentalPinHash(ParentalControlHelper.hashPin(pin))
+        }
+    }
+
+    fun getReminderInterval(): Flow<String> =
+        focusDao.getSettingFlow(KEY_REMINDER_INTERVAL).map { it?.value ?: "15" }
+
+    suspend fun setReminderInterval(interval: String) {
+        focusDao.insertSetting(SettingEntity(KEY_REMINDER_INTERVAL, interval))
+    }
+
+    fun isWidgetEnabled(): Flow<Boolean> =
+        focusDao.getSettingFlow(KEY_WIDGET_ENABLED).map { it?.value?.toBooleanStrictOrNull() ?: false }
+
+    suspend fun setWidgetEnabled(enabled: Boolean) {
+        focusDao.insertSetting(SettingEntity(KEY_WIDGET_ENABLED, enabled.toString()))
+    }
+
+    fun isPrivateTrackingEnabled(): Flow<Boolean> =
+        focusDao.getSettingFlow(KEY_PRIVATE_TRACKING).map { it?.value?.toBooleanStrictOrNull() ?: true }
+
+    suspend fun setPrivateTrackingEnabled(enabled: Boolean) {
+        focusDao.insertSetting(SettingEntity(KEY_PRIVATE_TRACKING, enabled.toString()))
     }
 
     suspend fun restoreFromCloudBundle(bundle: CloudRestoreBundle) {
