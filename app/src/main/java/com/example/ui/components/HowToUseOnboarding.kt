@@ -246,14 +246,7 @@ fun AccessibilityRequiredDialog(
 
                 Button(
                     onClick = {
-                        // Deep link to FocusLock's own Settings page so the user
-                        // can enable the Accessibility Service from within the app.
-                        val packageName = context.packageName
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = android.net.Uri.parse("package:$packageName")
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        context.startActivity(intent)
+                        com.example.security.AccessibilityHelper.openAccessibilitySettings(context)
                         onDismiss()
                     },
                     colors = appBlackButtonColors(),

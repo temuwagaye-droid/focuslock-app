@@ -21,6 +21,7 @@ class FocusRoomSyncStore(context: Context?) {
 
     private val _rooms = MutableStateFlow<List<FocusRoomDto>>(emptyList())
     private val _participantsByRoom = MutableStateFlow<Map<String, List<RoomParticipantDto>>>(emptyMap())
+    private val _messagesByRoom = MutableStateFlow<Map<String, List<RoomMessageDto>>>(emptyMap())
 
     init {
         loadFromPrefs()
@@ -38,6 +39,33 @@ class FocusRoomSyncStore(context: Context?) {
 
     fun observeParticipants(roomId: String): Flow<List<RoomParticipantDto>> = _participantsByRoom.map { map ->
         map[roomId].orEmpty()
+    }
+
+    fun observeRoomMessages(roomId: String): Flow<List<RoomMessageDto>> = _messagesByRoom.map { map ->
+        map[roomId].orEmpty()
+    }
+
+    fun sendRoomMessage(roomId: String, user: SupabaseUser, text: String): Result<RoomMessageDto> = synchronized(lock) {
+        val clean = text.trim()
+        if (clean.isBlank()) return Result.failure(IllegalArgumentException("Message cannot be empty."))
+        val name = user.displayName?.takeIf { it.isNotBlank() }
+            ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+            ?: "Reader"
+        val msg = RoomMessageDto(
+            messageId = "msg_${UUID.randomUUID().toString().replace("-", "").take(10)}",
+            roomId = roomId,
+            senderId = user.uid,
+            senderName = name,
+            content = clean,
+            timestampMillis = System.currentTimeMillis()
+        )
+        val messagesMap = _messagesByRoom.value.toMutableMap()
+        val list = messagesMap[roomId].orEmpty().toMutableList()
+        list.add(msg)
+        messagesMap[roomId] = list
+        _messagesByRoom.value = messagesMap
+        persistToPrefs()
+        Result.success(msg)
     }
 
     fun createRoom(
@@ -243,8 +271,31 @@ class FocusRoomSyncStore(context: Context?) {
                 }
                 loadedParticipants[rid] = list
             }
+            val messagesObj = root.optJSONObject("messages") ?: JSONObject()
+            val loadedMessages = mutableMapOf<String, List<RoomMessageDto>>()
+            val mkeys = messagesObj.keys()
+            while (mkeys.hasNext()) {
+                val rid = mkeys.next()
+                val arr = messagesObj.optJSONArray(rid) ?: JSONArray()
+                val list = mutableListOf<RoomMessageDto>()
+                for (k in 0 until arr.length()) {
+                    val m = arr.getJSONObject(k)
+                    list.add(
+                        RoomMessageDto(
+                            messageId = m.optString("messageId"),
+                            roomId = m.optString("roomId"),
+                            senderId = m.optString("senderId"),
+                            senderName = m.optString("senderName"),
+                            content = m.optString("content"),
+                            timestampMillis = m.optLong("timestampMillis", System.currentTimeMillis())
+                        )
+                    )
+                }
+                loadedMessages[rid] = list
+            }
             _rooms.value = loadedRooms
             _participantsByRoom.value = loadedParticipants
+            _messagesByRoom.value = loadedMessages
         }
     }
 
@@ -282,9 +333,27 @@ class FocusRoomSyncStore(context: Context?) {
             }
             participantsObj.put(rid, arr)
         }
+        val messagesObj = JSONObject()
+        for ((rid, mlist) in _messagesByRoom.value) {
+            val arr = JSONArray()
+            for (m in mlist) {
+                arr.put(
+                    JSONObject().apply {
+                        put("messageId", m.messageId)
+                        put("roomId", m.roomId)
+                        put("senderId", m.senderId)
+                        put("senderName", m.senderName)
+                        put("content", m.content)
+                        put("timestampMillis", m.timestampMillis)
+                    }
+                )
+            }
+            messagesObj.put(rid, arr)
+        }
         val root = JSONObject().apply {
             put("rooms", roomsArr)
             put("participants", participantsObj)
+            put("messages", messagesObj)
         }
         editor.putString(KEY_ROOMS_JSON, root.toString()).apply()
     }

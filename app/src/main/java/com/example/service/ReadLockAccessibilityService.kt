@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
+import com.example.bedtime.BedtimeManager
 import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.ui.BlockActivity
@@ -39,6 +40,16 @@ class ReadLockAccessibilityService : AccessibilityService() {
         "com.google.android.packageinstaller"
     )
 
+    private val emergencyDialerPackages = setOf(
+        "com.android.dialer",
+        "com.google.android.dialer",
+        "com.samsung.android.dialer",
+        "com.android.phone",
+        "com.android.server.telecom",
+        "com.google.android.apps.messaging",
+        "com.android.mms"
+    )
+
     override fun onCreate() {
         super.onCreate()
         repository = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
@@ -58,14 +69,36 @@ class ReadLockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        if (!FocusSessionManager.isSessionActive.value || FocusSessionManager.isBreakActive.value) return
+
+        val isBedtimeActive = BedtimeManager.isBedtimeLockActive.value
+        val isFocusActive = FocusSessionManager.isSessionActive.value && !FocusSessionManager.isBreakActive.value
+
+        if (!isFocusActive && !isBedtimeActive) return
 
         val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
         if (pkg == packageName || pkg == lastForegroundPackage) return
         lastForegroundPackage = pkg
 
+        if (standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg) || isEmergencyOrDialerPackage(pkg)) {
+            return
+        }
+
+        if (isBedtimeActive) {
+            val blockedSet = (FocusSessionManager.blockedPackages + blockedPkgsList).toSet()
+            val shouldBlock = if (blockedSet.isNotEmpty()) blockedSet.contains(pkg) else !isEssentialSystemApp(pkg)
+            if (shouldBlock) {
+                val blockIntent = Intent(this, BlockActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("blocked_package", pkg)
+                    putExtra("is_bedtime", true)
+                }
+                runCatching { startActivity(blockIntent) }
+            }
+            return
+        }
+
         val readerApp = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
-        if (pkg == readerApp || standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg)) {
+        if (pkg == readerApp) {
             return
         }
 
@@ -78,9 +111,21 @@ class ReadLockAccessibilityService : AccessibilityService() {
             val blockIntent = Intent(this, BlockActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra("blocked_package", pkg)
+                putExtra("is_bedtime", false)
             }
             runCatching { startActivity(blockIntent) }
         }
+    }
+
+    private fun isEmergencyOrDialerPackage(pkg: String): Boolean {
+        if (emergencyDialerPackages.contains(pkg)) return true
+        val lower = pkg.lowercase()
+        return lower.contains("dialer") || lower.contains("telecom") || lower.contains("emergency")
+    }
+
+    private fun isEssentialSystemApp(pkg: String): Boolean {
+        if (standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg) || isEmergencyOrDialerPackage(pkg)) return true
+        return pkg.startsWith("com.android.system") || pkg.startsWith("com.google.android.inputmethod")
     }
 
     private fun isLauncherPackage(pkg: String): Boolean {

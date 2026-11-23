@@ -25,11 +25,17 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -82,6 +88,8 @@ fun SocialScreen(
     val publicRooms by viewModel.publicRooms.collectAsState()
     val activeRoom by viewModel.activeRoom.collectAsState()
     val participants by viewModel.activeRoomParticipants.collectAsState()
+    val roomMessages by viewModel.activeRoomMessages.collectAsState()
+    var chatMessageInput by remember { mutableStateOf("") }
     val leaderboard by viewModel.leaderboardEntries.collectAsState()
     val isLeaderboardVisible by viewModel.isLeaderboardVisible.collectAsState()
 
@@ -352,6 +360,129 @@ fun SocialScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        Divider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "LIVE ROOM CHAT",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "${roomMessages.size} messages",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 90.dp, max = 220.dp)
+                        ) {
+                            if (roomMessages.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Say hello to your focus room members! 👋",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    items(roomMessages) { msg ->
+                                        val isMe = msg.senderId == currentUser?.uid
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
+                                        ) {
+                                            Text(
+                                                text = if (isMe) "You" else msg.senderName,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(
+                                                        if (isMe) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                        else MaterialTheme.colorScheme.surfaceVariant
+                                                    )
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = msg.content,
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = chatMessageInput,
+                                onValueChange = { chatMessageInput = it },
+                                placeholder = { Text("Message room...", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (chatMessageInput.isNotBlank()) {
+                                        viewModel.sendRoomMessage(chatMessageInput.trim())
+                                        chatMessageInput = ""
+                                    }
+                                },
+                                enabled = chatMessageInput.isNotBlank(),
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (chatMessageInput.isNotBlank()) MaterialTheme.colorScheme.primary
+                                        else Color.Gray.copy(alpha = 0.3f)
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "Send Message",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
 

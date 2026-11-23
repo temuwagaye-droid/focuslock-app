@@ -77,6 +77,9 @@ class FocusService : Service() {
         timerJob = serviceScope.launch {
             while (isActive && (FocusSessionManager.isSessionActive.value || FocusSessionManager.isBreakActive.value)) {
                 delay(1000L)
+                if (FocusSessionManager.isPaused.value) {
+                    continue
+                }
                 val remaining = FocusSessionManager.timeLeftSeconds.value
                 if (remaining > 1L) {
                     FocusSessionManager.tick()

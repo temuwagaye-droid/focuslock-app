@@ -139,6 +139,18 @@ object AmbientSoundPlayer {
         runCatching { audioTrack?.setVolume(clamped) }
     }
 
+    fun pause() {
+        _isPlaying.value = false
+        runCatching { audioTrack?.pause() }
+    }
+
+    fun resume() {
+        val sound = _currentSound.value
+        if (sound != AmbientSoundType.NONE) {
+            play(sound, _volume.value)
+        }
+    }
+
     fun stop() {
         stopInternal()
         _currentSound.value = AmbientSoundType.NONE

@@ -97,6 +97,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
@@ -758,8 +766,277 @@ fun AppSelectionScreen(
     }
 }
 
+
+@Composable
+fun BedtimeDashboardCard(
+    onNavigateToBedtime: () -> Unit
+) {
+    val schedule by com.example.bedtime.BedtimeManager.schedule.collectAsState()
+    val isLockActive by com.example.bedtime.BedtimeManager.isBedtimeLockActive.collectAsState()
+    val stats by com.example.bedtime.BedtimeManager.stats.collectAsState()
+    val nextSeconds = remember(schedule, isLockActive) {
+        if (isLockActive) com.example.bedtime.BedtimeManager.getTimeUntilWakeUpSeconds()
+        else com.example.bedtime.BedtimeManager.getTimeUntilNextBedtimeSeconds()
+    }
+    val h = nextSeconds / 3600L
+    val m = (nextSeconds % 3600L) / 60L
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF0F172A)
+        ),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, Color(0xFF1E293B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onNavigateToBedtime() }
+            .testTag("bedtime_dashboard_card")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E1B4B))
+                        .border(1.5.dp, Color(0xFF818CF8), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bedtime,
+                        contentDescription = "Bedtime Lock",
+                        tint = Color(0xFFDDD6FE),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "BEDTIME LOCK",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            color = Color(0xFFA78BFA)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (isLockActive) Color(0xFF9070FF).copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isLockActive) "ACTIVE" else "${stats.currentStreakDays}D STREAK",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                color = if (isLockActive) Color(0xFFC084FC) else Color(0xFFFBBF24)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isLockActive) "Wake-up in ${h}h ${m}m" else "Curfew in ${h}h ${m}m • Tap to configure",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun FocusModeSelectorSection(
+    selectedMode: FocusSessionManager.FocusMode,
+    onSelectMode: (FocusSessionManager.FocusMode) -> Unit,
+    onStartFocusMode: (FocusSessionManager.FocusMode) -> Unit
+) {
+    var selectedFilter by remember { mutableStateOf("ALL") }
+
+    val modes = listOf(
+        FocusSessionManager.FocusMode.DEEP_WORK,
+        FocusSessionManager.FocusMode.STUDY,
+        FocusSessionManager.FocusMode.POMODORO,
+        FocusSessionManager.FocusMode.READING,
+        FocusSessionManager.FocusMode.QUICK_FOCUS,
+        FocusSessionManager.FocusMode.STRICT_FOCUS,
+        FocusSessionManager.FocusMode.RELAX_RECHARGE,
+        FocusSessionManager.FocusMode.CUSTOM
+    )
+
+    val filteredModes = remember(selectedFilter) {
+        when (selectedFilter) {
+            "WORK" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.DEEP_WORK, FocusSessionManager.FocusMode.STRICT_FOCUS, FocusSessionManager.FocusMode.CUSTOM) }
+            "STUDY" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.STUDY, FocusSessionManager.FocusMode.POMODORO, FocusSessionManager.FocusMode.READING) }
+            "RECHARGE" -> modes.filter { it in listOf(FocusSessionManager.FocusMode.RELAX_RECHARGE, FocusSessionManager.FocusMode.QUICK_FOCUS) }
+            else -> modes
+        }
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(22.dp),
+        border = null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "8 PROFESSIONAL FOCUS MODES",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = GamifiedPurple
+                )
+                Text(
+                    text = "${modes.size} MODES",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Filter tabs
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf("ALL", "WORK", "STUDY", "RECHARGE").forEach { filter ->
+                    val isSel = selectedFilter == filter
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isSel) GamifiedPurple else MaterialTheme.colorScheme.surface)
+                            .clickable { selectedFilter = filter }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = filter,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                filteredModes.forEach { mode ->
+                    val isSelected = mode == selectedMode
+                    val modeIcon = when (mode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
+                        FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
+                        FocusSessionManager.FocusMode.POMODORO -> Icons.Default.Timer
+                        FocusSessionManager.FocusMode.READING -> Icons.Default.Book
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> Icons.Default.Bolt
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> Icons.Default.Lock
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> Icons.Default.SelfImprovement
+                        FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) GamifiedPurple.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(
+                            if (isSelected) 2.dp else 1.dp,
+                            if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectMode(mode) }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                CircularIconBadge(
+                                    imageVector = modeIcon,
+                                    contentDescription = mode.displayName,
+                                    containerSize = 38.dp,
+                                    iconSize = 20.dp,
+                                    containerColor = if (isSelected) GamifiedPurple else Color.Black
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = mode.displayName,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(GamifiedMint.copy(alpha = 0.2f))
+                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = mode.intensity,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color(0xFF0A6B43)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${mode.defaultMinutes}m focus • ${if (mode.breakMinutes > 0) "${mode.breakMinutes}m break" else "recovery"}",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { onStartFocusMode(mode) },
+                                colors = appBlackButtonColors(),
+                                border = appBlackButtonBorder(),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text("START", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun TimerSetupScreen(
+
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
     onNavigateToBlocklist: () -> Unit = {},
@@ -855,20 +1132,11 @@ fun TimerSetupScreen(
         }
     }
 
-    fun tryStartFocusSession() {
-        val canProceedAccessibility = isAccessibilityServiceEnabled(context) ||
-            hasAccessibilityBeenEnabledOnce(context) ||
-            accessibilityReady
-        if (!hasReadingApp) {
-            showReadingAppRequiredDialog = true
-        } else if (!hasBlockedAppsConfig) {
-            showBlockedAppsRequiredDialog = true
-        } else if (!canProceedAccessibility) {
-            showAccessibilityRequiredDialog = true
-        } else {
-            viewModel.startFocusSession(context, sessionMinutes)
-            onStartSession()
-        }
+    var selectedFocusMode by remember { mutableStateOf(FocusSessionManager.FocusMode.DEEP_WORK) }
+
+    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode = selectedFocusMode, customDuration: Int = sessionMinutes) {
+        viewModel.startModeSession(context, mode, customDuration)
+        onStartSession()
     }
 
     LaunchedEffect(autoStartFromShortcut, hasReadingApp, hasBlockedAppsConfig) {
@@ -896,6 +1164,26 @@ fun TimerSetupScreen(
                 TimerXpAndStreakCard(
                     stats = stats,
                     onOpenStats = onNavigateToStats
+                )
+            }
+
+            // Bedtime Lock Quick Status Card
+            CinematicCardEntrance(index = 1) {
+                BedtimeDashboardCard(onNavigateToBedtime = onNavigateToBedtime)
+            }
+
+            // 8 Professional Focus Modes Selector Card
+            CinematicCardEntrance(index = 2) {
+                FocusModeSelectorSection(
+                    selectedMode = selectedFocusMode,
+                    onSelectMode = { mode ->
+                        selectedFocusMode = mode
+                        updateSessionMinutes(mode.defaultMinutes)
+                    },
+                    onStartFocusMode = { mode ->
+                        selectedFocusMode = mode
+                        tryStartFocusSession(mode, mode.defaultMinutes)
+                    }
                 )
             }
 
@@ -1193,7 +1481,7 @@ fun TimerSetupScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "START FOCUS SESSION",
+                text = "START ${selectedFocusMode.displayName.uppercase()} (${sessionMinutes}M)",
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Black
@@ -1729,6 +2017,12 @@ fun FocusSessionScreen(
             }
         }
 
+        val context = LocalContext.current
+        val currentMode = remember { FocusSessionManager.getCurrentFocusMode() }
+        val isPaused by viewModel.isSessionPaused.collectAsState()
+        val pomodoroCycles by viewModel.pomodoroCycleCount.collectAsState()
+        var showStrictExitModal by remember { mutableStateOf(false) }
+
         if (isDndActive) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1749,6 +2043,78 @@ fun FocusSessionScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+
+        // Mode Identity Pill
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(GamifiedPurple.copy(alpha = 0.16f))
+                .border(1.dp, GamifiedPurple.copy(alpha = 0.7f), RoundedCornerShape(50))
+                .padding(horizontal = 14.dp, vertical = 6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = when (currentMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
+                        FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
+                        FocusSessionManager.FocusMode.POMODORO -> Icons.Default.Timer
+                        FocusSessionManager.FocusMode.READING -> Icons.Default.Book
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> Icons.Default.Bolt
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> Icons.Default.Lock
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> Icons.Default.SelfImprovement
+                        FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
+                    },
+                    contentDescription = null,
+                    tint = GamifiedPurple,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${currentMode.displayName.uppercase()} • ${currentMode.intensity.uppercase()}",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    color = GamifiedPurple
+                )
+            }
+        }
+
+        if (currentMode == FocusSessionManager.FocusMode.POMODORO) {
+            Text(
+                text = "Pomodoro Cycle $pomodoroCycles of 4 (Long break after 4th cycle)",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = GamifiedMint
+            )
+        }
+
+        if (currentMode == FocusSessionManager.FocusMode.RELAX_RECHARGE) {
+            val breathAnim = rememberInfiniteTransition(label = "breath_session")
+            val scale by breathAnim.animateFloat(
+                initialValue = 0.82f,
+                targetValue = 1.25f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(4000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "breath_scale"
+            )
+            Box(
+                modifier = Modifier
+                    .size(86.dp)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .background(GamifiedMint.copy(alpha = 0.22f))
+                    .border(2.dp, GamifiedMint, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (scale > 1.05f) "Inhale" else "Exhale",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -1893,37 +2259,98 @@ fun FocusSessionScreen(
             }
         }
 
-        Button(
-            onClick = {
-                if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
-                    showParentalQuitDialog = true
-                } else {
-                    onStopSession()
-                }
-            },
-            colors = appBlackButtonColors(),
-            border = appBlackButtonBorder(),
-            shape = RoundedCornerShape(50),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .testTag("end_session_early_button")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            CircularIconBadge(
-                imageVector = Icons.Default.Stop,
-                contentDescription = "End Session Early",
-                containerSize = 26.dp,
-                iconSize = 15.dp,
-                containerColor = Color.Black,
-                iconTint = Color.White,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = if (isParentalLockEnabled) "END EARLY (PIN REQUIRED)" else "END SESSION EARLY",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
+            Button(
+                onClick = {
+                    if (isPaused) viewModel.resumeFocusSession(context)
+                    else viewModel.pauseFocusSession(context)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isPaused) GamifiedMint else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, if (isPaused) Color(0xFF0A6B43) else MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = if (isPaused) "Resume" else "Pause",
+                    tint = if (isPaused) Color.Black else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isPaused) "RESUME" else "PAUSE",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    color = if (isPaused) Color.Black else MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Button(
+                onClick = {
+                    if (isParentalLockEnabled && parentalPinHash.isNotBlank()) {
+                        showParentalQuitDialog = true
+                    } else if (currentMode == FocusSessionManager.FocusMode.STRICT_FOCUS) {
+                        showStrictExitModal = true
+                    } else {
+                        onStopSession()
+                    }
+                },
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .weight(1.3f)
+                    .height(48.dp)
+                    .testTag("end_session_early_button")
+            ) {
+                CircularIconBadge(
+                    imageVector = Icons.Default.Stop,
+                    contentDescription = "End Session Early",
+                    containerSize = 26.dp,
+                    iconSize = 15.dp,
+                    containerColor = Color.Black,
+                    iconTint = Color.White,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isParentalLockEnabled) "END (PIN)" else "END EARLY",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        if (showStrictExitModal) {
+            AlertDialog(
+                onDismissRequest = { showStrictExitModal = false },
+                title = { Text("Strict Focus Protection Active", fontWeight = FontWeight.Bold) },
+                text = { Text("Strict Focus mode is designed to prevent distractions and accidental cancellation. Are you sure you want to abort your focus block?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showStrictExitModal = false
+                            viewModel.stopFocusSession(context, false)
+                            onStopSession()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Yes, End Session", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showStrictExitModal = false }) {
+                        Text("Stay Focused")
+                    }
+                }
             )
         }
     }
@@ -3787,10 +4214,7 @@ fun SettingsScreen(
 
                                 Button(
                                     onClick = {
-                                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(intent)
+                                        com.example.security.AccessibilityHelper.openAccessibilitySettings(context)
                                     },
                                     colors = appBlackButtonColors(),
                                     border = appBlackButtonBorder(),

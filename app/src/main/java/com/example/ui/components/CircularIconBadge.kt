@@ -23,8 +23,8 @@ fun CircularIconBadge(
     imageVector: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    containerSize: Dp = 36.dp,
-    iconSize: Dp = 18.dp,
+    containerSize: Dp = 42.dp,
+    iconSize: Dp = 22.dp,
     containerColor: Color = Color.Black,
     iconTint: Color = Color.White,
     border: BorderStroke? = null

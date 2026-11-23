@@ -91,6 +91,15 @@ data class RoomParticipantDto(
     val updatedAtMs: Long? = null
 )
 
+data class RoomMessageDto(
+    val messageId: String = "",
+    val roomId: String = "",
+    val senderId: String = "",
+    val senderName: String = "",
+    val content: String = "",
+    val timestampMillis: Long = System.currentTimeMillis()
+)
+
 data class CloudRestoreBundle(
     val settings: CloudPrivateSettings? = null,
     val sessions: List<CloudSessionBackup> = emptyList(),

@@ -84,6 +84,7 @@ object AppRoutes {
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val FOCUS_SESSION = "focus_session"
     const val COFFEE_BREAK = "coffee_break"
+    const val BEDTIME_LOCK = "bedtime_lock"
 }
 
 enum class DashboardTab(val route: String) {
@@ -108,6 +109,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         NotificationHelper.ensureChannels(this)
+        com.example.bedtime.BedtimeManager.init(this)
+        com.example.bedtime.BedtimeReceiver.scheduleBedtimeAlarms(this)
+        com.example.service.FocusSessionManager.recoverSessionIfActive(this)
         TelemetryManager.installCrashHandler(this)
 
         handleIncomingIntent(intent)
@@ -345,6 +349,11 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToStats = { navigateToTab(DashboardTab.STATS) },
                                 onNavigateToRooms = { navigateToTab(DashboardTab.SOCIAL) },
+                                onNavigateToBedtime = {
+                                    navController.navigate(AppRoutes.BEDTIME_LOCK) {
+                                        launchSingleTop = true
+                                    }
+                                },
                                 autoStartFromShortcut = autoStartFromShortcut,
                                 onAutoStartConsumed = { autoStartFromShortcut = false }
                             )
@@ -438,6 +447,15 @@ class MainActivity : ComponentActivity() {
                                         popUpTo(AppRoutes.TIMER) { inclusive = true }
                                         launchSingleTop = true
                                     }
+                                }
+                            )
+                        }
+
+                        composable(AppRoutes.BEDTIME_LOCK) {
+                            com.example.ui.screens.BedtimeScreen(
+                                onBack = { navController.popBackStack() },
+                                onOpenEmergencyAccess = {
+                                    com.example.bedtime.BedtimeManager.triggerEmergencyOverride(this@MainActivity, 5)
                                 }
                             )
                         }

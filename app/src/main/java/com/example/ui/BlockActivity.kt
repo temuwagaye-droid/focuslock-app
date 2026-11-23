@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.MainActivity
+import com.example.bedtime.BedtimeManager
 import com.example.data.local.AppDatabase
 import com.example.data.repository.FocusRepository
 import com.example.service.FocusSessionManager
@@ -62,20 +65,24 @@ class BlockActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val blockedPackage = intent?.getStringExtra("blocked_package").orEmpty()
+        val isBedtimeIntent = intent?.getBooleanExtra("is_bedtime", false) == true
         val repo = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
 
         setContent {
             val isDark by repo.isDarkModeEnabled().collectAsState(initial = false)
             val accentId by repo.getAccentThemeId().collectAsState(initial = AppAccentTheme.VIOLET.id)
             val readingApp by repo.getReadingAppPackage().collectAsState(initial = FocusSessionManager.designatedReadingApp)
+            val bedtimeActive by BedtimeManager.isBedtimeLockActive.collectAsState()
+            val effectiveBedtime = isBedtimeIntent || bedtimeActive
 
             MyApplicationTheme(
-                darkTheme = isDark,
+                darkTheme = if (effectiveBedtime) true else isDark,
                 accentTheme = AppAccentTheme.fromId(accentId)
             ) {
                 Scaffold { innerPadding ->
                     BlockScreenContent(
                         blockedPackage = blockedPackage,
+                        isBedtime = effectiveBedtime,
                         modifier = Modifier.padding(innerPadding),
                         onReturnToReading = {
                             val targetPkg = readingApp ?: FocusSessionManager.designatedReadingApp
@@ -88,6 +95,10 @@ class BlockActivity : ComponentActivity() {
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                                 })
                             }
+                            finish()
+                        },
+                        onEmergencyUnlock = {
+                            BedtimeManager.triggerEmergencyOverride(this@BlockActivity, 5)
                             finish()
                         },
                         onGoHome = {
@@ -108,13 +119,19 @@ class BlockActivity : ComponentActivity() {
 @Composable
 fun BlockScreenContent(
     blockedPackage: String,
+    isBedtime: Boolean = false,
     modifier: Modifier = Modifier,
     onReturnToReading: () -> Unit,
+    onEmergencyUnlock: () -> Unit = {},
     onGoHome: () -> Unit
 ) {
     val sessionActive by FocusSessionManager.isSessionActive.collectAsState()
     val timeLeft by FocusSessionManager.timeLeftSeconds.collectAsState()
     val blockedCount by FocusSessionManager.blockedAttemptsCount.collectAsState()
+
+    val wakeUpSeconds = BedtimeManager.getTimeUntilWakeUpSeconds()
+    val wakeMins = (wakeUpSeconds / 60L) % 60L
+    val wakeHours = wakeUpSeconds / 3600L
 
     val mins = timeLeft / 60L
     val secs = timeLeft % 60L
@@ -123,7 +140,7 @@ fun BlockScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(if (isBedtime) Color(0xFF070B14) else MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -133,13 +150,13 @@ fun BlockScreenContent(
             modifier = Modifier
                 .size(88.dp)
                 .clip(CircleShape)
-                .background(Color.Black)
-                .border(2.dp, GamifiedPurple, CircleShape)
+                .background(if (isBedtime) Color(0xFF131B2E) else Color.Black)
+                .border(2.dp, if (isBedtime) Color(0xFF9070FF) else GamifiedPurple, CircleShape)
         ) {
             Icon(
-                imageVector = Icons.Default.Shield,
-                contentDescription = "Distraction Blocked",
-                tint = Color.White,
+                imageVector = if (isBedtime) Icons.Default.Bedtime else Icons.Default.Shield,
+                contentDescription = if (isBedtime) "Bedtime Lock" else "Distraction Blocked",
+                tint = if (isBedtime) Color(0xFFF0E6FF) else Color.White,
                 modifier = Modifier.size(44.dp)
             )
         }
@@ -147,32 +164,36 @@ fun BlockScreenContent(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Distraction Shield Engaged",
+            text = if (isBedtime) "Bedtime Lock Active 🌙" else "Distraction Shield Engaged",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = if (isBedtime) Color.White else MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = if (blockedPackage.isNotBlank()) {
+            text = if (isBedtime) {
+                "Distracting apps are locked to protect your sleep schedule. Wind down, relax, and get restorative rest."
+            } else if (blockedPackage.isNotBlank()) {
                 "$blockedPackage is locked while your reading focus session is active."
             } else {
-                "Stay with your book — your distracting apps are locked during this focus session."
+                "Stay with your task — your distracting apps are locked during this focus session."
             },
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary,
+            color = if (isBedtime) Color(0xFF94A3B8) else MaterialTheme.colorScheme.secondary,
             textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isBedtime) Color(0xFF0F172A) else MaterialTheme.colorScheme.surfaceVariant
+            ),
             shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            border = BorderStroke(1.dp, if (isBedtime) Color(0xFF1E293B) else MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -182,55 +203,78 @@ fun BlockScreenContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (sessionActive) "TIME REMAINING" else "FOCUS LOCK",
+                    text = if (isBedtime) "WAKE-UP TIME IN" else if (sessionActive) "TIME REMAINING" else "FOCUS LOCK",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,
-                    color = GamifiedPurple
+                    color = if (isBedtime) Color(0xFF9070FF) else GamifiedPurple
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = timeLabel,
+                    text = if (isBedtime) "${wakeHours}h ${wakeMins}m" else timeLabel,
                     style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = if (isBedtime) Color.White else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "$blockedCount distraction${if (blockedCount == 1) "" else "s"} blocked this session",
+                    text = if (isBedtime) "Emergency calls & essential tools remain accessible" else "$blockedCount distraction${if (blockedCount == 1) "" else "s"} blocked this session",
                     style = MaterialTheme.typography.labelMedium,
-                    color = GamifiedMint,
-                    fontWeight = FontWeight.Bold
+                    color = if (isBedtime) Color(0xFF38BDF8) else GamifiedMint,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
-            onClick = onReturnToReading,
-            colors = appBlackButtonColors(),
-            border = appBlackButtonBorder(),
-            shape = RoundedCornerShape(50),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .testTag("block_return_to_reading_btn")
-        ) {
-            CircularIconBadge(
-                imageVector = Icons.Default.Book,
-                contentDescription = null,
-                containerSize = 26.dp,
-                iconSize = 15.dp,
-                containerColor = Color.Black,
-                iconTint = Color.White,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "RETURN TO READING",
-                color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = 13.sp
-            )
+        if (isBedtime) {
+            Button(
+                onClick = onEmergencyUnlock,
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .testTag("bedtime_emergency_unlock_btn")
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "5-MIN EMERGENCY UNLOCK",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+            }
+        } else {
+            Button(
+                onClick = onReturnToReading,
+                colors = appBlackButtonColors(),
+                border = appBlackButtonBorder(),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .testTag("block_return_to_reading_btn")
+            ) {
+                CircularIconBadge(
+                    imageVector = Icons.Default.Book,
+                    contentDescription = null,
+                    containerSize = 28.dp,
+                    iconSize = 16.dp,
+                    containerColor = Color.Black,
+                    iconTint = Color.White,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "RETURN TO READING",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -246,7 +290,8 @@ fun BlockScreenContent(
             Text(
                 text = "EXIT TO HOME SCREEN",
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                color = if (isBedtime) Color.White else MaterialTheme.colorScheme.onBackground
             )
         }
     }

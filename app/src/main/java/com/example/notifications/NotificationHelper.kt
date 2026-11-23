@@ -24,6 +24,7 @@ object NotificationHelper {
     const val REMINDER_CHANNEL_BELL_ID = "focuslock_reminders_bell"
     const val REMINDER_CHANNEL_SILENT_ID = "focuslock_reminders_silent"
     const val ALERT_CHANNEL_ID = "readlock_focus_alerts"
+    const val BEDTIME_CHANNEL_ID = "focuslock_bedtime_channel"
 
     const val ACTION_SNOOZE = "com.example.notifications.ACTION_SNOOZE"
     const val ACTION_COMPLETE = "com.example.notifications.ACTION_COMPLETE"
@@ -61,6 +62,9 @@ object NotificationHelper {
             },
             NotificationChannel(ALERT_CHANNEL_ID, "Focus Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Session completion and accountability alerts"
+            },
+            NotificationChannel(BEDTIME_CHANNEL_ID, "Bedtime Lock Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Bedtime lock reminders, activation, and morning wake-up alerts"
             }
         )
         nm.createNotificationChannels(channels)
@@ -221,6 +225,169 @@ object NotificationHelper {
             .setAutoCancel(true)
             .build()
         runCatching { nm.notify(3002, notification) }
+    }
+
+    fun showBedtimeApproachingNotification(context: Context, minutes: Int = 30) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            4001,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, BEDTIME_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Bedtime in $minutes Minutes 🌙")
+            .setContentText("Wind down and get ready for rest. Bedtime Lock will engage soon.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(4001, notification) }
+    }
+
+    fun showBedtimeActivatedNotification(context: Context) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            4002,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, BEDTIME_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Bedtime Lock Active 🌙")
+            .setContentText("Distracting apps are locked. Rest well tonight!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(4002, notification) }
+    }
+
+    fun showBedtimeWakeUpNotification(context: Context) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            4003,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, BEDTIME_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Good Morning! ☀️")
+            .setContentText("Bedtime Lock is disengaged. Have a restful, productive day!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(4003, notification) }
+    }
+
+    fun showFocusStartedNotification(context: Context, modeName: String, durationMinutes: Int) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            3010,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val cleanMode = modeName.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+        val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("$cleanMode Session Started")
+            .setContentText("Target: ${durationMinutes}m focus. Distractions are shielded.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(3010, notification) }
+    }
+
+    fun showFocusCompletedNotification(context: Context, modeName: String) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            3011,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val cleanMode = modeName.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+        val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("$cleanMode Completed! 🎯")
+            .setContentText("Great job staying on task. Time for a well-deserved break.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(3011, notification) }
+    }
+
+    fun showBreakStartedNotification(context: Context, breakMinutes: Int) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            3012,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Break Started ☕")
+            .setContentText("Relax and recharge for ${breakMinutes}m. You earned it!")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(3012, notification) }
+    }
+
+    fun showBreakCompletedNotification(context: Context) {
+        ensureChannels(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            3013,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Break Time Over! 🔔")
+            .setContentText("Ready to start your next focus block? Let's go!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        runCatching { nm.notify(3013, notification) }
     }
 
     fun showDailyReminderNotification(context: Context) {
