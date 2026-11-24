@@ -5,6 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -25,10 +29,11 @@ jobs:
     - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Restore Debug Keystore
+    - name: Restore or Create Fixed Debug Keystore
       run: |
         if [ -f debug.keystore.base64 ]; then
           base64 -d debug.keystore.base64 > debug.keystore
+          echo "NEW_KEYSTORE=false" >> $GITHUB_ENV
         else
           keytool -genkeypair -v \
             -keystore debug.keystore \
@@ -39,7 +44,20 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
+          base64 -w 0 debug.keystore > debug.keystore.base64
+          echo "NEW_KEYSTORE=true" >> $GITHUB_ENV
         fi
+        mkdir -p ~/.android
+        cp debug.keystore ~/.android/debug.keystore
+
+    - name: Save Keystore to Repo (first run only)
+      if: env.NEW_KEYSTORE == 'true' && github.event_name != 'pull_request'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add debug.keystore.base64
+        git commit -m "chore: add fixed debug keystore [skip ci]"
+        git push
 
     - name: Configure Optional Build Secrets
       env:
@@ -86,6 +104,7 @@ jobs:
     - name: Build Debug APK
       env:
         JAVA_TOOL_OPTIONS: -Djava.awt.headless=true
+        GITHUB_RUN_NUMBER: ${{ github.run_number }}
       run: gradle assembleDebug --no-daemon --no-configuration-cache
 
     - name: Upload Debug APK Artifact
@@ -93,3 +112,11 @@ jobs:
       with:
         name: FocusLock-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Publish GitHub Release
+      if: github.event_name != 'pull_request'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Build ${{ github.run_number }}
+        files: app/build/outputs/apk/debug/app-debug.apk
