@@ -147,6 +147,9 @@ CREATE TABLE IF NOT EXISTS public.focus_room_messages (
     sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     sender_name TEXT NOT NULL,
     content TEXT NOT NULL,
+    attachment_type TEXT,
+    attachment_name TEXT,
+    attachment_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

@@ -111,6 +111,18 @@ object FocusSessionManager {
         currentFocusMode = mode
     }
 
+    fun canPauseCurrentMode(): Boolean {
+        return currentFocusMode != FocusMode.STRICT_FOCUS
+    }
+
+    fun isStrictExitRequired(): Boolean {
+        return currentFocusMode == FocusMode.STRICT_FOCUS || currentFocusMode == FocusMode.DEEP_WORK
+    }
+
+    fun isPenaltyFreeExit(): Boolean {
+        return currentFocusMode == FocusMode.QUICK_FOCUS
+    }
+
     fun recoverSessionIfActive(context: Context) {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -235,6 +247,7 @@ object FocusSessionManager {
     }
 
     fun pauseSession(context: Context) {
+        if (!canPauseCurrentMode()) return
         if (!_isSessionActive.value && !_isBreakActive.value) return
         _isPaused.value = true
         AmbientSoundPlayer.pause()
@@ -313,7 +326,7 @@ object FocusSessionManager {
             } else {
                 val elapsedMins = (elapsedSeconds / 60L).toInt()
                 TelemetryManager.trackEvent(appCtx, "focus_session_aborted", "${elapsedMins}m,mode=${mode.name},blocked=$attempts")
-                if (repo.isNotifyPartnerOnQuitSync()) {
+                if (!isPenaltyFreeExit() && repo.isNotifyPartnerOnQuitSync()) {
                     val partnerName = repo.getPartnerNameSync()
                     val partnerEmail = repo.getPartnerEmailSync()
                     _pendingQuitAlert.value = EarlyQuitAlert(

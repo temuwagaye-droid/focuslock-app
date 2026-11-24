@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity() {
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
-                                            .size(48.dp)
+                                            .size(34.dp)
                                             .clip(CircleShape)
                                             .background(Color.Black)
                                             .border(
@@ -272,14 +272,14 @@ class MainActivity : ComponentActivity() {
                                                 text = initial,
                                                 color = Color.White,
                                                 fontWeight = FontWeight.Black,
-                                                fontSize = 16.sp
+                                                fontSize = 13.sp
                                             )
                                         } else {
                                             Icon(
                                                 imageVector = Icons.Default.AccountCircle,
                                                 contentDescription = "Account Profile",
                                                 tint = Color.White,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
                                     }
@@ -288,20 +288,21 @@ class MainActivity : ComponentActivity() {
                                     IconButton(
                                         onClick = { viewModel.toggleDarkMode(!isDarkMode) },
                                         modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                             .background(Color.Black)
                                             .border(
                                                 1.dp,
                                                 iconBadgeBorder,
-                                                RoundedCornerShape(14.dp)
+                                                RoundedCornerShape(10.dp)
                                             )
                                             .testTag("theme_toggle_button")
                                     ) {
                                         Icon(
                                             imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                                             contentDescription = if (isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
-                                            tint = Color.White
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }

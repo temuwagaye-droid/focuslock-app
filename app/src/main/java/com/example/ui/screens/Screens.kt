@@ -864,10 +864,11 @@ fun BedtimeDashboardCard(
 }
 
 @Composable
-fun FocusModeSelectorSection(
-    selectedMode: FocusSessionManager.FocusMode,
-    onSelectMode: (FocusSessionManager.FocusMode) -> Unit,
-    onStartFocusMode: (FocusSessionManager.FocusMode) -> Unit
+fun FocusModeScrollableTabsSection(
+    selectedMode: FocusSessionManager.FocusMode?,
+    onSelectMode: (FocusSessionManager.FocusMode?) -> Unit,
+    onStartFocusMode: (FocusSessionManager.FocusMode) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val modes = remember {
         listOf(
@@ -882,16 +883,16 @@ fun FocusModeSelectorSection(
         )
     }
 
-    val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
+    val selectedIndex = if (selectedMode == null) -1 else modes.indexOf(selectedMode)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(22.dp),
         border = null,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(vertical = 10.dp)) {
             // Header Row
             Row(
                 modifier = Modifier
@@ -924,18 +925,18 @@ fun FocusModeSelectorSection(
                     }
                 }
                 Text(
-                    text = "${selectedIndex + 1} of ${modes.size}",
+                    text = if (selectedMode != null) "${selectedIndex + 1} of ${modes.size} • Tap to hide" else "Select to activate",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.secondary,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Scrollable Tab Row (Top Tabs)
             ScrollableTabRow(
-                selectedTabIndex = selectedIndex,
+                selectedTabIndex = if (selectedIndex >= 0) selectedIndex else 0,
                 edgePadding = 12.dp,
                 containerColor = Color.Transparent,
                 contentColor = GamifiedPurple,
@@ -967,7 +968,13 @@ fun FocusModeSelectorSection(
 
                     Tab(
                         selected = isSelected,
-                        onClick = { onSelectMode(mode) },
+                        onClick = {
+                            if (isSelected) {
+                                onSelectMode(null)
+                            } else {
+                                onSelectMode(mode)
+                            }
+                        },
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
                         Row(
@@ -975,10 +982,10 @@ fun FocusModeSelectorSection(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
-                                    if (isSelected) GamifiedPurple.copy(alpha = 0.16f)
+                                    if (isSelected) GamifiedPurple.copy(alpha = 0.18f)
                                     else Color.Transparent
                                 )
-                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
                         ) {
                             Icon(
                                 imageVector = modeIcon,
@@ -1015,113 +1022,130 @@ fun FocusModeSelectorSection(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Active Tab Content / Mode Detail Card
-            val activeModeIcon = when (selectedMode) {
-                FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
-                FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
-                FocusSessionManager.FocusMode.POMODORO -> Icons.Default.Timer
-                FocusSessionManager.FocusMode.READING -> Icons.Default.Book
-                FocusSessionManager.FocusMode.QUICK_FOCUS -> Icons.Default.Bolt
-                FocusSessionManager.FocusMode.STRICT_FOCUS -> Icons.Default.Lock
-                FocusSessionManager.FocusMode.RELAX_RECHARGE -> Icons.Default.SelfImprovement
-                FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
-            }
-
-            val modeDesc = when (selectedMode) {
-                FocusSessionManager.FocusMode.DEEP_WORK -> "Uninterrupted 90-minute concentration block with full distraction shield and automatic DND."
-                FocusSessionManager.FocusMode.STUDY -> "Structured 50-minute study sessions paired with 10-minute mental recovery intervals."
-                FocusSessionManager.FocusMode.POMODORO -> "25-minute sprints with 5-minute short breaks and 20-minute long breaks after 4 cycles."
-                FocusSessionManager.FocusMode.READING -> "Quiet, dedicated reading focus with protected reader application launch."
-                FocusSessionManager.FocusMode.QUICK_FOCUS -> "Rapid 15-minute high-focus burst to tackle bite-sized tasks without friction."
-                FocusSessionManager.FocusMode.STRICT_FOCUS -> "High-accountability locked session with strict exit confirmation dialog."
-                FocusSessionManager.FocusMode.RELAX_RECHARGE -> "Guided breathing exercises and calming ambient sounds for nervous system recovery."
-                FocusSessionManager.FocusMode.CUSTOM -> "Personalized focus duration, custom break periods, and tailored distraction rules."
-            }
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, GamifiedPurple.copy(alpha = 0.4f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
+            // Details are ONLY shown when explicitly clicked!
+            AnimatedVisibility(
+                visible = selectedMode != null,
+                enter = expandVertically(animationSpec = tween(220)) + fadeIn(tween(180)),
+                exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(tween(140))
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            CircularIconBadge(
-                                imageVector = activeModeIcon,
-                                contentDescription = selectedMode.displayName,
-                                containerSize = 38.dp,
-                                iconSize = 20.dp,
-                                containerColor = GamifiedPurple
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = selectedMode.displayName,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(GamifiedMint.copy(alpha = 0.22f))
-                                            .padding(horizontal = 5.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = selectedMode.intensity,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFF0A6B43)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = "${selectedMode.defaultMinutes}m focus • ${if (selectedMode.breakMinutes > 0) "${selectedMode.breakMinutes}m break" else "recovery session"}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = { onStartFocusMode(selectedMode) },
-                            colors = appBlackButtonColors(),
-                            border = appBlackButtonBorder(),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("START", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
+                if (selectedMode != null) {
+                    val activeModeIcon = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> Icons.Default.Psychology
+                        FocusSessionManager.FocusMode.STUDY -> Icons.Default.School
+                        FocusSessionManager.FocusMode.POMODORO -> Icons.Default.Timer
+                        FocusSessionManager.FocusMode.READING -> Icons.Default.Book
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> Icons.Default.Bolt
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> Icons.Default.Lock
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> Icons.Default.SelfImprovement
+                        FocusSessionManager.FocusMode.CUSTOM -> Icons.Default.Tune
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    val xpReward = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> "+220 XP"
+                        FocusSessionManager.FocusMode.STUDY -> "+150 XP"
+                        FocusSessionManager.FocusMode.POMODORO -> "+100 XP"
+                        FocusSessionManager.FocusMode.READING -> "+90 XP"
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> "+50 XP"
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> "+180 XP"
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> "+40 XP"
+                        FocusSessionManager.FocusMode.CUSTOM -> "+75 XP"
+                    }
 
-                    Text(
-                        text = modeDesc,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val shortSummary = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> "Full distraction barrier • Auto DND • 15m break"
+                        FocusSessionManager.FocusMode.STUDY -> "Blocks social & games • Allows study tools • 10m break"
+                        FocusSessionManager.FocusMode.POMODORO -> "4 focus cycles • Short 5m break • Long 20m break"
+                        FocusSessionManager.FocusMode.READING -> "Dedicated reader app whitelist • Quiet ambient audio"
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> "Rapid burst • Low friction • Penalty-free exit"
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> "Full shield lock • Pausing disabled • Confirmation modal"
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> "Guided 4-4-4-4 box breathing • Calming soundscape"
+                        FocusSessionManager.FocusMode.CUSTOM -> "Personalized focus duration & custom distraction settings"
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp, start = 14.dp, end = 14.dp)
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, GamifiedPurple.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        CircularIconBadge(
+                                            imageVector = activeModeIcon,
+                                            contentDescription = selectedMode.displayName,
+                                            containerSize = 34.dp,
+                                            iconSize = 18.dp,
+                                            containerColor = GamifiedPurple
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = selectedMode.displayName,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                XpRewardChip(text = xpReward)
+                                            }
+                                            Text(
+                                                text = shortSummary,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Button(
+                                            onClick = { onStartFocusMode(selectedMode) },
+                                            colors = appBlackButtonColors(),
+                                            border = appBlackButtonBorder(),
+                                            shape = RoundedCornerShape(50),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("START", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                        }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
+                                        IconButton(
+                                            onClick = { onSelectMode(null) },
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Hide Details",
+                                                tint = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
 fun TimerSetupScreen(
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
@@ -1219,10 +1243,15 @@ fun TimerSetupScreen(
         }
     }
 
-    var selectedFocusMode by remember { mutableStateOf(FocusSessionManager.FocusMode.DEEP_WORK) }
+    var selectedFocusMode by remember { mutableStateOf<FocusSessionManager.FocusMode?>(null) }
 
-    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode = selectedFocusMode, customDuration: Int = sessionMinutes) {
-        viewModel.startModeSession(context, mode, customDuration)
+    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode? = selectedFocusMode, customDuration: Int = sessionMinutes) {
+        if (!accessibilityReady) {
+            showAccessibilityRequiredDialog = true
+            return
+        }
+        val targetMode = mode ?: FocusSessionManager.FocusMode.CUSTOM
+        viewModel.startModeSession(context, targetMode, customDuration)
         onStartSession()
     }
 
@@ -1246,26 +1275,32 @@ fun TimerSetupScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. Duolingo-inspired XP Bar, Rank & Pulsing Streak Flame Card (borderless + soft shadow)
+            // 8 Professional Focus Modes Scrollable Top Tabs (First item, below FocusLock top bar, above Novice Reader)
             CinematicCardEntrance(index = 0) {
-                TimerXpAndStreakCard(
-                    stats = stats,
-                    onOpenStats = onNavigateToStats
-                )
-            }
-
-            // 8 Professional Focus Modes Scrollable Top Tabs
-            CinematicCardEntrance(index = 1) {
-                FocusModeSelectorSection(
+                FocusModeScrollableTabsSection(
                     selectedMode = selectedFocusMode,
                     onSelectMode = { mode ->
                         selectedFocusMode = mode
-                        updateSessionMinutes(mode.defaultMinutes)
+                        if (mode != null) {
+                            updateSessionMinutes(mode.defaultMinutes)
+                        }
                     },
                     onStartFocusMode = { mode ->
                         selectedFocusMode = mode
-                        tryStartFocusSession(mode, mode.defaultMinutes)
+                        if (!accessibilityReady) {
+                            showAccessibilityRequiredDialog = true
+                        } else {
+                            tryStartFocusSession(mode, mode.defaultMinutes)
+                        }
                     }
+                )
+            }
+
+            // 1. Duolingo-inspired XP Bar, Rank & Pulsing Streak Flame Card (Novice Reader, below Top Tabs)
+            CinematicCardEntrance(index = 1) {
+                TimerXpAndStreakCard(
+                    stats = stats,
+                    onOpenStats = onNavigateToStats
                 )
             }
 
@@ -1568,7 +1603,7 @@ fun TimerSetupScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "START ${selectedFocusMode.displayName.uppercase()} (${sessionMinutes}M)",
+                text = if (selectedFocusMode != null) "START ${selectedFocusMode!!.displayName.uppercase()} (${sessionMinutes}M)" else "START FOCUS SESSION (${sessionMinutes}M)",
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Black
@@ -4123,6 +4158,8 @@ fun SettingsScreen(
     val isScheduleEnabled by viewModel.isScheduleEnabled.collectAsState()
     val startHour by viewModel.scheduleStartHour.collectAsState()
     val endHour by viewModel.scheduleEndHour.collectAsState()
+    val stats by viewModel.statsSummary.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val serviceConnected by ReadLockAccessibilityService.isServiceConnected.collectAsState()
 
     var accessibilityEnabled by remember {
@@ -4155,375 +4192,347 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = "Settings",
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Black
-        )
-        Text(
-            text = "Focus rules, cloud sync, alerts & privacy.",
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Accessibility Service configuration Card (defaults collapsed with chevron-down; remembers enabled once)
-        var isAccessibilityExpanded by remember { mutableStateOf(false) }
+        // Gamified Profile & Rank Card
         CinematicCardEntrance(index = 0) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(GamifiedPurple)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = currentUser?.displayName ?: "Focus Guardian",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(GamifiedMint.copy(alpha = 0.22f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "LVL ${stats.totalFocusMinutes / 60 + 1}",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF0A6B43)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "${stats.totalFocusMinutes}m focused • ${stats.currentStreak} day streak 🔥",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+
+                    XpRewardChip(text = "${stats.focusScore} XP")
+                }
+            }
+        }
+
+        // Modern Gamified Protection Card (No chevron accordion! Sleek badge and direct action button)
+        CinematicCardEntrance(index = 1) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
                     .testTag("accessibility_service_card")
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 48.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable(
-                                role = Role.Button,
-                                onClick = { isAccessibilityExpanded = !isAccessibilityExpanded }
-                            )
-                            .padding(vertical = 2.dp)
                             .testTag("accessibility_service_toggle"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = if (accessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Security,
+                                contentDescription = null,
+                                containerSize = 34.dp,
+                                iconSize = 18.dp,
+                                containerColor = if (accessibilityEnabled) Color(0xFF0A6B43) else GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "ACCESSIBILITY SHIELD",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Text(
+                                    text = if (accessibilityEnabled) "Real-time app blocker active" else "Permission required for blocking",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (accessibilityEnabled) GamifiedMint.copy(alpha = 0.22f)
+                                    else MaterialTheme.colorScheme.errorContainer
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (accessibilityEnabled) "PROTECTED" else "ACTION REQUIRED",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp,
+                                color = if (accessibilityEnabled) Color(0xFF0A6B43) else MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+
+                    if (!accessibilityEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                com.example.security.AccessibilityHelper.openAccessibilitySettings(context)
+                            },
+                            colors = appBlackButtonColors(),
+                            border = appBlackButtonBorder(),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("enable_accessibility_button")
+                        ) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "ENABLE ACCESSIBILITY SHIELD",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Daily Focus Window Card
+        CinematicCardEntrance(index = 2) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "ACCESSIBILITY SERVICE",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Black
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (accessibilityEnabled) {
-                                    "Active by default for real-time app protection."
-                                } else {
-                                    "Enable once for real-time app blocking."
-                                },
-                                color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        val isDarkSettings = LocalDarkTheme.current
-                        val badgeBg = if (accessibilityEnabled) {
-                            if (isDarkSettings) Color(0xFF4A2532) else Color(0xFFFFD8E4)
-                        } else {
-                            MaterialTheme.colorScheme.errorContainer
-                        }
-                        val badgeBorder = if (accessibilityEnabled) {
-                            if (isDarkSettings) Color(0xFFFFB1C8) else Color(0xFFD78391)
-                        } else {
-                            MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                        }
-                        val badgeText = if (accessibilityEnabled) "ACTIVE" else "DISABLED"
-                        val badgeTextColor = if (accessibilityEnabled) {
-                            if (isDarkSettings) Color(0xFFFFD8E4) else Color(0xFF31111D)
-                        } else {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(badgeBg)
-                                    .border(1.dp, badgeBorder, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = badgeText,
-                                    color = badgeTextColor,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 10.sp
-                                )
-                            }
-
-                            Crossfade(
-                                targetState = isAccessibilityExpanded,
-                                animationSpec = tween(durationMillis = 200),
-                                label = "accessibility_chevron"
-                            ) { expanded ->
-                                CircularIconBadge(
-                                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = if (expanded) "Collapse accessibility service" else "Expand accessibility service",
-                                    containerSize = 32.dp,
-                                    iconSize = 20.dp
-                                )
-                            }
-                        }
-                    }
-
-                    AnimatedVisibility(
-                        visible = isAccessibilityExpanded,
-                        enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
-                        exit = shrinkVertically(animationSpec = tween(240, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = if (accessibilityEnabled) {
-                                    "Accessibility protection has been enabled and is set as active by default."
-                                } else {
-                                    "How to enable: Tap below to open Settings, select 'FocusLock Focus Service' under downloaded apps, and toggle it ON once."
-                                },
-                                color = MaterialTheme.colorScheme.secondary,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-
-                            if (!accessibilityEnabled) {
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Button(
-                                    onClick = {
-                                        com.example.security.AccessibilityHelper.openAccessibilitySettings(context)
-                                    },
-                                    colors = appBlackButtonColors(),
-                                    border = appBlackButtonBorder(),
-                                    shape = RoundedCornerShape(50),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(48.dp)
-                                        .testTag("enable_accessibility_button")
-                                ) {
-                                    Text(
-                                        text = "ENABLE PROTECTION",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Scheduled Focus Hours Card with outline
-        CinematicCardEntrance(index = 1) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             CircularIconBadge(
                                 imageVector = Icons.Default.Timer,
                                 contentDescription = null,
-                                containerSize = 30.dp,
-                                iconSize = 16.dp
+                                containerSize = 34.dp,
+                                iconSize = 18.dp,
+                                containerColor = GamifiedPurple
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "DAILY FOCUS WINDOW",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.labelMedium
-                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "DAILY FOCUS SCHEDULE",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Text(
+                                    text = "Automated daily focus triggers",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Auto-starts a focus session daily during chosen hours.",
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
+                        AppSwitch(
+                            checked = isScheduleEnabled,
+                            onCheckedChange = { viewModel.toggleSchedule(it) },
+                            modifier = Modifier.testTag("schedule_switch")
                         )
                     }
-                    AppSwitch(
-                        checked = isScheduleEnabled,
-                        onCheckedChange = { viewModel.toggleSchedule(it) },
-                        modifier = Modifier.testTag("schedule_switch")
-                    )
-                }
 
-                AnimatedVisibility(visible = isScheduleEnabled) {
-                    Column(modifier = Modifier.padding(top = 16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Trigger hours: ${formatHour(startHour)} to ${formatHour(endHour)}",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
+                    AnimatedVisibility(visible = isScheduleEnabled) {
+                        Column(modifier = Modifier.padding(top = 12.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(GamifiedPurple.copy(alpha = 0.12f))
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${formatHour(startHour)}  →  ${formatHour(endHour)}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = GamifiedPurple
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                        // Sliders to configure scheduled hours
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Start:", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp, modifier = Modifier.width(48.dp))
-                            Slider(
-                                value = startHour.toFloat(),
-                                onValueChange = { viewModel.saveScheduleHours(it.toInt(), endHour) },
-                                valueRange = 0f..23f,
-                                steps = 22,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("End:", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp, modifier = Modifier.width(48.dp))
-                            Slider(
-                                value = endHour.toFloat(),
-                                onValueChange = { viewModel.saveScheduleHours(startHour, it.toInt()) },
-                                valueRange = 0f..23f,
-                                steps = 22,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Start", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
+                                Slider(
+                                    value = startHour.toFloat(),
+                                    onValueChange = { viewModel.saveScheduleHours(it.toInt(), endHour) },
+                                    valueRange = 0f..23f,
+                                    steps = 22,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = GamifiedPurple,
+                                        activeTrackColor = GamifiedPurple,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.surface
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("End", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
+                                Slider(
+                                    value = endHour.toFloat(),
+                                    onValueChange = { viewModel.saveScheduleHours(startHour, it.toInt()) },
+                                    valueRange = 0f..23f,
+                                    steps = 22,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = GamifiedPurple,
+                                        activeTrackColor = GamifiedPurple,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.surface
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
-            }
             }
         }
 
-        // Pro Tier, Cloud Sync, DND, Accountability Partner, Parental Lock, Reminders, Widgets & Privacy sections
+        // Pro Tier, Cloud Sync, DND, Accountability, Parental, Widgets & Privacy
         SettingsAdvancedSections(
             viewModel = viewModel,
             onOpenAdminDashboard = onOpenAdminDashboard
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Policy Considerations Card with light outline
+        // Policy & Compliance
         CinematicCardEntrance(index = 5) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(20.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            containerSize = 30.dp,
-                            iconSize = 16.dp,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Play Store Policy Compliance",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularIconBadge(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = null,
+                        containerSize = 30.dp,
+                        iconSize = 16.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "FocusLock is designed for safe local use. In strict compliance with Android policy guidelines, all tracking is processed 100% offline, keeping your private app usage completely private.",
-                        color = MaterialTheme.colorScheme.secondary,
+                        text = "100% offline, privacy-first tracking complying strictly with Android Play Store policies.",
                         fontSize = 11.sp,
-                        lineHeight = 16.sp
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Developer Profile Card
         CinematicCardEntrance(index = 6) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(20.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("developer_profile_card")
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Circular Avatar with Developer's Initials (TB)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color.Black)
                     ) {
                         Text(
                             text = "TB",
                             color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "DEVELOPER PROFILE",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
                             text = "Temeselew Buta (Temu)",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Creator of FocusLock. Dedicated to crafting highly modern and helpful digital tools.",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodySmall
+                            text = "Creator of FocusLock • Digital wellbeing & deep focus engineering",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
@@ -4549,269 +4558,257 @@ fun SettingsAdvancedSections(
     val isWidgetEnabled by viewModel.isWidgetEnabled.collectAsState()
     val isPrivateTrackingEnabled by viewModel.isPrivateTrackingEnabled.collectAsState()
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // Pro Tier section
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Gamified Power Features Card
         CinematicCardEntrance(index = 7) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(
-                        text = "Pro Tier",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
+                        text = "FOCUS POWERS & PREFERENCES",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = GamifiedPurple,
+                        letterSpacing = 0.8.sp
                     )
-                    Text(
-                        text = "Unlock premium focus modes and advanced features.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    AppSwitch(
-                        checked = isProTierEnabled,
-                        onCheckedChange = { viewModel.setProTierEnabled(it) },
-                        modifier = Modifier.testTag("pro_tier_switch")
-                    )
+
+                    // Pro Tier Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                containerSize = 32.dp,
+                                iconSize = 16.dp,
+                                containerColor = GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Pro Tier Focus", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Unlock whitelist mode & all 8 focus modes", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        AppSwitch(
+                            checked = isProTierEnabled,
+                            onCheckedChange = { viewModel.setProTierEnabled(it) },
+                            modifier = Modifier.testTag("pro_tier_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    // Cloud Sync Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.CloudSync,
+                                contentDescription = null,
+                                containerSize = 32.dp,
+                                iconSize = 16.dp,
+                                containerColor = GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Supabase Cloud Sync", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Sync room stats and sessions across devices", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        AppSwitch(
+                            checked = isCloudSyncEnabled,
+                            onCheckedChange = { viewModel.setCloudSyncEnabled(it) },
+                            modifier = Modifier.testTag("cloud_sync_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    // Do Not Disturb Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.NotificationsOff,
+                                contentDescription = null,
+                                containerSize = 32.dp,
+                                iconSize = 16.dp,
+                                containerColor = GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Auto Do Not Disturb", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Silence alerts during active focus sessions", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        AppSwitch(
+                            checked = isDndEnabled,
+                            onCheckedChange = { viewModel.setDndEnabled(it) },
+                            modifier = Modifier.testTag("dnd_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    // Offline Private Tracking Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            CircularIconBadge(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                containerSize = 32.dp,
+                                iconSize = 16.dp,
+                                containerColor = GamifiedPurple
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Offline Privacy Mode", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Usage telemetry remains 100% on device", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        AppSwitch(
+                            checked = isPrivateTrackingEnabled,
+                            onCheckedChange = { viewModel.setPrivateTrackingEnabled(it) },
+                            modifier = Modifier.testTag("private_tracking_switch")
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Cloud Sync section
+        // Accountability Partner Card
         CinematicCardEntrance(index = 8) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Cloud Sync",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Sync your focus sessions and statistics across devices.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    AppSwitch(
-                        checked = isCloudSyncEnabled,
-                        onCheckedChange = { viewModel.setCloudSyncEnabled(it) },
-                        modifier = Modifier.testTag("cloud_sync_switch")
-                    )
-                }
-            }
-        }
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Handshake,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 16.dp,
+                            containerColor = GamifiedPurple
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "ACCOUNTABILITY PARTNER",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = GamifiedPurple,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // DND Configuration section
-        CinematicCardEntrance(index = 9) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Do Not Disturb",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Configure DND behavior during focus sessions.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    AppSwitch(
-                        checked = isDndEnabled,
-                        onCheckedChange = { viewModel.setDndEnabled(it) },
-                        modifier = Modifier.testTag("dnd_switch")
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Accountability Partner section
-        CinematicCardEntrance(index = 10) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Accountability Partner",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Share session completion notifications with a partner.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    // Partner email input
                     OutlinedTextField(
                         value = partnerEmail,
                         onValueChange = { viewModel.setPartnerEmail(it) },
-                        label = { Text("Partner Email") },
-                        modifier = Modifier.testTag("partner_email_field")
+                        label = { Text("Partner Email", fontSize = 11.sp) },
+                        placeholder = { Text("friend@example.com", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("partner_email_field"),
+                        shape = RoundedCornerShape(14.dp)
                     )
-                    AppSwitch(
-                        checked = isPartnerNotificationsEnabled,
-                        onCheckedChange = { viewModel.setPartnerNotificationsEnabled(it) },
-                        modifier = Modifier.testTag("partner_notifications_switch")
-                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Notify partner on early quit",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        AppSwitch(
+                            checked = isPartnerNotificationsEnabled,
+                            onCheckedChange = { viewModel.setPartnerNotificationsEnabled(it) },
+                            modifier = Modifier.testTag("partner_notifications_switch")
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Parental Lock section
-        CinematicCardEntrance(index = 11) {
+        // Parental Lock & Reminders Card
+        CinematicCardEntrance(index = 9) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(22.dp),
+                border = null,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Parental Lock",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Restrict app access with parental controls.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularIconBadge(
+                            imageVector = Icons.Default.Pin,
+                            contentDescription = null,
+                            containerSize = 32.dp,
+                            iconSize = 16.dp,
+                            containerColor = GamifiedPurple
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "PARENTAL LOCK & REMINDERS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = GamifiedPurple,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
+
                     OutlinedTextField(
                         value = parentalPin,
                         onValueChange = { viewModel.setParentalPin(it) },
-                        label = { Text("PIN") },
-                        modifier = Modifier.testTag("parental_pin_field")
+                        label = { Text("Parental PIN", fontSize = 11.sp) },
+                        placeholder = { Text("4-digit PIN", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("parental_pin_field"),
+                        shape = RoundedCornerShape(14.dp)
                     )
-                }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Reminders section
-        CinematicCardEntrance(index = 12) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Reminders",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Set reminders for breaks and session completion.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
                     OutlinedTextField(
                         value = reminderInterval,
                         onValueChange = { viewModel.setReminderInterval(it) },
-                        label = { Text("Interval (minutes)") },
-                        modifier = Modifier.testTag("reminder_interval_field")
+                        label = { Text("Break Reminder Interval (minutes)", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reminder_interval_field"),
+                        shape = RoundedCornerShape(14.dp)
                     )
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Widgets section
-        CinematicCardEntrance(index = 13) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Widgets",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Add focus session widgets to your home screen.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    AppSwitch(
-                        checked = isWidgetEnabled,
-                        onCheckedChange = { viewModel.setWidgetEnabled(it) },
-                        modifier = Modifier.testTag("widget_switch")
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Privacy section
-        CinematicCardEntrance(index = 14) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Privacy",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "All data is processed locally on your device.",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp
-                    )
-                    AppSwitch(
-                        checked = isPrivateTrackingEnabled,
-                        onCheckedChange = { viewModel.setPrivateTrackingEnabled(it) },
-                        modifier = Modifier.testTag("private_tracking_switch")
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun formatHour(hour: Int): String {
-    return when {
-        hour == 0 -> "12 AM"
-        hour < 12 -> "$hour AM"
-        hour == 12 -> "12 PM"
-        else -> "${hour - 12} PM"
     }
 }

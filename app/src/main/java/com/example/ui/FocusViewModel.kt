@@ -1023,10 +1023,15 @@ class FocusViewModel(
         }
     }
 
-    fun sendRoomMessage(text: String) {
+    fun sendRoomMessage(
+        text: String,
+        attachmentType: String? = null,
+        attachmentName: String? = null,
+        attachmentUrl: String? = null
+    ) {
         val user = currentUser.value ?: return
         val rid = _selectedRoomId.value ?: return
-        roomSyncStore.sendRoomMessage(rid, user, text)
+        roomSyncStore.sendRoomMessage(rid, user, text, attachmentType, attachmentName, attachmentUrl)
     }
 
     // --- Admin Dashboard Full Control Operations ---

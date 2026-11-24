@@ -97,14 +97,49 @@ class ReadLockAccessibilityService : AccessibilityService() {
             return
         }
 
+        val mode = FocusSessionManager.getCurrentFocusMode()
         val readerApp = FocusSessionManager.designatedReadingApp ?: designatedReadingApp
-        if (pkg == readerApp) {
-            return
-        }
-
         val whitelistActive = FocusSessionManager.isWhitelistMode || isWhitelistMode
         val blockedSet = (FocusSessionManager.blockedPackages + blockedPkgsList).toSet()
-        val shouldBlock = if (whitelistActive) true else blockedSet.contains(pkg)
+
+        val shouldBlock = when (mode) {
+            FocusSessionManager.FocusMode.DEEP_WORK -> {
+                // Deep Work: full distraction shield. Allow only essential system apps or designated reader
+                if (pkg == readerApp) false
+                else if (isEssentialSystemApp(pkg)) false
+                else true
+            }
+            FocusSessionManager.FocusMode.STRICT_FOCUS -> {
+                // Strict Focus: maximum lockdown shield, no external distraction allowed
+                if (pkg == readerApp) false
+                else if (isEssentialSystemApp(pkg)) false
+                else true
+            }
+            FocusSessionManager.FocusMode.RELAX_RECHARGE -> {
+                // Relax & Recharge: keep user inside app for guided breathing and recovery
+                if (isEssentialSystemApp(pkg)) false
+                else true
+            }
+            FocusSessionManager.FocusMode.READING -> {
+                // Reading mode: designated reader app only
+                if (pkg == readerApp) false
+                else if (isEssentialSystemApp(pkg)) false
+                else true
+            }
+            FocusSessionManager.FocusMode.STUDY -> {
+                // Study mode: block social/games/entertainment and blockedSet; allow study/notes/browser research
+                if (pkg == readerApp) false
+                else if (blockedSet.contains(pkg)) true
+                else isSocialOrEntertainmentApp(pkg)
+            }
+            FocusSessionManager.FocusMode.POMODORO,
+            FocusSessionManager.FocusMode.QUICK_FOCUS,
+            FocusSessionManager.FocusMode.CUSTOM -> {
+                if (pkg == readerApp) false
+                else if (whitelistActive) true
+                else blockedSet.contains(pkg)
+            }
+        }
 
         if (shouldBlock) {
             FocusSessionManager.incrementBlockedAttempts(applicationContext, pkg)
@@ -115,6 +150,16 @@ class ReadLockAccessibilityService : AccessibilityService() {
             }
             runCatching { startActivity(blockIntent) }
         }
+    }
+
+    private fun isSocialOrEntertainmentApp(pkg: String): Boolean {
+        val lower = pkg.lowercase()
+        val keywords = listOf(
+            "facebook", "instagram", "tiktok", "snapchat", "twitter", "x.com", "reddit",
+            "youtube", "netflix", "twitch", "discord", "game", "gaming", "playstation", "xbox",
+            "pinterest", "tumblr"
+        )
+        return keywords.any { lower.contains(it) }
     }
 
     private fun isEmergencyOrDialerPackage(pkg: String): Boolean {

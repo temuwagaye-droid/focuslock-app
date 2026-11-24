@@ -97,7 +97,10 @@ data class RoomMessageDto(
     val senderId: String = "",
     val senderName: String = "",
     val content: String = "",
-    val timestampMillis: Long = System.currentTimeMillis()
+    val timestampMillis: Long = System.currentTimeMillis(),
+    val attachmentType: String? = null,
+    val attachmentName: String? = null,
+    val attachmentUrl: String? = null
 )
 
 data class CloudRestoreBundle(

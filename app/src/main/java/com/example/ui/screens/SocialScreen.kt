@@ -20,6 +20,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
@@ -90,6 +98,10 @@ fun SocialScreen(
     val participants by viewModel.activeRoomParticipants.collectAsState()
     val roomMessages by viewModel.activeRoomMessages.collectAsState()
     var chatMessageInput by remember { mutableStateOf("") }
+    var showAttachDialog by remember { mutableStateOf(false) }
+    var attachType by remember { mutableStateOf("note") } // "note", "file", "link"
+    var attachTitleInput by remember { mutableStateOf("") }
+    var attachUrlInput by remember { mutableStateOf("") }
     val leaderboard by viewModel.leaderboardEntries.collectAsState()
     val isLeaderboardVisible by viewModel.isLeaderboardVisible.collectAsState()
 
@@ -417,30 +429,91 @@ fun SocialScreen(
                                 ) {
                                     items(roomMessages) { msg ->
                                         val isMe = msg.senderId == currentUser?.uid
+                                        val timeStr = remember(msg.timestampMillis) {
+                                            runCatching {
+                                                SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(msg.timestampMillis))
+                                            }.getOrDefault("")
+                                        }
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
                                         ) {
-                                            Text(
-                                                text = if (isMe) "You" else msg.senderName,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (isMe) "You" else msg.senderName,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                                )
+                                                if (timeStr.isNotBlank()) {
+                                                    Text(
+                                                        text = timeStr,
+                                                        fontSize = 9.sp,
+                                                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             Box(
                                                 modifier = Modifier
-                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .clip(RoundedCornerShape(14.dp))
                                                     .background(
                                                         if (isMe) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                                                         else MaterialTheme.colorScheme.surfaceVariant
                                                     )
-                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp)
                                             ) {
-                                                Text(
-                                                    text = msg.content,
-                                                    fontSize = 12.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
+                                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    if (msg.content.isNotBlank()) {
+                                                        Text(
+                                                            text = msg.content,
+                                                            fontSize = 12.sp,
+                                                            color = MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                    }
+                                                    if (!msg.attachmentName.isNullOrBlank()) {
+                                                        val attachIcon = when (msg.attachmentType) {
+                                                            "file" -> Icons.Default.AttachFile
+                                                            "link" -> Icons.Default.Link
+                                                            else -> Icons.Default.Description
+                                                        }
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .background(MaterialTheme.colorScheme.surface)
+                                                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = attachIcon,
+                                                                contentDescription = null,
+                                                                tint = GamifiedPurple,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(6.dp))
+                                                            Column {
+                                                                Text(
+                                                                    text = msg.attachmentName ?: "Attachment",
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = MaterialTheme.colorScheme.onSurface
+                                                                )
+                                                                if (!msg.attachmentUrl.isNullOrBlank()) {
+                                                                    Text(
+                                                                        text = msg.attachmentUrl ?: "",
+                                                                        fontSize = 9.sp,
+                                                                        color = MaterialTheme.colorScheme.secondary,
+                                                                        maxLines = 1
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -450,9 +523,24 @@ fun SocialScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            IconButton(
+                                onClick = { showAttachDialog = true },
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = "Share File or Note",
+                                    tint = GamifiedPurple,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
                             OutlinedTextField(
                                 value = chatMessageInput,
                                 onValueChange = { chatMessageInput = it },
@@ -461,6 +549,7 @@ fun SocialScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(24.dp)
                             )
+
                             IconButton(
                                 onClick = {
                                     if (chatMessageInput.isNotBlank()) {
@@ -470,7 +559,7 @@ fun SocialScreen(
                                 },
                                 enabled = chatMessageInput.isNotBlank(),
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(42.dp)
                                     .clip(CircleShape)
                                     .background(
                                         if (chatMessageInput.isNotBlank()) MaterialTheme.colorScheme.primary
@@ -743,6 +832,103 @@ fun SocialScreen(
                 }
             }
         }
+    }
+
+
+    if (showAttachDialog) {
+        AlertDialog(
+            onDismissRequest = { showAttachDialog = false },
+            title = {
+                Text(
+                    text = "Share Resource with Room",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Choose resource type to share with fellow participants:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("note" to "Study Note", "file" to "Doc/File", "link" to "Link").forEach { (typeKey, label) ->
+                            val isSel = attachType == typeKey
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSel) GamifiedPurple else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { attachType = typeKey }
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = attachTitleInput,
+                        onValueChange = { attachTitleInput = it },
+                        label = { Text("Title / Resource Name", fontSize = 11.sp) },
+                        placeholder = { Text("e.g. Chapter 4 Key Points", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = attachUrlInput,
+                        onValueChange = { attachUrlInput = it },
+                        label = { Text(if (attachType == "link") "URL / Link" else "Content / Notes / File Ref", fontSize = 11.sp) },
+                        placeholder = { Text(if (attachType == "link") "https://..." else "Notes or file details...", fontSize = 11.sp) },
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (attachTitleInput.isNotBlank()) {
+                            viewModel.sendRoomMessage(
+                                text = if (chatMessageInput.isNotBlank()) chatMessageInput.trim() else "Shared $attachType: ${attachTitleInput.trim()}",
+                                attachmentType = attachType,
+                                attachmentName = attachTitleInput.trim(),
+                                attachmentUrl = attachUrlInput.trim().takeIf { it.isNotBlank() }
+                            )
+                            chatMessageInput = ""
+                            attachTitleInput = ""
+                            attachUrlInput = ""
+                            showAttachDialog = false
+                        }
+                    },
+                    enabled = attachTitleInput.isNotBlank(),
+                    colors = appBlackButtonColors(),
+                    border = appBlackButtonBorder(),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("SHARE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showAttachDialog = false },
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        )
     }
 
     if (showCreateRoomDialog) {

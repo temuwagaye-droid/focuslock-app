@@ -45,9 +45,16 @@ class FocusRoomSyncStore(context: Context?) {
         map[roomId].orEmpty()
     }
 
-    fun sendRoomMessage(roomId: String, user: SupabaseUser, text: String): Result<RoomMessageDto> = synchronized(lock) {
+    fun sendRoomMessage(
+        roomId: String,
+        user: SupabaseUser,
+        text: String,
+        attachmentType: String? = null,
+        attachmentName: String? = null,
+        attachmentUrl: String? = null
+    ): Result<RoomMessageDto> = synchronized(lock) {
         val clean = text.trim()
-        if (clean.isBlank()) return Result.failure(IllegalArgumentException("Message cannot be empty."))
+        if (clean.isBlank() && attachmentName.isNullOrBlank()) return Result.failure(IllegalArgumentException("Message cannot be empty."))
         val name = user.displayName?.takeIf { it.isNotBlank() }
             ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
             ?: "Reader"
@@ -57,7 +64,10 @@ class FocusRoomSyncStore(context: Context?) {
             senderId = user.uid,
             senderName = name,
             content = clean,
-            timestampMillis = System.currentTimeMillis()
+            timestampMillis = System.currentTimeMillis(),
+            attachmentType = attachmentType,
+            attachmentName = attachmentName,
+            attachmentUrl = attachmentUrl
         )
         val messagesMap = _messagesByRoom.value.toMutableMap()
         val list = messagesMap[roomId].orEmpty().toMutableList()
@@ -287,7 +297,10 @@ class FocusRoomSyncStore(context: Context?) {
                             senderId = m.optString("senderId"),
                             senderName = m.optString("senderName"),
                             content = m.optString("content"),
-                            timestampMillis = m.optLong("timestampMillis", System.currentTimeMillis())
+                            timestampMillis = m.optLong("timestampMillis", System.currentTimeMillis()),
+                            attachmentType = m.optString("attachmentType").takeIf { it.isNotBlank() },
+                            attachmentName = m.optString("attachmentName").takeIf { it.isNotBlank() },
+                            attachmentUrl = m.optString("attachmentUrl").takeIf { it.isNotBlank() }
                         )
                     )
                 }
@@ -345,6 +358,9 @@ class FocusRoomSyncStore(context: Context?) {
                         put("senderName", m.senderName)
                         put("content", m.content)
                         put("timestampMillis", m.timestampMillis)
+                        if (!m.attachmentType.isNullOrBlank()) put("attachmentType", m.attachmentType)
+                        if (!m.attachmentName.isNullOrBlank()) put("attachmentName", m.attachmentName)
+                        if (!m.attachmentUrl.isNullOrBlank()) put("attachmentUrl", m.attachmentUrl)
                     }
                 )
             }
