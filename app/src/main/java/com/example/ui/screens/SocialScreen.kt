@@ -1,5 +1,17 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextOverflow
+
+
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -99,10 +111,47 @@ fun SocialScreen(
     val participants by viewModel.activeRoomParticipants.collectAsState()
     val roomMessages by viewModel.activeRoomMessages.collectAsState()
     var chatMessageInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
     var showAttachDialog by remember { mutableStateOf(false) }
-    var attachType by remember { mutableStateOf("note") } // "note", "file", "link"
+    var attachType by remember { mutableStateOf("note") } // "note", "file", "link", "image", "pdf"
     var attachTitleInput by remember { mutableStateOf("") }
     var attachUrlInput by remember { mutableStateOf("") }
+    var selectedDeviceFileName by remember { mutableStateOf("") }
+    var activeViewerAttachment by remember { mutableStateOf<com.example.data.remote.RoomMessageDto?>(null) }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            var displayName = "Attachment"
+            runCatching {
+                val cursor = context.contentResolver.query(uri, null, null, null, null)
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val nameIdx = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (nameIdx >= 0) displayName = it.getString(nameIdx)
+                    }
+                }
+            }
+            val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
+            val detectedType = when {
+                mime.startsWith("image/") || displayName.endsWith(".png", true) || displayName.endsWith(".jpg", true) || displayName.endsWith(".jpeg", true) || displayName.endsWith(".webp", true) -> "image"
+                mime.contains("pdf") || displayName.endsWith(".pdf", true) -> "pdf"
+                else -> "file"
+            }
+            attachType = detectedType
+            attachTitleInput = displayName
+            attachUrlInput = uri.toString()
+            selectedDeviceFileName = displayName
+            showAttachDialog = true
+        }
+    }
     val leaderboard by viewModel.leaderboardEntries.collectAsState()
     val isLeaderboardVisible by viewModel.isLeaderboardVisible.collectAsState()
 
@@ -487,6 +536,7 @@ fun SocialScreen(
                                                                 .clip(RoundedCornerShape(8.dp))
                                                                 .background(MaterialTheme.colorScheme.surface)
                                                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                                                .clickable { activeViewerAttachment = msg }
                                                                 .padding(horizontal = 8.dp, vertical = 6.dp)
                                                         ) {
                                                             Icon(
@@ -836,6 +886,14 @@ fun SocialScreen(
     }
 
 
+    
+    if (activeViewerAttachment != null) {
+        InAppAttachmentViewerDialog(
+            attachment = activeViewerAttachment!!,
+            onDismiss = { activeViewerAttachment = null }
+        )
+    }
+
     if (showAttachDialog) {
         AlertDialog(
             onDismissRequest = { showAttachDialog = false },
@@ -848,8 +906,42 @@ fun SocialScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("CHOOSE FROM DEVICE FILE MANAGER", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+
+                    if (selectedDeviceFileName.isNotBlank()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(GamifiedMint.copy(alpha = 0.22f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Selected: $selectedDeviceFileName",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0A6B43),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
                     Text(
-                        text = "Choose resource type to share with fellow participants:",
+                        text = "Or create a custom note or link:",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -910,6 +1002,7 @@ fun SocialScreen(
                             chatMessageInput = ""
                             attachTitleInput = ""
                             attachUrlInput = ""
+                            selectedDeviceFileName = ""
                             showAttachDialog = false
                         }
                     },
@@ -1023,6 +1116,237 @@ private fun CreateFocusRoomDialog(
                             .testTag("confirm_create_room_btn")
                     ) {
                         Text("CREATE ROOM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun InAppAttachmentViewerDialog(
+    attachment: com.example.data.remote.RoomMessageDto,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val uriString = attachment.attachmentUrl.orEmpty()
+    val type = attachment.attachmentType.orEmpty().lowercase()
+    val name = attachment.attachmentName ?: "Attachment"
+
+    var loadedBitmap by remember(uriString) { mutableStateOf<Bitmap?>(null) }
+    var pdfPageCount by remember(uriString) { mutableIntStateOf(0) }
+    var currentPdfPage by remember(uriString) { mutableIntStateOf(0) }
+    var errorMessage by remember(uriString) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(uriString, type, currentPdfPage) {
+        if (uriString.isNotBlank() && uriString.startsWith("content://")) {
+            runCatching {
+                val uri = Uri.parse(uriString)
+                if (type == "image" || name.endsWith(".png", true) || name.endsWith(".jpg", true) || name.endsWith(".jpeg", true) || name.endsWith(".webp", true)) {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        loadedBitmap = BitmapFactory.decodeStream(stream)
+                    }
+                } else if (type == "pdf" || name.endsWith(".pdf", true)) {
+                    context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                        val renderer = PdfRenderer(pfd)
+                        pdfPageCount = renderer.pageCount
+                        val pageIdx = currentPdfPage.coerceIn(0, (renderer.pageCount - 1).coerceAtLeast(0))
+                        val page = renderer.openPage(pageIdx)
+                        val width = (page.width * 1.5).toInt().coerceAtLeast(1)
+                        val height = (page.height * 1.5).toInt().coerceAtLeast(1)
+                        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        loadedBitmap = bmp
+                        page.close()
+                        renderer.close()
+                    }
+                }
+            }.onFailure { err ->
+                errorMessage = err.localizedMessage ?: "Preview not available."
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.85f)
+                .padding(vertical = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Top Header Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        CircularIconBadge(
+                            imageVector = when {
+                                type == "pdf" || name.endsWith(".pdf", true) -> Icons.Default.Description
+                                type == "image" -> Icons.Default.AttachFile
+                                type == "link" -> Icons.Default.Link
+                                else -> Icons.Default.Description
+                            },
+                            contentDescription = null,
+                            containerSize = 34.dp,
+                            iconSize = 18.dp,
+                            containerColor = GamifiedPurple
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = name,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (type == "pdf") "In-App PDF Viewer • Page ${currentPdfPage + 1} of ${pdfPageCount.coerceAtLeast(1)}"
+                                       else if (type == "image") "In-App Image Viewer"
+                                       else "In-App Document Viewer",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Viewer",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Content View Area
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        loadedBitmap != null -> {
+                            Image(
+                                bitmap = loadedBitmap!!.asImageBitmap(),
+                                contentDescription = name,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp)
+                            )
+                        }
+                        type == "note" || (!uriString.startsWith("content://") && uriString.isNotBlank()) -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "DOCUMENT / NOTE PREVIEW",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = GamifiedPurple
+                                )
+                                Text(
+                                    text = uriString,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        }
+                        errorMessage != null -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                Icon(Icons.Default.Description, contentDescription = null, tint = GamifiedPurple, modifier = Modifier.size(40.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "In-app preview secured inside focus room.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        else -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Loading in-app preview...",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // If PDF with multiple pages, show pagination controls
+                if (pdfPageCount > 1) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { if (currentPdfPage > 0) currentPdfPage-- },
+                            enabled = currentPdfPage > 0,
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("PREV PAGE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Text(
+                            text = "Page ${currentPdfPage + 1} / $pdfPageCount",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+
+                        OutlinedButton(
+                            onClick = { if (currentPdfPage < pdfPageCount - 1) currentPdfPage++ },
+                            enabled = currentPdfPage < pdfPageCount - 1,
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("NEXT PAGE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
