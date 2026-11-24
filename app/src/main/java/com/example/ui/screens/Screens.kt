@@ -105,6 +105,13 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
@@ -4810,5 +4817,14 @@ fun SettingsAdvancedSections(
                 }
             }
         }
+    }
+}
+
+private fun formatHour(hour: Int): String {
+    return when {
+        hour == 0 -> "12 AM"
+        hour < 12 -> "$hour AM"
+        hour == 12 -> "12 PM"
+        else -> "${hour - 12} PM"
     }
 }
