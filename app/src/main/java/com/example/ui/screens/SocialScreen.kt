@@ -8,6 +8,8 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.style.TextOverflow
 
@@ -111,7 +113,6 @@ fun SocialScreen(
     val participants by viewModel.activeRoomParticipants.collectAsState()
     val roomMessages by viewModel.activeRoomMessages.collectAsState()
     var chatMessageInput by remember { mutableStateOf("") }
-    val context = LocalContext.current
     var showAttachDialog by remember { mutableStateOf(false) }
     var attachType by remember { mutableStateOf("note") } // "note", "file", "link", "image", "pdf"
     var attachTitleInput by remember { mutableStateOf("") }
