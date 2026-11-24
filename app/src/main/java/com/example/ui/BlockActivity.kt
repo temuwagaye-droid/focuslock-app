@@ -65,6 +65,7 @@ class BlockActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val blockedPackage = intent?.getStringExtra("blocked_package").orEmpty()
+        val focusModeName = intent?.getStringExtra("focus_mode").orEmpty()
         val isBedtimeIntent = intent?.getBooleanExtra("is_bedtime", false) == true
         val repo = FocusRepository(AppDatabase.getDatabase(applicationContext).focusDao())
 
@@ -82,6 +83,7 @@ class BlockActivity : ComponentActivity() {
                 Scaffold { innerPadding ->
                     BlockScreenContent(
                         blockedPackage = blockedPackage,
+                        focusModeName = focusModeName,
                         isBedtime = effectiveBedtime,
                         modifier = Modifier.padding(innerPadding),
                         onReturnToReading = {
@@ -119,6 +121,7 @@ class BlockActivity : ComponentActivity() {
 @Composable
 fun BlockScreenContent(
     blockedPackage: String,
+    focusModeName: String = "",
     isBedtime: Boolean = false,
     modifier: Modifier = Modifier,
     onReturnToReading: () -> Unit,
@@ -136,6 +139,15 @@ fun BlockScreenContent(
     val mins = timeLeft / 60L
     val secs = timeLeft % 60L
     val timeLabel = String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+
+    val modeTitle = if (focusModeName.isNotBlank()) "$focusModeName Barrier Active" else "Distraction Shield Engaged"
+    val modeDescription = when (focusModeName) {
+        "Deep Work" -> "All non-essential applications are locked for maximum mental depth. Phone calls and emergency services remain accessible."
+        "Study" -> "Social apps and games are restricted during study focus. Study tools and notes remain accessible."
+        "Strict Focus" -> "Strict lockdown is active. Pausing is disabled to preserve your productivity streak."
+        "Relax & Recharge" -> "Guided breathing recovery is active. Take slow, relaxing breaths."
+        else -> if (blockedPackage.isNotBlank()) "$blockedPackage is locked while your focus session is active." else "Stay with your task — your distracting apps are locked during this focus session."
+    }
 
     Column(
         modifier = modifier
@@ -164,7 +176,7 @@ fun BlockScreenContent(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = if (isBedtime) "Bedtime Lock Active 🌙" else "Distraction Shield Engaged",
+            text = if (isBedtime) "Bedtime Lock Active 🌙" else modeTitle,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
             color = if (isBedtime) Color.White else MaterialTheme.colorScheme.onBackground,
@@ -176,10 +188,8 @@ fun BlockScreenContent(
         Text(
             text = if (isBedtime) {
                 "Distracting apps are locked to protect your sleep schedule. Wind down, relax, and get restorative rest."
-            } else if (blockedPackage.isNotBlank()) {
-                "$blockedPackage is locked while your reading focus session is active."
             } else {
-                "Stay with your task — your distracting apps are locked during this focus session."
+                modeDescription
             },
             style = MaterialTheme.typography.bodyMedium,
             color = if (isBedtime) Color(0xFF94A3B8) else MaterialTheme.colorScheme.secondary,

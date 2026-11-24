@@ -894,57 +894,16 @@ fun FocusModeScrollableTabsSection(
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         border = null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(vertical = 10.dp)) {
-            // Header Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "FOCUS MODES",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = GamifiedPurple,
-                        letterSpacing = 0.8.sp
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(GamifiedPurple.copy(alpha = 0.16f))
-                            .padding(horizontal = 5.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "TOP TABS",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black,
-                            color = GamifiedPurple
-                        )
-                    }
-                }
-                Text(
-                    text = if (selectedMode != null) "${selectedIndex + 1} of ${modes.size} • Tap to hide" else "Select to activate",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Scrollable Tab Row (Top Tabs)
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            // Scrollable Tab Row (Top Tabs) - Clean, small, no header text
             ScrollableTabRow(
                 selectedTabIndex = if (selectedIndex >= 0) selectedIndex else 0,
-                edgePadding = 12.dp,
+                edgePadding = 8.dp,
                 containerColor = Color.Transparent,
                 contentColor = GamifiedPurple,
                 divider = {},
@@ -982,32 +941,32 @@ fun FocusModeScrollableTabsSection(
                                 onSelectMode(mode)
                             }
                         },
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     if (isSelected) GamifiedPurple.copy(alpha = 0.18f)
                                     else Color.Transparent
                                 )
-                                .padding(horizontal = 10.dp, vertical = 7.dp)
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(
                                 imageVector = modeIcon,
                                 contentDescription = mode.displayName,
                                 tint = if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = mode.displayName,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
                                 color = if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.onSurface
                             )
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
@@ -1015,7 +974,7 @@ fun FocusModeScrollableTabsSection(
                                         if (isSelected) GamifiedPurple.copy(alpha = 0.25f)
                                         else MaterialTheme.colorScheme.surface
                                     )
-                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "${mode.defaultMinutes}m",
@@ -1029,11 +988,11 @@ fun FocusModeScrollableTabsSection(
                 }
             }
 
-            // Details are ONLY shown when explicitly clicked!
+            // Modern, Gamified, Non-Boring Mode Details Card with explicit Business Logic!
             AnimatedVisibility(
                 visible = selectedMode != null,
-                enter = expandVertically(animationSpec = tween(220)) + fadeIn(tween(180)),
-                exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(tween(140))
+                enter = expandVertically(animationSpec = tween(240)) + fadeIn(tween(180)),
+                exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(tween(140))
             ) {
                 if (selectedMode != null) {
                     val activeModeIcon = when (selectedMode) {
@@ -1058,29 +1017,92 @@ fun FocusModeScrollableTabsSection(
                         FocusSessionManager.FocusMode.CUSTOM -> "+75 XP"
                     }
 
-                    val shortSummary = when (selectedMode) {
-                        FocusSessionManager.FocusMode.DEEP_WORK -> "Full distraction barrier • Auto DND • 15m break"
-                        FocusSessionManager.FocusMode.STUDY -> "Blocks social & games • Allows study tools • 10m break"
-                        FocusSessionManager.FocusMode.POMODORO -> "4 focus cycles • Short 5m break • Long 20m break"
-                        FocusSessionManager.FocusMode.READING -> "Dedicated reader app whitelist • Quiet ambient audio"
-                        FocusSessionManager.FocusMode.QUICK_FOCUS -> "Rapid burst • Low friction • Penalty-free exit"
-                        FocusSessionManager.FocusMode.STRICT_FOCUS -> "Full shield lock • Pausing disabled • Confirmation modal"
-                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> "Guided 4-4-4-4 box breathing • Calming soundscape"
-                        FocusSessionManager.FocusMode.CUSTOM -> "Personalized focus duration & custom distraction settings"
+                    val blockedAppChips = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> listOf("Instagram", "TikTok", "YouTube", "Games", "Netflix", "Web Browsers")
+                        FocusSessionManager.FocusMode.STUDY -> listOf("Social Media", "Video Games", "TikTok/Reels", "Streaming Apps")
+                        FocusSessionManager.FocusMode.POMODORO -> listOf("Configured Distraction Apps", "Social Apps during sprint")
+                        FocusSessionManager.FocusMode.READING -> listOf("All apps except designated Reader", "Social & Chat Apps")
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> listOf("Configured Distraction Blocklist")
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> listOf("ALL 3rd-Party Applications (100% Strict Barrier)")
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> listOf("All distracting apps (Guided in FocusLock)")
+                        FocusSessionManager.FocusMode.CUSTOM -> listOf("User Configured Blocklist")
+                    }
+
+                    val allowedAppChips = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> listOf("Phone & Emergency Calls", "System Tools", "Clock/Calc")
+                        FocusSessionManager.FocusMode.STUDY -> listOf("Study & PDF Tools", "Notes & Calculator", "Browser Research", "Calls")
+                        FocusSessionManager.FocusMode.POMODORO -> listOf("Productivity Apps", "Full unlock on 5m/20m breaks")
+                        FocusSessionManager.FocusMode.READING -> listOf("Designated Reader App", "Emergency Calls")
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> listOf("All non-blocked apps", "Low friction workflow")
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> listOf("Emergency Dialer & System Launcher only")
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> listOf("FocusLock Guided Box Breathing & Calming Soundscape")
+                        FocusSessionManager.FocusMode.CUSTOM -> listOf("User Whitelisted Applications")
+                    }
+
+                    val phoneCapabilities = when (selectedMode) {
+                        FocusSessionManager.FocusMode.DEEP_WORK -> listOf(
+                            "🔕 Auto DND Active",
+                            "⏱️ 90m Focus / 15m Break",
+                            "🚪 Strict Exit Confirmation",
+                            "⏸️ Pausing Allowed"
+                        )
+                        FocusSessionManager.FocusMode.STUDY -> listOf(
+                            "🔕 Auto DND Active",
+                            "⏱️ 50m Focus / 10m Break",
+                            "📚 Study Tools Permitted",
+                            "⏸️ Pausing Allowed"
+                        )
+                        FocusSessionManager.FocusMode.POMODORO -> listOf(
+                            "🔄 4 Focus Cycles Engine",
+                            "⏱️ 25m Sprint / 5m Break",
+                            "☕ 20m Long Break on 4th",
+                            "🔔 Sound Chimes on Breaks"
+                        )
+                        FocusSessionManager.FocusMode.READING -> listOf(
+                            "📖 Reader App Auto-Protected",
+                            "🎵 Ambient Soundscape",
+                            "⏱️ 30m Focus / 5m Break",
+                            "🚪 Standard Exit"
+                        )
+                        FocusSessionManager.FocusMode.QUICK_FOCUS -> listOf(
+                            "⚡ Rapid 15m Sprint",
+                            "🟢 Penalty-Free Exit",
+                            "☕ 3m Optional Break",
+                            "🔔 Soft Alerts"
+                        )
+                        FocusSessionManager.FocusMode.STRICT_FOCUS -> listOf(
+                            "🚫 Pausing Strictly Disabled",
+                            "🔒 100% Barrier Lock",
+                            "⏱️ 60m Focus / 10m Break",
+                            "🚪 Exit Confirmation Modal"
+                        )
+                        FocusSessionManager.FocusMode.RELAX_RECHARGE -> listOf(
+                            "🫁 4-4-4-4 Box Breathing",
+                            "🎵 Soothing White Noise",
+                            "⏱️ 10m Nervous Recovery",
+                            "🟢 Zero Penalty"
+                        )
+                        FocusSessionManager.FocusMode.CUSTOM -> listOf(
+                            "⚙️ User-Tuned Duration",
+                            "🎯 Custom Distraction Filter",
+                            "🎵 Ambient Sound Picker",
+                            "⏸️ Pausing Allowed"
+                        )
                     }
 
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 10.dp, start = 14.dp, end = 14.dp)
+                            .padding(top = 6.dp, start = 10.dp, end = 10.dp, bottom = 8.dp)
                     ) {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(18.dp),
                             border = BorderStroke(1.dp, GamifiedPurple.copy(alpha = 0.35f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                // Header: Icon + Name + Intensity + XP + Close
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1090,50 +1112,48 @@ fun FocusModeScrollableTabsSection(
                                         CircularIconBadge(
                                             imageVector = activeModeIcon,
                                             contentDescription = selectedMode.displayName,
-                                            containerSize = 34.dp,
-                                            iconSize = 18.dp,
+                                            containerSize = 36.dp,
+                                            iconSize = 20.dp,
                                             containerColor = GamifiedPurple
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(10.dp))
                                         Column {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
                                                     text = selectedMode.displayName,
                                                     fontWeight = FontWeight.Black,
-                                                    fontSize = 13.sp,
+                                                    fontSize = 14.sp,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                XpRewardChip(text = xpReward)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(GamifiedMint.copy(alpha = 0.22f))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text(
+                                                        text = selectedMode.intensity,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color(0xFF0A6B43)
+                                                    )
+                                                }
                                             }
                                             Text(
-                                                text = shortSummary,
+                                                text = "${selectedMode.defaultMinutes}m Focus • ${if (selectedMode.breakMinutes > 0) "${selectedMode.breakMinutes}m Break" else "Recovery"}",
                                                 fontSize = 11.sp,
                                                 color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(8.dp))
-
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Button(
-                                            onClick = { onStartFocusMode(selectedMode) },
-                                            colors = appBlackButtonColors(),
-                                            border = appBlackButtonBorder(),
-                                            shape = RoundedCornerShape(50),
-                                            modifier = Modifier.height(34.dp)
-                                        ) {
-                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                                            Spacer(modifier = Modifier.width(3.dp))
-                                            Text("START", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                                        }
-
+                                        XpRewardChip(text = xpReward)
                                         Spacer(modifier = Modifier.width(4.dp))
-
                                         IconButton(
                                             onClick = { onSelectMode(null) },
-                                            modifier = Modifier.size(30.dp)
+                                            modifier = Modifier.size(28.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
@@ -1143,6 +1163,166 @@ fun FocusModeScrollableTabsSection(
                                             )
                                         }
                                     }
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                                // Phone Access & Capabilities Matrix
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = "PHONE ACCESS & CAPABILITIES",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 10.sp,
+                                        color = GamifiedPurple,
+                                        letterSpacing = 0.7.sp
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        phoneCapabilities.take(2).forEach { capText ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                                            ) {
+                                                Text(
+                                                    text = capText,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        phoneCapabilities.drop(2).take(2).forEach { capText ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                                            ) {
+                                                Text(
+                                                    text = capText,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Restricted (Closed) Apps Section
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Block,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "RESTRICTED APPS (BLOCKED)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.error,
+                                            letterSpacing = 0.7.sp
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        blockedAppChips.take(3).forEach { chip ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                                            ) {
+                                                Text(
+                                                    text = chip,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Allowed (Opened) Apps Section
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color(0xFF0A6B43),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "ALLOWED APPS (OPEN / ACCESSIBLE)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF0A6B43),
+                                            letterSpacing = 0.7.sp
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        allowedAppChips.take(2).forEach { chip ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(GamifiedMint.copy(alpha = 0.22f))
+                                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                                            ) {
+                                                Text(
+                                                    text = chip,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF0A6B43)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Modern Full-Width Start Action Button
+                                Button(
+                                    onClick = { onStartFocusMode(selectedMode) },
+                                    colors = appBlackButtonColors(),
+                                    border = appBlackButtonBorder(),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "START ${selectedMode.displayName.uppercase()} (${selectedMode.defaultMinutes}M)",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
                                 }
                             }
                         }

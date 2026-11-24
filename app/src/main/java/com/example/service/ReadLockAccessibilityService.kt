@@ -127,8 +127,10 @@ class ReadLockAccessibilityService : AccessibilityService() {
                 else true
             }
             FocusSessionManager.FocusMode.STUDY -> {
-                // Study mode: block social/games/entertainment and blockedSet; allow study/notes/browser research
+                // Study mode: allows study tools and designated reader; blocks social/games/entertainment and user blocklist
                 if (pkg == readerApp) false
+                else if (isEssentialSystemApp(pkg)) false
+                else if (isStudyToolApp(pkg)) false
                 else if (blockedSet.contains(pkg)) true
                 else isSocialOrEntertainmentApp(pkg)
             }
@@ -146,10 +148,21 @@ class ReadLockAccessibilityService : AccessibilityService() {
             val blockIntent = Intent(this, BlockActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra("blocked_package", pkg)
+                putExtra("focus_mode", mode.displayName)
                 putExtra("is_bedtime", false)
             }
             runCatching { startActivity(blockIntent) }
         }
+    }
+
+    private fun isStudyToolApp(pkg: String): Boolean {
+        val lower = pkg.lowercase()
+        val studyKeywords = listOf(
+            "calculator", "calc", "note", "keep", "pdf", "reader", "document", "docs", "word",
+            "sheet", "excel", "drive", "dictionary", "translate", "wikipedia", "duolingo",
+            "anki", "quizlet", "notion", "obsidian", "evernote", "coursera", "edx", "udemy"
+        )
+        return studyKeywords.any { lower.contains(it) }
     }
 
     private fun isSocialOrEntertainmentApp(pkg: String): Boolean {
@@ -170,7 +183,9 @@ class ReadLockAccessibilityService : AccessibilityService() {
 
     private fun isEssentialSystemApp(pkg: String): Boolean {
         if (standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg) || isEmergencyOrDialerPackage(pkg)) return true
-        return pkg.startsWith("com.android.system") || pkg.startsWith("com.google.android.inputmethod")
+        val lower = pkg.lowercase()
+        return pkg.startsWith("com.android.system") || pkg.startsWith("com.google.android.inputmethod") ||
+               lower.contains("deskclock") || lower.contains("calculator")
     }
 
     private fun isLauncherPackage(pkg: String): Boolean {
