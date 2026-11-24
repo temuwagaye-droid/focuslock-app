@@ -1153,6 +1153,7 @@ fun FocusModeScrollableTabsSection(
     }
 }
 
+@Composable
 fun TimerSetupScreen(
     viewModel: FocusViewModel,
     onStartSession: () -> Unit,
