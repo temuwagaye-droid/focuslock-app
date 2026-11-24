@@ -6,6 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,11 +47,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -113,6 +124,7 @@ class MainActivity : ComponentActivity() {
         com.example.bedtime.BedtimeReceiver.scheduleBedtimeAlarms(this)
         com.example.service.FocusSessionManager.recoverSessionIfActive(this)
         TelemetryManager.installCrashHandler(this)
+        viewModel.loadInstalledLauncherApps(this)
 
         handleIncomingIntent(intent)
 
@@ -136,6 +148,27 @@ class MainActivity : ComponentActivity() {
             var showProfileDialog by remember { mutableStateOf(false) }
             var autoStartFromShortcut by remember { mutableStateOf(false) }
             var suggestedDurationMinutes by remember { mutableIntStateOf(0) }
+            var isBarsVisible by remember { mutableStateOf(true) }
+
+            val nestedScrollConnection = remember {
+                object : NestedScrollConnection {
+                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                        val delta = available.y
+                        if (delta < -8f) {
+                            // User scrolling up (content moving up) -> hide top and bottom bars
+                            if (isBarsVisible) isBarsVisible = false
+                        } else if (delta > 8f) {
+                            // User scrolling down (content moving down) -> show top and bottom bars
+                            if (!isBarsVisible) isBarsVisible = true
+                        }
+                        return Offset.Zero
+                    }
+                }
+            }
+
+            LaunchedEffect(currentRoute) {
+                isBarsVisible = true
+            }
 
             LaunchedEffect(launchActionState) {
                 when (launchActionState) {
@@ -178,8 +211,9 @@ class MainActivity : ComponentActivity() {
 
             fun navigateToTab(tab: DashboardTab) {
                 if (currentRoute == tab.route) return
+                isBarsVisible = true
                 navController.navigate(tab.route) {
-                    popUpTo(AppRoutes.TIMER) { saveState = true }
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true
                     restoreState = true
                 }
@@ -203,10 +237,15 @@ class MainActivity : ComponentActivity() {
 
             MyApplicationTheme(darkTheme = isDarkMode, accentTheme = accentTheme) {
                 Scaffold(
+                    modifier = Modifier.nestedScroll(nestedScrollConnection),
                     containerColor = MaterialTheme.colorScheme.background,
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     topBar = {
-                        if (showDashboardChrome) {
+                        AnimatedVisibility(
+                            visible = showDashboardChrome && isBarsVisible,
+                            enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(180)) + fadeIn(animationSpec = tween(180)),
+                            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(160)) + fadeOut(animationSpec = tween(160))
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -296,7 +335,11 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        if (showDashboardChrome) {
+                        AnimatedVisibility(
+                            visible = showDashboardChrome && isBarsVisible,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(180)) + fadeIn(animationSpec = tween(180)),
+                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(160)) + fadeOut(animationSpec = tween(160))
+                        ) {
                             ConcaveNotchBottomNavigationBar(
                                 selectedTab = selectedTab,
                                 onSelectTab = { navigateToTab(it) }
@@ -307,6 +350,10 @@ class MainActivity : ComponentActivity() {
                     NavHost(
                         navController = navController,
                         startDestination = AppRoutes.TIMER,
+                        enterTransition = { fadeIn(animationSpec = tween(120)) },
+                        exitTransition = { fadeOut(animationSpec = tween(90)) },
+                        popEnterTransition = { fadeIn(animationSpec = tween(120)) },
+                        popExitTransition = { fadeOut(animationSpec = tween(90)) },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)

@@ -24,8 +24,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+private val iconCache = ConcurrentHashMap<String, ImageBitmap>()
 
 @Composable
 fun AppLauncherIcon(
@@ -34,12 +37,27 @@ fun AppLauncherIcon(
     modifier: Modifier = Modifier,
     size: Dp = 40.dp
 ) {
+    val cached = iconCache[packageName]
+    if (cached != null) {
+        Image(
+            bitmap = cached,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(10.dp))
+        )
+        return
+    }
+
     val context = LocalContext.current
     val bitmapState = produceState<ImageBitmap?>(initialValue = null, packageName) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val drawable = context.packageManager.getApplicationIcon(packageName)
-                drawableToBitmap(drawable).asImageBitmap()
+                val bmp = drawableToBitmap(drawable).asImageBitmap()
+                iconCache[packageName] = bmp
+                bmp
             }.getOrNull()
         }
     }
