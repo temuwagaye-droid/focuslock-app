@@ -248,22 +248,12 @@ class MainActivity : ComponentActivity() {
                                         .trim()
                                         .firstOrNull()
                                         ?.uppercase()
-                                    val iconBadgeBorder = if (isDarkMode) {
-                                        Color.White.copy(alpha = 0.28f)
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    }
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
                                             .size(34.dp)
                                             .clip(CircleShape)
                                             .background(Color.Black)
-                                            .border(
-                                                1.dp,
-                                                iconBadgeBorder,
-                                                CircleShape
-                                            )
                                             .clickable { showProfileDialog = true }
                                             .testTag("top_bar_profile_button")
                                     ) {
@@ -284,18 +274,14 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
 
-                                    // Dark / Light mode toggle
-                                    IconButton(
-                                        onClick = { viewModel.toggleDarkMode(!isDarkMode) },
+                                    // Dark / Light mode toggle - small circular matching account icon, border removed
+                                    Box(
+                                        contentAlignment = Alignment.Center,
                                         modifier = Modifier
                                             .size(34.dp)
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .clip(CircleShape)
                                             .background(Color.Black)
-                                            .border(
-                                                1.dp,
-                                                iconBadgeBorder,
-                                                RoundedCornerShape(10.dp)
-                                            )
+                                            .clickable { viewModel.toggleDarkMode(!isDarkMode) }
                                             .testTag("theme_toggle_button")
                                     ) {
                                         Icon(

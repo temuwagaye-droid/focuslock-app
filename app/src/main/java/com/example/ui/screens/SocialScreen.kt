@@ -334,12 +334,37 @@ fun SocialScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${room.status.uppercase()} • ${room.durationMinutes}M SPRINT",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "${room.status.uppercase()} • ${room.durationMinutes}M SPRINT",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(GamifiedMint.copy(alpha = 0.22f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Groups,
+                                                contentDescription = null,
+                                                tint = Color(0xFF0A6B43),
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = "${participants.size.coerceAtLeast(room.participantCount)} joined",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color(0xFF0A6B43)
+                                            )
+                                        }
+                                    }
+                                }
                                 Text(
                                     text = room.name,
                                     style = MaterialTheme.typography.titleMedium,
@@ -760,9 +785,35 @@ fun SocialScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = r.name, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = r.name, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(GamifiedPurple.copy(alpha = 0.15f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Groups,
+                                                    contentDescription = null,
+                                                    tint = GamifiedPurple,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text(
+                                                    text = "${r.participantCount} joined",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = GamifiedPurple
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Host: ${r.hostName} • ${r.durationMinutes}m • Code ${r.roomCode}",
+                                        text = "Host: ${r.hostName} • ${r.durationMinutes}m sprint • Code ${r.roomCode}",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.secondary
                                     )

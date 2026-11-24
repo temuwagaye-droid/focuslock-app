@@ -291,7 +291,7 @@ fun FitnessDurationRing(
     var isDragging by remember { mutableStateOf(false) }
     val currentOnMinutesChange by rememberUpdatedState(onMinutesChange)
 
-    val targetFraction = (sessionMinutes / 120f).coerceIn(5f / 120f, 1f)
+    val targetFraction = if (sessionMinutes <= 0) 0f else (sessionMinutes / 120f).coerceIn(5f / 120f, 1f)
     val animatedFraction by animateFloatAsState(
         targetValue = targetFraction,
         animationSpec = if (isDragging) {
@@ -411,14 +411,14 @@ fun FitnessDurationRing(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "$sessionMinutes",
+                text = if (sessionMinutes <= 0) "--" else "$sessionMinutes",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.testTag("session_minutes_display")
             )
             Text(
-                text = if (onMinutesChange != null) "min • rotate" else "min",
+                text = if (sessionMinutes <= 0) "tap to set" else if (onMinutesChange != null) "min • rotate" else "min",
                 color = MaterialTheme.colorScheme.secondary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold

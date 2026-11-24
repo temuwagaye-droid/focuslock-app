@@ -792,80 +792,220 @@ fun BedtimeDashboardCard(
     val h = nextSeconds / 3600L
     val m = (nextSeconds % 3600L) / 60L
 
+    val sleepDurationMinutes = remember(schedule) {
+        var startTotal = schedule.bedtimeHour * 60 + schedule.bedtimeMinute
+        var endTotal = schedule.wakeUpHour * 60 + schedule.wakeUpMinute
+        if (endTotal <= startTotal) {
+            endTotal += 24 * 60
+        }
+        endTotal - startTotal
+    }
+    val sleepH = sleepDurationMinutes / 60
+    val sleepM = sleepDurationMinutes % 60
+
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF0F172A)
+            containerColor = Color(0xFF090D1A)
         ),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, Color(0xFF1E293B)),
+        shape = RoundedCornerShape(24.dp),
+        border = null,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onNavigateToBedtime() }
             .testTag("bedtime_dashboard_card")
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1E1B4B))
-                        .border(1.5.dp, Color(0xFF818CF8), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bedtime,
-                        contentDescription = "Bedtime Lock",
-                        tint = Color(0xFFDDD6FE),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "BEDTIME LOCK",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            color = Color(0xFFA78BFA)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF090D1A),
+                            Color(0xFF151A36),
+                            Color(0xFF0C1122)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Top Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(if (isLockActive) Color(0xFF9070FF).copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f))
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E1B4B)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (isLockActive) "ACTIVE" else "${stats.currentStreakDays}D STREAK",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (isLockActive) Color(0xFFC084FC) else Color(0xFFFBBF24)
+                            Icon(
+                                imageVector = Icons.Default.Bedtime,
+                                contentDescription = "Bedtime Clock",
+                                tint = Color(0xFFDDD6FE),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "BEDTIME CLOCK",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.8.sp,
+                                    color = Color(0xFFA5B4FC)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(
+                                            if (isLockActive) Color(0xFF9070FF).copy(alpha = 0.3f)
+                                            else if (schedule.isEnabled) Color(0xFF0A6B43).copy(alpha = 0.35f)
+                                            else Color.White.copy(alpha = 0.1f)
+                                        )
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (isLockActive) "ACTIVE" else if (schedule.isEnabled) "SCHEDULED" else "OFF",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (isLockActive) Color(0xFFC084FC) else if (schedule.isEnabled) Color(0xFF34D399) else Color(0xFF94A3B8)
+                                    )
+                                }
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
+
+                    // Sleep Streak Pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFFBBF24).copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "🔥 ${stats.currentStreakDays}D STREAK",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFBBF24)
+                        )
+                    }
+                }
+
+                // Dual Clock Pods (Bedtime & Wake-up) with Sleep Duration in the middle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF050811).copy(alpha = 0.6f))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Bedtime Pod
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Bedtime,
+                                contentDescription = null,
+                                tint = Color(0xFFC084FC),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "BEDTIME",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = formatBedtimeClock(schedule.bedtimeHour, schedule.bedtimeMinute),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+
+                    // Sleep Duration Pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF1E293B))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (sleepM > 0) "~${sleepH}h ${sleepM}m rest" else "~${sleepH}h rest",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8)
+                        )
+                    }
+
+                    // Wake-up Pod
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "WAKE UP",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = formatBedtimeClock(schedule.wakeUpHour, schedule.wakeUpMinute),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Bottom Countdown & Action indicator
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = if (isLockActive) "Wake-up in ${h}h ${m}m" else "Curfew in ${h}h ${m}m • Tap to configure",
+                        text = if (isLockActive) "⏰ Wake-up alarm in ${h}h ${m}m" else "🌙 Curfew begins in ${h}h ${m}m",
                         fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
                         color = Color(0xFF94A3B8)
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Configure",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFA5B4FC)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFFA5B4FC),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
@@ -1363,6 +1503,7 @@ fun TimerSetupScreen(
     val serviceConnected by ReadLockAccessibilityService.isServiceConnected.collectAsState()
 
     val prefs = remember { context.getSharedPreferences("focuslock_prefs", Context.MODE_PRIVATE) }
+    var hasTimerBeenSet by remember { mutableStateOf(false) }
     var sessionMinutes by remember {
         mutableIntStateOf(prefs.getInt("saved_session_minutes", 15))
     }
@@ -1420,6 +1561,7 @@ fun TimerSetupScreen(
     fun updateSessionMinutes(newMins: Int) {
         val clamped = newMins.coerceIn(5, 120)
         sessionMinutes = clamped
+        hasTimerBeenSet = true
         prefs.edit().putInt("saved_session_minutes", clamped).apply()
     }
 
@@ -1433,13 +1575,18 @@ fun TimerSetupScreen(
 
     var selectedFocusMode by remember { mutableStateOf<FocusSessionManager.FocusMode?>(null) }
 
-    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode? = selectedFocusMode, customDuration: Int = sessionMinutes) {
+    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode? = selectedFocusMode, customDuration: Int? = null) {
         if (!accessibilityReady) {
             showAccessibilityRequiredDialog = true
             return
         }
+        if (mode == null && !hasTimerBeenSet) {
+            Toast.makeText(context, "Select a focus mode or set your timer duration to start", Toast.LENGTH_SHORT).show()
+            return
+        }
         val targetMode = mode ?: FocusSessionManager.FocusMode.CUSTOM
-        viewModel.startModeSession(context, targetMode, customDuration)
+        val duration = customDuration ?: if (mode != null) mode.defaultMinutes else sessionMinutes
+        viewModel.startModeSession(context, targetMode, duration)
         onStartSession()
     }
 
@@ -1470,11 +1617,17 @@ fun TimerSetupScreen(
                     onSelectMode = { mode ->
                         selectedFocusMode = mode
                         if (mode != null) {
-                            updateSessionMinutes(mode.defaultMinutes)
+                            sessionMinutes = mode.defaultMinutes
+                            hasTimerBeenSet = true
+                            prefs.edit().putInt("saved_session_minutes", mode.defaultMinutes).apply()
+                        } else {
+                            hasTimerBeenSet = false
                         }
                     },
                     onStartFocusMode = { mode ->
                         selectedFocusMode = mode
+                        sessionMinutes = mode.defaultMinutes
+                        hasTimerBeenSet = true
                         if (!accessibilityReady) {
                             showAccessibilityRequiredDialog = true
                         } else {
@@ -1519,7 +1672,13 @@ fun TimerSetupScreen(
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 0.9.sp
                             )
-                            XpRewardChip(text = "+${sessionMinutes * 2 + 50} XP")
+                            XpRewardChip(
+                                text = when {
+                                    selectedFocusMode != null -> "+${selectedFocusMode!!.defaultMinutes * 2 + 50} XP"
+                                    hasTimerBeenSet -> "+${sessionMinutes * 2 + 50} XP"
+                                    else -> "+XP on Start"
+                                }
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1530,14 +1689,18 @@ fun TimerSetupScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            val canDecrement = sessionMinutes > 5
+                            val canDecrement = hasTimerBeenSet && sessionMinutes > 5
                             IconButton(
-                                onClick = { updateSessionMinutes(sessionMinutes - 5) },
-                                enabled = canDecrement,
+                                onClick = {
+                                    val current = if (hasTimerBeenSet) sessionMinutes else 25
+                                    selectedFocusMode = null
+                                    updateSessionMinutes(current - 5)
+                                },
+                                enabled = !hasTimerBeenSet || canDecrement,
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(if (canDecrement) Color.Black else Color.Black.copy(alpha = 0.35f))
+                                    .background(if (!hasTimerBeenSet || canDecrement) Color.Black else Color.Black.copy(alpha = 0.35f))
                                     .testTag("duration_decrement_btn")
                             ) {
                                 Icon(
@@ -1549,13 +1712,20 @@ fun TimerSetupScreen(
                             }
 
                             FitnessDurationRing(
-                                sessionMinutes = sessionMinutes,
-                                onMinutesChange = { updateSessionMinutes(it) }
+                                sessionMinutes = if (hasTimerBeenSet) sessionMinutes else 0,
+                                onMinutesChange = {
+                                    selectedFocusMode = null
+                                    updateSessionMinutes(it)
+                                }
                             )
 
-                            val canIncrement = sessionMinutes < 120
+                            val canIncrement = !hasTimerBeenSet || sessionMinutes < 120
                             IconButton(
-                                onClick = { updateSessionMinutes(sessionMinutes + 5) },
+                                onClick = {
+                                    val current = if (hasTimerBeenSet) sessionMinutes else 20
+                                    selectedFocusMode = null
+                                    updateSessionMinutes(current + 5)
+                                },
                                 enabled = canIncrement,
                                 modifier = Modifier
                                     .size(48.dp)
@@ -1575,8 +1745,11 @@ fun TimerSetupScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Slider(
-                            value = sessionMinutes.toFloat(),
-                            onValueChange = { updateSessionMinutes(it.toInt()) },
+                            value = (if (hasTimerBeenSet) sessionMinutes else 25).toFloat(),
+                            onValueChange = {
+                                selectedFocusMode = null
+                                updateSessionMinutes(it.toInt())
+                            },
                             valueRange = 5f..120f,
                             steps = 22,
                             colors = SliderDefaults.colors(
@@ -1595,14 +1768,17 @@ fun TimerSetupScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             listOf(15, 25, 45, 60).forEach { mins ->
-                                val isSelected = sessionMinutes == mins
+                                val isSelected = hasTimerBeenSet && sessionMinutes == mins
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(14.dp))
                                         .background(if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.surface)
-                                        .clickable { updateSessionMinutes(mins) }
+                                        .clickable {
+                                            selectedFocusMode = null
+                                            updateSessionMinutes(mins)
+                                        }
                                         .padding(vertical = 8.dp)
                                         .testTag("preset_${mins}_btn")
                                 ) {
@@ -1791,7 +1967,11 @@ fun TimerSetupScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (selectedFocusMode != null) "START ${selectedFocusMode!!.displayName.uppercase()} (${sessionMinutes}M)" else "START FOCUS SESSION (${sessionMinutes}M)",
+                text = when {
+                    selectedFocusMode != null -> "START ${selectedFocusMode!!.displayName.uppercase()} (${selectedFocusMode!!.defaultMinutes}M)"
+                    hasTimerBeenSet -> "START FOCUS SESSION (${sessionMinutes}M)"
+                    else -> "START FOCUS SESSION"
+                },
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Black
@@ -5008,4 +5188,10 @@ private fun formatHour(hour: Int): String {
         hour == 12 -> "12 PM"
         else -> "${hour - 12} PM"
     }
+}
+
+private fun formatBedtimeClock(hour: Int, minute: Int): String {
+    val h = if (hour == 0 || hour == 12) 12 else hour % 12
+    val amPm = if (hour < 12) "AM" else "PM"
+    return String.format(java.util.Locale.getDefault(), "%d:%02d %s", h, minute, amPm)
 }
