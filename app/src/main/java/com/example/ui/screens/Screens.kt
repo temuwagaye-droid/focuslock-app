@@ -1516,14 +1516,12 @@ fun TimerSetupScreen(
     var showParentalPinForReader by remember { mutableStateOf(false) }
 
     var accessibilityReady by remember {
-        mutableStateOf(isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context))
+        mutableStateOf(isAccessibilityServiceEnabled(context) || serviceConnected)
     }
 
     LaunchedEffect(Unit) {
         viewModel.loadInstalledLauncherApps(context)
-        if (isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)) {
-            accessibilityReady = true
-        }
+        accessibilityReady = isAccessibilityServiceEnabled(context) || serviceConnected
     }
 
     LaunchedEffect(serviceConnected) {
@@ -1531,13 +1529,15 @@ fun TimerSetupScreen(
             markAccessibilityEnabledOnce(context)
             accessibilityReady = true
             showAccessibilityRequiredDialog = false
+        } else {
+            accessibilityReady = isAccessibilityServiceEnabled(context)
         }
     }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val enabledNow = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+                val enabledNow = isAccessibilityServiceEnabled(context) || serviceConnected
                 accessibilityReady = enabledNow
                 if (enabledNow) {
                     showAccessibilityRequiredDialog = false
@@ -1577,7 +1577,9 @@ fun TimerSetupScreen(
     var selectedFocusMode by remember { mutableStateOf<FocusSessionManager.FocusMode?>(null) }
 
     fun tryStartFocusSession(mode: FocusSessionManager.FocusMode? = selectedFocusMode, customDuration: Int? = null) {
-        if (!accessibilityReady) {
+        val isServiceCurrentlyEnabled = isAccessibilityServiceEnabled(context) || serviceConnected
+        accessibilityReady = isServiceCurrentlyEnabled
+        if (!isServiceCurrentlyEnabled) {
             showAccessibilityRequiredDialog = true
             return
         }
@@ -1586,6 +1588,17 @@ fun TimerSetupScreen(
             return
         }
         val targetMode = mode ?: FocusSessionManager.FocusMode.CUSTOM
+        if (targetMode == FocusSessionManager.FocusMode.READING && !hasReadingApp) {
+            showReadingAppRequiredDialog = true
+            return
+        }
+        if ((targetMode == FocusSessionManager.FocusMode.CUSTOM ||
+                targetMode == FocusSessionManager.FocusMode.POMODORO ||
+                targetMode == FocusSessionManager.FocusMode.QUICK_FOCUS) && !hasBlockedAppsConfig
+        ) {
+            showBlockedAppsRequiredDialog = true
+            return
+        }
         val duration = customDuration ?: if (mode != null) mode.defaultMinutes else sessionMinutes
         viewModel.startModeSession(context, targetMode, duration)
         onStartSession()
@@ -4544,24 +4557,26 @@ fun SettingsScreen(
     var showPinDialog by remember { mutableStateOf(false) }
 
     var accessibilityEnabled by remember {
-        mutableStateOf(isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context))
+        mutableStateOf(isAccessibilityServiceEnabled(context) || serviceConnected)
     }
 
     LaunchedEffect(Unit) {
-        accessibilityEnabled = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+        accessibilityEnabled = isAccessibilityServiceEnabled(context) || serviceConnected
     }
 
     LaunchedEffect(serviceConnected) {
         if (serviceConnected) {
             markAccessibilityEnabledOnce(context)
             accessibilityEnabled = true
+        } else {
+            accessibilityEnabled = isAccessibilityServiceEnabled(context)
         }
     }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                accessibilityEnabled = isAccessibilityServiceEnabled(context) || hasAccessibilityBeenEnabledOnce(context)
+                accessibilityEnabled = isAccessibilityServiceEnabled(context) || serviceConnected
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

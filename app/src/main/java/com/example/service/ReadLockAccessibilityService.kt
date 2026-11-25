@@ -76,7 +76,11 @@ class ReadLockAccessibilityService : AccessibilityService() {
         if (!isFocusActive && !isBedtimeActive) return
 
         val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
-        if (pkg == packageName || pkg == lastForegroundPackage) return
+        if (pkg == packageName) {
+            lastForegroundPackage = pkg
+            return
+        }
+        if (pkg == lastForegroundPackage) return
         lastForegroundPackage = pkg
 
         if (standardAllowedPackages.contains(pkg) || isLauncherPackage(pkg) || isEmergencyOrDialerPackage(pkg)) {
@@ -87,6 +91,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
             val blockedSet = (FocusSessionManager.blockedPackages + blockedPkgsList).toSet()
             val shouldBlock = if (blockedSet.isNotEmpty()) blockedSet.contains(pkg) else !isEssentialSystemApp(pkg)
             if (shouldBlock) {
+                lastForegroundPackage = null
                 val blockIntent = Intent(this, BlockActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra("blocked_package", pkg)
@@ -144,6 +149,7 @@ class ReadLockAccessibilityService : AccessibilityService() {
         }
 
         if (shouldBlock) {
+            lastForegroundPackage = null
             FocusSessionManager.incrementBlockedAttempts(applicationContext, pkg)
             val blockIntent = Intent(this, BlockActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
