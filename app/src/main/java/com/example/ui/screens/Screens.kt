@@ -171,6 +171,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -4570,7 +4571,7 @@ fun SettingsScreen(
     val currentLevel = stats.totalFocusMinutes / 60 + 1
     val minsInCurrentLevel = stats.totalFocusMinutes % 60
     val levelProgress = (minsInCurrentLevel / 60f).coerceIn(0.05f, 1f)
-    val rankTitle = readerRankTitle(stats.totalFocusMinutes)
+    val rankTitle = readerRankTitle(stats.totalFocusMinutes.toInt())
 
     Column(
         modifier = modifier
