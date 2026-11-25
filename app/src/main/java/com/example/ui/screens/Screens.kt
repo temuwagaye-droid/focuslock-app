@@ -183,10 +183,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -4588,138 +4590,348 @@ fun SettingsScreen(
     val levelProgress = (minsInCurrentLevel / 60f).coerceIn(0.05f, 1f)
     val rankTitle = readerRankTitle(stats.totalFocusMinutes.toInt())
 
-    Column(
+    // Studio Atmospheric Particle Animation
+    val studioTransition = rememberInfiniteTransition(label = "studio_particles")
+    val particlePhase by studioTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(14000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "particle_drift"
+    )
+    val floatBob by studioTransition.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floating_device_bob"
+    )
+
+    val glassSurfaceColor = Color(0xFF10162B).copy(alpha = 0.62f)
+    val glassBorderBrush = Brush.linearGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.32f),
+            Color(0xFF818CF8).copy(alpha = 0.14f),
+            Color.White.copy(alpha = 0.04f)
+        )
+    )
+    val glassReflectionBrush = Brush.linearGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.09f),
+            Color.Transparent,
+            Color(0xFF38BDF8).copy(alpha = 0.04f)
+        )
+    )
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF050814),
+                        Color(0xFF0C1126),
+                        Color(0xFF070A17)
+                    )
+                )
+            )
     ) {
-        // 1. Sleek Gamified Focus Identity & Level Progress Hero Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0F1D)),
-            shape = RoundedCornerShape(24.dp),
-            border = null,
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-            modifier = Modifier.fillMaxWidth()
+        // Studio Ambient Glows (Violet & Blue) + Floating Depth Particles
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Soft Violet Top-Left Studio Key Light
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF7C3AED).copy(alpha = 0.30f), Color.Transparent),
+                    center = Offset(size.width * 0.15f, size.height * 0.12f),
+                    radius = size.width * 0.75f
+                ),
+                center = Offset(size.width * 0.15f, size.height * 0.12f),
+                radius = size.width * 0.75f
+            )
+            // Soft Electric Blue Center-Right Rim Light
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF2563EB).copy(alpha = 0.24f), Color.Transparent),
+                    center = Offset(size.width * 0.88f, size.height * 0.38f),
+                    radius = size.width * 0.68f
+                ),
+                center = Offset(size.width * 0.88f, size.height * 0.38f),
+                radius = size.width * 0.68f
+            )
+            // Subtle Cyan Lower Fill Light
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF38BDF8).copy(alpha = 0.14f), Color.Transparent),
+                    center = Offset(size.width * 0.22f, size.height * 0.78f),
+                    radius = size.width * 0.65f
+                ),
+                center = Offset(size.width * 0.22f, size.height * 0.78f),
+                radius = size.width * 0.65f
+            )
+
+            // Floating Atmospheric Micro-Particles
+            val seeds = listOf(
+                Triple(0.12f, 0.20f, 3.2f), Triple(0.28f, 0.45f, 2.0f), Triple(0.45f, 0.15f, 4.0f),
+                Triple(0.64f, 0.30f, 2.5f), Triple(0.82f, 0.18f, 3.6f), Triple(0.91f, 0.55f, 2.2f),
+                Triple(0.18f, 0.68f, 3.0f), Triple(0.39f, 0.82f, 2.4f), Triple(0.58f, 0.62f, 3.8f),
+                Triple(0.75f, 0.74f, 2.6f), Triple(0.87f, 0.88f, 3.1f), Triple(0.08f, 0.90f, 2.1f)
+            )
+            seeds.forEachIndexed { idx, (px, py, r) ->
+                val yOffset = ((py - particlePhase + idx * 0.08f) % 1f + 1f) % 1f
+                val color = if (idx % 2 == 0) Color(0xFFA78BFA) else Color(0xFF60A5FA)
+                drawCircle(
+                    color = color.copy(alpha = 0.22f + (idx % 3) * 0.08f),
+                    radius = r.dp.toPx(),
+                    center = Offset(size.width * px, size.height * yOffset)
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 1. Studio 3D Showcase Hero Card with Floating Tilted iPhone Mockup
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFF0A0F1D),
-                                Color(0xFF171C3A),
-                                Color(0xFF0E1326)
-                            )
-                        )
-                    )
-                    .padding(16.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(glassSurfaceColor)
+                    .background(glassReflectionBrush)
+                    .border(1.dp, glassBorderBrush, RoundedCornerShape(26.dp))
+                    .padding(18.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                        // Left: Studio Identity, Rank & XP
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            val initial = (currentUser?.displayName ?: currentUser?.email ?: "F")
-                                .trim()
-                                .firstOrNull()
-                                ?.uppercase() ?: "F"
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(GamifiedPurple)
-                            ) {
-                                Text(
-                                    text = initial,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 18.sp
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF7C3AED).copy(alpha = 0.35f))
+                                        .border(0.8.dp, Color(0xFFA78BFA).copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "LVL $currentLevel • ${stats.focusScore} XP",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.6.sp,
+                                        color = Color(0xFFE9D5FF)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = currentUser?.displayName ?: "Focus Guardian",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                letterSpacing = (-0.3).sp,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Text(
+                                text = rankTitle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF93C5FD)
+                            )
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            // Level Progress Bar
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Next Level", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                    Text(
+                                        text = "$minsInCurrentLevel/60m",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFDDD6FE)
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { levelProgress },
+                                    color = Color(0xFF8B5CF6),
+                                    trackColor = Color.White.copy(alpha = 0.12f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(50))
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = currentUser?.displayName ?: "Focus Guardian",
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 15.sp,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = rankTitle,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFA5B4FC)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFF34D399).copy(alpha = 0.2f))
-                                            .padding(horizontal = 5.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            text = "LVL $currentLevel",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFF34D399)
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // Right: Dynamic 3/4 Perspective Slightly Tilted Floating iPhone Device
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .width(84.dp)
+                                .height(132.dp)
+                                .graphicsLayer {
+                                    rotationY = -18f
+                                    rotationX = 8f
+                                    rotationZ = -3f
+                                    translationY = floatBob
+                                    cameraDistance = 12f * density
+                                }
+                        ) {
+                            // Ambient Rim Glow behind floating iPhone
+                            Box(
+                                modifier = Modifier
+                                    .size(78.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                Color(0xFF8B5CF6).copy(alpha = 0.55f),
+                                                Color.Transparent
+                                            )
                                         )
+                                    )
+                            )
+                            // Ultra-realistic Titanium & Glass iPhone Body
+                            Box(
+                                modifier = Modifier
+                                    .width(70.dp)
+                                    .height(122.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFF1E293B),
+                                                Color(0xFF090D1A),
+                                                Color(0xFF1E1B4B)
+                                            )
+                                        )
+                                    )
+                                    .border(
+                                        width = 1.5.dp,
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(
+                                                Color.White.copy(alpha = 0.65f),
+                                                Color(0xFFA78BFA).copy(alpha = 0.35f),
+                                                Color(0xFF38BDF8).copy(alpha = 0.45f)
+                                            )
+                                        ),
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .padding(5.dp)
+                            ) {
+                                // Diagonal Glass Screen Reflection
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            Brush.linearGradient(
+                                                colors = listOf(
+                                                    Color(0xFF0F172A),
+                                                    Color(0xFF1E1B4B)
+                                                )
+                                            )
+                                        )
+                                        .background(
+                                            Brush.linearGradient(
+                                                colors = listOf(
+                                                    Color.White.copy(alpha = 0.14f),
+                                                    Color.Transparent,
+                                                    Color.Transparent
+                                                )
+                                            )
+                                        )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        // Dynamic Island Pill
+                                        Box(
+                                            modifier = Modifier
+                                                .width(22.dp)
+                                                .height(5.dp)
+                                                .clip(RoundedCornerShape(50))
+                                                .background(Color.Black)
+                                        )
+
+                                        // Mini Shield Emblem
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (accessibilityEnabled) Color(0xFF10B981).copy(alpha = 0.25f)
+                                                    else Color(0xFF8B5CF6).copy(alpha = 0.28f)
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    if (accessibilityEnabled) Color(0xFF34D399) else Color(0xFFA78BFA),
+                                                    CircleShape
+                                                )
+                                        ) {
+                                            Icon(
+                                                imageVector = if (accessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Shield,
+                                                contentDescription = null,
+                                                tint = if (accessibilityEnabled) Color(0xFF34D399) else Color(0xFFE9D5FF),
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = if (accessibilityEnabled) "SHIELD ON" else "READY",
+                                                fontSize = 7.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (accessibilityEnabled) Color(0xFF34D399) else Color(0xFFC4B5FD),
+                                                letterSpacing = 0.5.sp
+                                            )
+                                            Text(
+                                                text = "🔥 ${stats.currentStreak}D",
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFFBBF24)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-
-                        XpRewardChip(text = "${stats.focusScore} XP")
                     }
 
-                    // Level Progress Bar
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Next Level Progress",
-                                fontSize = 10.sp,
-                                color = Color(0xFF94A3B8)
-                            )
-                            Text(
-                                text = "$minsInCurrentLevel / 60 min",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFDDD6FE)
-                            )
-                        }
-                        LinearProgressIndicator(
-                            progress = { levelProgress },
-                            color = GamifiedPurple,
-                            trackColor = Color.White.copy(alpha = 0.12f),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(50))
-                        )
-                    }
-
-                    // 3 Aligned Mini Metrics
+                    // Bottom Frosted Metrics Strip
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(Color.Black.copy(alpha = 0.35f))
-                            .padding(vertical = 8.dp, horizontal = 12.dp),
+                            .border(0.6.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                            .padding(vertical = 9.dp, horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -4733,7 +4945,7 @@ fun SettingsScreen(
                             text = "⏱ ${stats.totalFocusMinutes}m Focused",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF38BDF8)
+                            color = Color(0xFF60A5FA)
                         )
                         Text(
                             text = if (accessibilityEnabled) "🛡 Shield On" else "⚠ Shield Off",
@@ -4744,351 +4956,391 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
 
-        // 2. Quick Focus Powers (2x2 Symmetrical Aligned Grid)
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SettingsQuickPowerTile(
-                    icon = if (accessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Security,
-                    title = "Focus Shield",
-                    subtitle = if (accessibilityEnabled) "Blocker active" else "Tap to enable",
-                    statusText = if (accessibilityEnabled) "ON" else "OFF",
-                    isActive = accessibilityEnabled,
-                    activeColor = Color(0xFF0A6B43),
-                    onClick = { com.example.security.AccessibilityHelper.openAccessibilitySettings(context) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("accessibility_service_card")
-                )
-                SettingsQuickPowerTile(
-                    icon = Icons.Default.NotificationsOff,
-                    title = "Auto DND",
-                    subtitle = if (isDndEnabled) "Alerts silenced" else "Alerts allowed",
-                    statusText = if (isDndEnabled) "ON" else "OFF",
-                    isActive = isDndEnabled,
-                    activeColor = GamifiedPurple,
-                    onClick = { viewModel.setDndEnabled(!isDndEnabled) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("dnd_switch")
-                )
+            // 2. Quick Focus Powers (2x2 Glassmorphic Symmetrical Grid with Specular Reflections)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    SettingsQuickPowerTile(
+                        icon = if (accessibilityEnabled) Icons.Default.CheckCircle else Icons.Default.Security,
+                        title = "Focus Shield",
+                        subtitle = if (accessibilityEnabled) "Blocker active" else "Tap to enable",
+                        statusText = if (accessibilityEnabled) "ON" else "OFF",
+                        isActive = accessibilityEnabled,
+                        activeColor = Color(0xFF10B981),
+                        onClick = { com.example.security.AccessibilityHelper.openAccessibilitySettings(context) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("accessibility_service_card")
+                    )
+                    SettingsQuickPowerTile(
+                        icon = Icons.Default.NotificationsOff,
+                        title = "Auto DND",
+                        subtitle = if (isDndEnabled) "Alerts silenced" else "Alerts allowed",
+                        statusText = if (isDndEnabled) "ON" else "OFF",
+                        isActive = isDndEnabled,
+                        activeColor = Color(0xFF8B5CF6),
+                        onClick = { viewModel.setDndEnabled(!isDndEnabled) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("dnd_switch")
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    SettingsQuickPowerTile(
+                        icon = Icons.Default.Star,
+                        title = "Pro Tier",
+                        subtitle = if (isProTierEnabled) "All modes open" else "Standard tier",
+                        statusText = if (isProTierEnabled) "PRO" else "FREE",
+                        isActive = isProTierEnabled,
+                        activeColor = Color(0xFFA855F7),
+                        onClick = { viewModel.setProTierEnabled(!isProTierEnabled) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("pro_tier_switch")
+                    )
+                    SettingsQuickPowerTile(
+                        icon = Icons.Default.CloudSync,
+                        title = "Cloud Sync",
+                        subtitle = if (isCloudSyncEnabled) "Stats synced" else "Local only",
+                        statusText = if (isCloudSyncEnabled) "SYNC" else "OFF",
+                        isActive = isCloudSyncEnabled,
+                        activeColor = Color(0xFF38BDF8),
+                        onClick = { viewModel.setCloudSyncEnabled(!isCloudSyncEnabled) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("cloud_sync_switch")
+                    )
+                }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SettingsQuickPowerTile(
-                    icon = Icons.Default.Star,
-                    title = "Pro Tier",
-                    subtitle = if (isProTierEnabled) "All modes open" else "Standard tier",
-                    statusText = if (isProTierEnabled) "PRO" else "FREE",
-                    isActive = isProTierEnabled,
-                    activeColor = GamifiedPurple,
-                    onClick = { viewModel.setProTierEnabled(!isProTierEnabled) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("pro_tier_switch")
-                )
-                SettingsQuickPowerTile(
-                    icon = Icons.Default.CloudSync,
-                    title = "Cloud Sync",
-                    subtitle = if (isCloudSyncEnabled) "Stats synced" else "Local only",
-                    statusText = if (isCloudSyncEnabled) "SYNC" else "OFF",
-                    isActive = isCloudSyncEnabled,
-                    activeColor = Color(0xFF0284C7),
-                    onClick = { viewModel.setCloudSyncEnabled(!isCloudSyncEnabled) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("cloud_sync_switch")
-                )
-            }
-        }
 
-        // 3. Focus Automation & Break Cadence Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(22.dp),
-            border = null,
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            // 3. Glassmorphic Focus Automation & Break Cadence Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(glassSurfaceColor)
+                    .background(glassReflectionBrush)
+                    .border(1.dp, glassBorderBrush, RoundedCornerShape(22.dp))
+                    .padding(16.dp)
             ) {
-                // Daily Focus Schedule
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // Daily Focus Schedule
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF7C3AED).copy(alpha = 0.25f))
+                                        .border(0.8.dp, Color(0xFFA78BFA).copy(alpha = 0.4f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDDD6FE),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "Daily Focus Schedule",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = if (isScheduleEnabled) "${formatHour(startHour)} → ${formatHour(endHour)}" else "Automated daily focus window",
+                                        fontSize = 11.sp,
+                                        color = if (isScheduleEnabled) Color(0xFFC4B5FD) else Color(0xFF94A3B8),
+                                        fontWeight = if (isScheduleEnabled) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                            AppSwitch(
+                                checked = isScheduleEnabled,
+                                onCheckedChange = { viewModel.toggleSchedule(it) },
+                                modifier = Modifier.testTag("schedule_switch")
+                            )
+                        }
+
+                        AnimatedVisibility(visible = isScheduleEnabled) {
+                            Column(modifier = Modifier.padding(top = 10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Start", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
+                                    Slider(
+                                        value = startHour.toFloat(),
+                                        onValueChange = { viewModel.saveScheduleHours(it.toInt(), endHour) },
+                                        valueRange = 0f..23f,
+                                        steps = 22,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFFA78BFA),
+                                            activeTrackColor = Color(0xFF8B5CF6),
+                                            inactiveTrackColor = Color.White.copy(alpha = 0.12f)
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("End", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
+                                    Slider(
+                                        value = endHour.toFloat(),
+                                        onValueChange = { viewModel.saveScheduleHours(startHour, it.toInt()) },
+                                        valueRange = 0f..23f,
+                                        steps = 22,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFFA78BFA),
+                                            activeTrackColor = Color(0xFF8B5CF6),
+                                            inactiveTrackColor = Color.White.copy(alpha = 0.12f)
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+
+                    // Break Reminder Cadence (1-tap Frosted Glass Pills)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Break Reminder Cadence",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (reminderInterval == "0" || reminderInterval.isBlank()) "Off" else "Every ${reminderInterval}m",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFA78BFA)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("0" to "Off", "15" to "15m", "25" to "25m", "45" to "45m", "60" to "60m").forEach { (value, label) ->
+                                val isSelected = reminderInterval == value || (value == "0" && reminderInterval.isBlank())
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isSelected) Color(0xFF7C3AED).copy(alpha = 0.75f)
+                                            else Color.White.copy(alpha = 0.06f)
+                                        )
+                                        .border(
+                                            width = 0.8.dp,
+                                            color = if (isSelected) Color(0xFFC4B5FD).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.08f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { viewModel.setReminderInterval(value) }
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (isSelected) Color.White else Color(0xFFCBD5E1)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. X-Style Glassmorphic Grouped Accountability & Safety Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(glassSurfaceColor)
+                    .background(glassReflectionBrush)
+                    .border(1.dp, glassBorderBrush, RoundedCornerShape(22.dp))
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    // Row 1: Accountability Partner
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showPartnerDialog = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            CircularIconBadge(
-                                imageVector = Icons.Default.Timer,
-                                contentDescription = null,
-                                containerSize = 34.dp,
-                                iconSize = 18.dp,
-                                containerColor = GamifiedPurple
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Daily Focus Schedule",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2563EB).copy(alpha = 0.24f))
+                                    .border(0.8.dp, Color(0xFF60A5FA).copy(alpha = 0.4f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Handshake,
+                                    contentDescription = null,
+                                    tint = Color(0xFF93C5FD),
+                                    modifier = Modifier.size(18.dp)
                                 )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Accountability Partner", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                                 Text(
-                                    text = if (isScheduleEnabled) "${formatHour(startHour)} → ${formatHour(endHour)}" else "Automated daily focus window",
+                                    text = if (partnerEmail.isNotBlank()) "$partnerEmail${if (isPartnerNotificationsEnabled) " • Alerts On" else ""}" else "Tap to link a focus partner",
                                     fontSize = 11.sp,
-                                    color = if (isScheduleEnabled) GamifiedPurple else MaterialTheme.colorScheme.secondary,
-                                    fontWeight = if (isScheduleEnabled) FontWeight.Bold else FontWeight.Normal
+                                    color = Color(0xFF94A3B8),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.White.copy(alpha = 0.08f)
+                    )
+
+                    // Row 2: Parental Lock PIN
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showPinDialog = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF7C3AED).copy(alpha = 0.24f))
+                                    .border(0.8.dp, Color(0xFFA78BFA).copy(alpha = 0.4f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Pin,
+                                    contentDescription = null,
+                                    tint = Color(0xFFDDD6FE),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Parental Lock PIN", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                Text(
+                                    text = if (parentalPin.isNotBlank()) "Protected (4-digit PIN active)" else "Off • Tap to set protection PIN",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.White.copy(alpha = 0.08f)
+                    )
+
+                    // Row 3: Offline Privacy Mode
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981).copy(alpha = 0.22f))
+                                    .border(0.8.dp, Color(0xFF34D399).copy(alpha = 0.4f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6EE7B7),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Offline Privacy Mode", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                Text(
+                                    text = "100% on-device focus telemetry",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
                                 )
                             }
                         }
                         AppSwitch(
-                            checked = isScheduleEnabled,
-                            onCheckedChange = { viewModel.toggleSchedule(it) },
-                            modifier = Modifier.testTag("schedule_switch")
+                            checked = isPrivateTrackingEnabled,
+                            onCheckedChange = { viewModel.setPrivateTrackingEnabled(it) },
+                            modifier = Modifier.testTag("private_tracking_switch")
                         )
-                    }
-
-                    AnimatedVisibility(visible = isScheduleEnabled) {
-                        Column(modifier = Modifier.padding(top = 10.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Start", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
-                                Slider(
-                                    value = startHour.toFloat(),
-                                    onValueChange = { viewModel.saveScheduleHours(it.toInt(), endHour) },
-                                    valueRange = 0f..23f,
-                                    steps = 22,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = GamifiedPurple,
-                                        activeTrackColor = GamifiedPurple,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.surface
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("End", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(42.dp))
-                                Slider(
-                                    value = endHour.toFloat(),
-                                    onValueChange = { viewModel.saveScheduleHours(startHour, it.toInt()) },
-                                    valueRange = 0f..23f,
-                                    steps = 22,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = GamifiedPurple,
-                                        activeTrackColor = GamifiedPurple,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.surface
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-
-                // Break Reminder Cadence (Clean 1-tap Pills instead of raw text field)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Break Reminder Cadence",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (reminderInterval == "0" || reminderInterval.isBlank()) "Off" else "Every ${reminderInterval}m",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = GamifiedPurple
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf("0" to "Off", "15" to "15m", "25" to "25m", "45" to "45m", "60" to "60m").forEach { (value, label) ->
-                            val isSelected = reminderInterval == value || (value == "0" && reminderInterval.isBlank())
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) GamifiedPurple else MaterialTheme.colorScheme.surface)
-                                    .clickable { viewModel.setReminderInterval(value) }
-                                    .padding(vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
                     }
                 }
             }
-        }
 
-        // 4. X-Style Grouped Accountability & Safety Card (Aligned Interactive Rows)
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(22.dp),
-            border = null,
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                // Row 1: Accountability Partner
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showPartnerDialog = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Handshake,
-                            contentDescription = null,
-                            containerSize = 34.dp,
-                            iconSize = 18.dp,
-                            containerColor = GamifiedPurple
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Accountability Partner", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                text = if (partnerEmail.isNotBlank()) "$partnerEmail${if (isPartnerNotificationsEnabled) " • Alerts On" else ""}" else "Tap to link a focus partner",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.secondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            // 5. Minimal Clean Studio Footer
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "FocusLock • Crafted by Temeselew Buta (Temu)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF94A3B8)
                 )
-
-                // Row 2: Parental Lock PIN
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showPinDialog = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Pin,
-                            contentDescription = null,
-                            containerSize = 34.dp,
-                            iconSize = 18.dp,
-                            containerColor = GamifiedPurple
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Parental Lock PIN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                text = if (parentalPin.isNotBlank()) "Protected (4-digit PIN active)" else "Off • Tap to set protection PIN",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                Text(
+                    text = "Privacy-first digital wellbeing & deep focus",
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B)
                 )
-
-                // Row 3: Offline Privacy Mode
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        CircularIconBadge(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            containerSize = 34.dp,
-                            iconSize = 18.dp,
-                            containerColor = GamifiedPurple
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Offline Privacy Mode", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                text = "100% on-device focus telemetry",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                    AppSwitch(
-                        checked = isPrivateTrackingEnabled,
-                        onCheckedChange = { viewModel.setPrivateTrackingEnabled(it) },
-                        modifier = Modifier.testTag("private_tracking_switch")
-                    )
-                }
             }
-        }
-
-        // 5. Minimal Clean App Footer
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = "FocusLock • Crafted by Temeselew Buta (Temu)",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            Text(
-                text = "Privacy-first digital wellbeing & deep focus",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.75f)
-            )
         }
     }
 
@@ -5209,22 +5461,32 @@ private fun SettingsQuickPowerTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isActive) activeColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = RoundedCornerShape(20.dp),
-        border = if (isActive) BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)) else null,
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isActive) 0.dp else 2.dp),
+    val tileShape = RoundedCornerShape(20.dp)
+    val bgColor = if (isActive) activeColor.copy(alpha = 0.16f) else Color(0xFF10162B).copy(alpha = 0.58f)
+    val borderBrush = Brush.linearGradient(
+        colors = if (isActive) {
+            listOf(activeColor.copy(alpha = 0.65f), Color.White.copy(alpha = 0.20f), activeColor.copy(alpha = 0.15f))
+        } else {
+            listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.04f))
+        }
+    )
+
+    Box(
         modifier = modifier
             .height(94.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(tileShape)
+            .background(bgColor)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent)
+                )
+            )
+            .border(1.dp, borderBrush, tileShape)
             .clickable { onClick() }
+            .padding(14.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
@@ -5237,12 +5499,12 @@ private fun SettingsQuickPowerTile(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(if (isActive) activeColor else MaterialTheme.colorScheme.surface)
+                        .background(if (isActive) activeColor else Color.White.copy(alpha = 0.10f))
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (isActive) Color.White else MaterialTheme.colorScheme.secondary,
+                        tint = if (isActive) Color.White else Color(0xFF94A3B8),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -5250,14 +5512,14 @@ private fun SettingsQuickPowerTile(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(if (isActive) activeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface)
+                        .background(if (isActive) activeColor.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.08f))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = statusText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
-                        color = if (isActive) activeColor else MaterialTheme.colorScheme.secondary
+                        color = if (isActive) Color.White else Color(0xFF94A3B8)
                     )
                 }
             }
@@ -5267,14 +5529,14 @@ private fun SettingsQuickPowerTile(
                     text = title,
                     fontWeight = FontWeight.Black,
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = subtitle,
                     fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = if (isActive) Color(0xFFE2E8F0) else Color(0xFF94A3B8),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
