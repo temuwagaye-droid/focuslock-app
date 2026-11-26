@@ -1577,8 +1577,13 @@ fun TimerSetupScreen(
     }
 
     var selectedFocusMode by remember { mutableStateOf<FocusSessionManager.FocusMode?>(null) }
+    var pendingSessionReview by remember { mutableStateOf<Pair<FocusSessionManager.FocusMode, Int>?>(null) }
 
-    fun tryStartFocusSession(mode: FocusSessionManager.FocusMode? = selectedFocusMode, customDuration: Int? = null) {
+    fun tryStartFocusSession(
+        mode: FocusSessionManager.FocusMode? = selectedFocusMode,
+        customDuration: Int? = null,
+        skipReview: Boolean = false
+    ) {
         val isServiceCurrentlyEnabled = isAccessibilityServiceEnabled(context) || serviceConnected
         accessibilityReady = isServiceCurrentlyEnabled
         if (!isServiceCurrentlyEnabled) {
@@ -1594,22 +1599,19 @@ fun TimerSetupScreen(
             showReadingAppRequiredDialog = true
             return
         }
-        if ((targetMode == FocusSessionManager.FocusMode.CUSTOM ||
-                targetMode == FocusSessionManager.FocusMode.POMODORO ||
-                targetMode == FocusSessionManager.FocusMode.QUICK_FOCUS) && !hasBlockedAppsConfig
-        ) {
-            showBlockedAppsRequiredDialog = true
-            return
-        }
         val duration = customDuration ?: if (mode != null) mode.defaultMinutes else sessionMinutes
-        viewModel.startModeSession(context, targetMode, duration)
-        onStartSession()
+        if (skipReview) {
+            viewModel.startModeSession(context, targetMode, duration)
+            onStartSession()
+        } else {
+            pendingSessionReview = targetMode to duration
+        }
     }
 
     LaunchedEffect(autoStartFromShortcut, hasReadingApp, hasBlockedAppsConfig) {
         if (autoStartFromShortcut) {
             onAutoStartConsumed()
-            tryStartFocusSession()
+            tryStartFocusSession(skipReview = true)
         }
     }
 
@@ -2144,6 +2146,214 @@ fun TimerSetupScreen(
         AccessibilityRequiredDialog(
             onDismiss = { showAccessibilityRequiredDialog = false }
         )
+    }
+
+    if (pendingSessionReview != null) {
+        val (reviewMode, reviewMinutes) = pendingSessionReview!!
+        val userBlockedApps = remember(blockedAppsList) {
+            blockedAppsList.filter { it.isBlocked }
+        }
+        val requiresManualList = (reviewMode == FocusSessionManager.FocusMode.CUSTOM ||
+            reviewMode == FocusSessionManager.FocusMode.POMODORO ||
+            reviewMode == FocusSessionManager.FocusMode.QUICK_FOCUS) && !hasBlockedAppsConfig
+
+        val restrictionSummary = when (reviewMode) {
+            FocusSessionManager.FocusMode.DEEP_WORK,
+            FocusSessionManager.FocusMode.STRICT_FOCUS ->
+                "All distracting, social, video, and non-essential apps are locked. Only your designated reader & essential phone tools stay open."
+            FocusSessionManager.FocusMode.STUDY ->
+                "Social media, games, entertainment, and your blocklist apps are locked. Study tools (notes, PDFs, calculator) & your reader stay open."
+            FocusSessionManager.FocusMode.READING ->
+                "Every external app is locked except your designated reading app ($selectedReadingAppLabel) and essential phone tools."
+            FocusSessionManager.FocusMode.RELAX_RECHARGE ->
+                "External apps are locked so you stay inside FocusLock for guided breathing and recovery."
+            FocusSessionManager.FocusMode.POMODORO,
+            FocusSessionManager.FocusMode.QUICK_FOCUS,
+            FocusSessionManager.FocusMode.CUSTOM ->
+                if (isProTier && isWhitelistMode) "Whitelist Mode active: ALL apps are locked except your allowed apps."
+                else "Every app you selected in your Blocklist (${userBlockedApps.size}) will be locked immediately."
+        }
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { pendingSessionReview = null }
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "FOCUS PROTECTION REVIEW",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp,
+                                color = GamifiedPurple
+                            )
+                            Text(
+                                text = "${reviewMode.displayName} • ${reviewMinutes}m",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        IconButton(
+                            onClick = { pendingSessionReview = null },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    // How Apps Are Restricted
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(12.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "HOW APPS ARE RESTRICTED",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = restrictionSummary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // User's Own Blocked Apps List Preview
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "YOUR RESTRICTED APPS (${userBlockedApps.size})",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        if (userBlockedApps.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (requiresManualList) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = if (requiresManualList)
+                                        "No apps selected yet! Tap '+ ADD MY APPS' below to choose which apps to restrict."
+                                    else
+                                        "No extra custom apps selected (mode's automatic shield is active). You can still add your own apps below.",
+                                    fontSize = 11.sp,
+                                    color = if (requiresManualList) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        } else {
+                            val previewNames = userBlockedApps.take(5).joinToString(", ") { it.appName } +
+                                if (userBlockedApps.size > 5) " +${userBlockedApps.size - 5} more" else ""
+                            Text(
+                                text = previewNames,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Allowed Reader / Essential Info
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(GamifiedMint.copy(alpha = 0.16f))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF0A6B43),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Allowed: $selectedReadingAppLabel & Essential Phone/Calls",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0A6B43)
+                        )
+                    }
+
+                    // Action Button: Add / Edit My Own Apps
+                    OutlinedButton(
+                        onClick = {
+                            pendingSessionReview = null
+                            onNavigateToBlocklist()
+                        },
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (userBlockedApps.isEmpty()) "ADD MY RESTRICTED APPS" else "ADD / EDIT MY APPS (${userBlockedApps.size})",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+
+                    // Primary Start Button
+                    Button(
+                        onClick = {
+                            if (requiresManualList) {
+                                pendingSessionReview = null
+                                onNavigateToBlocklist()
+                            } else {
+                                pendingSessionReview = null
+                                viewModel.startModeSession(context, reviewMode, reviewMinutes)
+                                onStartSession()
+                            }
+                        },
+                        colors = appBlackButtonColors(),
+                        border = appBlackButtonBorder(),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (requiresManualList) "CHOOSE APPS TO START" else "CONFIRM & START FOCUS (${reviewMinutes}M)",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
     }
 
     if (showParentalPinForReader) {
